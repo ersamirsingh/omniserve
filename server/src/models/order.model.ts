@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { OrderSource, OrderStatus, PaymentStatus } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { OrderSource, OrderStatus, PaymentStatus } from '../enums/enums.js';
 
 export interface IOrder extends Document {
   tenantId: Types.ObjectId;
@@ -31,18 +31,18 @@ const orderSchema = new Schema<IOrder>(
   {
     tenantId: {
       type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: [true, "Tenant is required"],
+      ref: 'Tenant',
+      required: [true, 'Tenant is required'],
     },
     outletId: {
       type: Schema.Types.ObjectId,
-      ref: "Outlet",
-      required: [true, "Outlet is required"],
+      ref: 'Outlet',
+      required: [true, 'Outlet is required'],
     },
     customerId: {
       type: Schema.Types.ObjectId,
-      ref: "Customer",
-      required: [true, "Customer is required"],
+      ref: 'Customer',
+      required: [true, 'Customer is required'],
     },
     orderNumber: {
       type: String,
@@ -53,40 +53,40 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       enum: {
         values: Object.values(OrderSource),
-        message: "Invalid order source: {VALUE}",
+        message: 'Invalid order source: {VALUE}',
       },
-      required: [true, "Order source is required"],
+      required: [true, 'Order source is required'],
     },
     subtotal: {
       type: Number,
-      required: [true, "Subtotal is required"],
-      min: [0, "Subtotal cannot be negative"],
+      required: [true, 'Subtotal is required'],
+      min: [0, 'Subtotal cannot be negative'],
     },
     tax: {
       type: Number,
       default: 0,
-      min: [0, "Tax cannot be negative"],
+      min: [0, 'Tax cannot be negative'],
     },
     deliveryFee: {
       type: Number,
       default: 0,
-      min: [0, "Delivery fee cannot be negative"],
+      min: [0, 'Delivery fee cannot be negative'],
     },
     discount: {
       type: Number,
       default: 0,
-      min: [0, "Discount cannot be negative"],
+      min: [0, 'Discount cannot be negative'],
     },
     totalAmount: {
       type: Number,
-      required: [true, "Total amount is required"],
-      min: [0, "Total amount cannot be negative"],
+      required: [true, 'Total amount is required'],
+      min: [0, 'Total amount cannot be negative'],
     },
     orderStatus: {
       type: String,
       enum: {
         values: Object.values(OrderStatus),
-        message: "Invalid order status: {VALUE}",
+        message: 'Invalid order status: {VALUE}',
       },
       default: OrderStatus.PENDING,
     },
@@ -94,7 +94,7 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       enum: {
         values: Object.values(PaymentStatus),
-        message: "Invalid payment status: {VALUE}",
+        message: 'Invalid payment status: {VALUE}',
       },
       default: PaymentStatus.PENDING,
     },
@@ -105,21 +105,21 @@ const orderSchema = new Schema<IOrder>(
     cancellationReason: {
       type: String,
       trim: true,
-      maxlength: [255, "Cancellation reason cannot exceed 255 characters"],
+      maxlength: [255, 'Cancellation reason cannot exceed 255 characters'],
     },
     notes: {
       type: String,
       trim: true,
-      maxlength: [500, "Notes cannot exceed 500 characters"],
+      maxlength: [500, 'Notes cannot exceed 500 characters'],
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     isDeleted: {
@@ -144,7 +144,7 @@ orderSchema.index({ orderNumber: 1 }, { sparse: true });
 orderSchema.index({ isDeleted: 1 });
 
 // Auto-generate order number before save
-orderSchema.pre("save", async function (this: IOrder) {
+orderSchema.pre('save', async function (this: IOrder) {
   if (!this.orderNumber) {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -152,13 +152,13 @@ orderSchema.pre("save", async function (this: IOrder) {
   }
 });
 
-orderSchema.pre("find", function () {
+orderSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });
 
-orderSchema.pre("findOne", function () {
+orderSchema.pre('findOne', function () {
   this.where({ isDeleted: false });
 });
 
-const Order: Model<IOrder> = mongoose.model<IOrder>("Order", orderSchema);
+const Order: Model<IOrder> = mongoose.model<IOrder>('Order', orderSchema);
 export default Order;

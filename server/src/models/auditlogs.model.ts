@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { AuditAction } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { AuditAction } from '../enums/enums.js';
 
 export interface IAuditLog extends Document {
   tenantId: Types.ObjectId;
@@ -20,31 +20,31 @@ const auditLogSchema = new Schema<IAuditLog>(
   {
     tenantId: {
       type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: [true, "Tenant is required"],
+      ref: 'Tenant',
+      required: [true, 'Tenant is required'],
     },
     userId: {
       type: Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "User is required"],
+      ref: 'User',
+      required: [true, 'User is required'],
     },
     action: {
       type: String,
-      required: [true, "Action is required"],
+      required: [true, 'Action is required'],
       trim: true,
       enum: {
         values: Object.values(AuditAction),
-        message: "Invalid action: {VALUE}",
+        message: 'Invalid action: {VALUE}',
       },
     },
     entityType: {
       type: String,
-      required: [true, "Entity type is required"],
+      required: [true, 'Entity type is required'],
       trim: true,
     },
     entityId: {
       type: Schema.Types.ObjectId,
-      required: [true, "Entity ID is required"],
+      required: [true, 'Entity ID is required'],
     },
     oldData: {
       type: Schema.Types.Mixed,
@@ -82,7 +82,7 @@ auditLogSchema.index({ action: 1 });
 auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 
 const AuditLog: Model<IAuditLog> = mongoose.model<IAuditLog>(
-  "AuditLog",
+  'AuditLog',
   auditLogSchema
 );
 export default AuditLog;

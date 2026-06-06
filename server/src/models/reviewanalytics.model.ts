@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { ReviewSource, SentimentLabel } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { ReviewSource, SentimentLabel } from '../enums/enums.js';
 
 export interface IReviewAnalytics extends Document {
   tenantId: Types.ObjectId;
@@ -22,32 +22,32 @@ const reviewAnalyticsSchema = new Schema<IReviewAnalytics>(
   {
     tenantId: {
       type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: [true, "Tenant is required"],
+      ref: 'Tenant',
+      required: [true, 'Tenant is required'],
     },
     outletId: {
       type: Schema.Types.ObjectId,
-      ref: "Outlet",
-      required: [true, "Outlet is required"],
+      ref: 'Outlet',
+      required: [true, 'Outlet is required'],
     },
     source: {
       type: String,
-      required: [true, "Review source is required"],
+      required: [true, 'Review source is required'],
       trim: true,
       enum: {
         values: Object.values(ReviewSource),
-        message: "Invalid review source: {VALUE}",
+        message: 'Invalid review source: {VALUE}',
       },
     },
     reviewText: {
       type: String,
       trim: true,
-      maxlength: [2000, "Review text cannot exceed 2000 characters"],
+      maxlength: [2000, 'Review text cannot exceed 2000 characters'],
     },
     sentimentScore: {
       type: Number,
-      min: [-1, "Sentiment score minimum is -1"],
-      max: [1, "Sentiment score maximum is 1"],
+      min: [-1, 'Sentiment score minimum is -1'],
+      max: [1, 'Sentiment score maximum is 1'],
       default: 0,
     },
     sentimentLabel: {
@@ -57,8 +57,8 @@ const reviewAnalyticsSchema = new Schema<IReviewAnalytics>(
     },
     rating: {
       type: Number,
-      min: [1, "Rating minimum is 1"],
-      max: [5, "Rating maximum is 5"],
+      min: [1, 'Rating minimum is 1'],
+      max: [5, 'Rating maximum is 5'],
       default: null,
     },
     reviewDate: {
@@ -72,12 +72,12 @@ const reviewAnalyticsSchema = new Schema<IReviewAnalytics>(
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     isDeleted: {
@@ -99,7 +99,7 @@ reviewAnalyticsSchema.index({ reviewDate: -1 });
 reviewAnalyticsSchema.index({ isDeleted: 1 });
 
 // Auto-compute sentiment label from score
-reviewAnalyticsSchema.pre("save", async function (this: IReviewAnalytics) {
+reviewAnalyticsSchema.pre('save', async function (this: IReviewAnalytics) {
   if (this.sentimentScore > 0.1) {
     this.sentimentLabel = SentimentLabel.POSITIVE;
   } else if (this.sentimentScore < -0.1) {
@@ -109,14 +109,14 @@ reviewAnalyticsSchema.pre("save", async function (this: IReviewAnalytics) {
   }
 });
 
-reviewAnalyticsSchema.pre("find", function () {
+reviewAnalyticsSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });
 
-reviewAnalyticsSchema.pre("findOne", function () {
+reviewAnalyticsSchema.pre('findOne', function () {
   this.where({ isDeleted: false });
 });
 
 const ReviewAnalytics: Model<IReviewAnalytics> =
-  mongoose.model<IReviewAnalytics>("ReviewAnalytics", reviewAnalyticsSchema);
+  mongoose.model<IReviewAnalytics>('ReviewAnalytics', reviewAnalyticsSchema);
 export default ReviewAnalytics;

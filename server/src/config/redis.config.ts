@@ -20,6 +20,13 @@ const connectRedis = async (): Promise<RedisClientType> => {
             host: process.env.REDIS_HOST,
             port: Number(process.env.REDIS_PORT),
          },
+      } as {
+         username: string;
+         password: string;
+         socket: {
+            host: string;
+            port: number;
+         };
       });
 
       redisClient.on('error', err => {

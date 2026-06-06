@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { UserStatus, WeekDay } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { UserStatus, WeekDay } from '../enums/enums.js';
 
 export interface IOperatingHours {
   day: WeekDay;
@@ -19,7 +19,7 @@ export interface IOutlet extends Document {
   state: string;
   pincode: string;
   location: {
-    type: "Point";
+    type: 'Point';
     coordinates: [number, number]; // [longitude, latitude]
   };
   operatingHours: IOperatingHours[];
@@ -41,12 +41,12 @@ const operatingHoursSchema = new Schema<IOperatingHours>(
     openTime: {
       type: String,
       required: true,
-      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in HH:MM format"],
+      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, 'Time must be in HH:MM format'],
     },
     closeTime: {
       type: String,
       required: true,
-      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in HH:MM format"],
+      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, 'Time must be in HH:MM format'],
     },
     isClosed: {
       type: Boolean,
@@ -60,57 +60,57 @@ const outletSchema = new Schema<IOutlet>(
   {
     restaurantId: {
       type: Schema.Types.ObjectId,
-      ref: "Restaurant",
-      required: [true, "Restaurant is required"],
+      ref: 'Restaurant',
+      required: [true, 'Restaurant is required'],
     },
     tenantId: {
       type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: [true, "Tenant is required"],
+      ref: 'Tenant',
+      required: [true, 'Tenant is required'],
     },
     name: {
       type: String,
-      required: [true, "Outlet name is required"],
+      required: [true, 'Outlet name is required'],
       trim: true,
-      maxlength: [100, "Outlet name cannot exceed 100 characters"],
+      maxlength: [100, 'Outlet name cannot exceed 100 characters'],
     },
     phone: {
       type: String,
       trim: true,
-      match: [/^\+?[\d\s\-().]{7,20}$/, "Please provide a valid phone number"],
+      match: [/^\+?[\d\s\-().]{7,20}$/, 'Please provide a valid phone number'],
     },
     email: {
       type: String,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email address"],
+      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
     },
     address: {
       type: String,
-      required: [true, "Address is required"],
+      required: [true, 'Address is required'],
       trim: true,
     },
     city: {
       type: String,
-      required: [true, "City is required"],
+      required: [true, 'City is required'],
       trim: true,
     },
     state: {
       type: String,
-      required: [true, "State is required"],
+      required: [true, 'State is required'],
       trim: true,
     },
     pincode: {
       type: String,
-      required: [true, "Pincode is required"],
+      required: [true, 'Pincode is required'],
       trim: true,
-      match: [/^\d{6}$/, "Please provide a valid 6-digit pincode"],
+      match: [/^\d{6}$/, 'Please provide a valid 6-digit pincode'],
     },
     location: {
       type: {
         type: String,
-        enum: ["Point"],
-        default: "Point",
+        enum: ['Point'],
+        default: 'Point',
       },
       coordinates: {
         type: [Number],
@@ -122,7 +122,8 @@ const outletSchema = new Schema<IOutlet>(
             v[0] <= 180 &&
             v[1] >= -90 &&
             v[1] <= 90,
-          message: "Coordinates must be [longitude, latitude] within valid ranges",
+          message:
+            'Coordinates must be [longitude, latitude] within valid ranges',
         },
       },
     },
@@ -134,18 +135,18 @@ const outletSchema = new Schema<IOutlet>(
       type: String,
       enum: {
         values: Object.values(UserStatus),
-        message: "Invalid outlet status: {VALUE}",
+        message: 'Invalid outlet status: {VALUE}',
       },
       default: UserStatus.ACTIVE,
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     isDeleted: {
@@ -159,20 +160,20 @@ const outletSchema = new Schema<IOutlet>(
   }
 );
 
-outletSchema.index({ location: "2dsphere" });
+outletSchema.index({ location: '2dsphere' });
 outletSchema.index({ tenantId: 1 });
 outletSchema.index({ restaurantId: 1 });
 outletSchema.index({ tenantId: 1, status: 1 });
 outletSchema.index({ city: 1, state: 1 });
 outletSchema.index({ isDeleted: 1 });
 
-outletSchema.pre("find", function () {
+outletSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });
 
-outletSchema.pre("findOne", function () {
+outletSchema.pre('findOne', function () {
   this.where({ isDeleted: false });
 });
 
-const Outlet: Model<IOutlet> = mongoose.model<IOutlet>("Outlet", outletSchema);
+const Outlet: Model<IOutlet> = mongoose.model<IOutlet>('Outlet', outletSchema);
 export default Outlet;

@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { PaymentMethod, PaymentStatus } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { PaymentMethod, PaymentStatus } from '../enums/enums.js';
 
 export interface IPayment extends Document {
   tenantId: Types.ObjectId;
@@ -23,35 +23,35 @@ const paymentSchema = new Schema<IPayment>(
   {
     tenantId: {
       type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: [true, "Tenant is required"],
+      ref: 'Tenant',
+      required: [true, 'Tenant is required'],
     },
     orderId: {
       type: Schema.Types.ObjectId,
-      ref: "Order",
-      required: [true, "Order is required"],
+      ref: 'Order',
+      required: [true, 'Order is required'],
     },
     transactionId: {
       type: String,
-      required: [true, "Transaction ID is required"],
+      required: [true, 'Transaction ID is required'],
       trim: true,
     },
     paymentMethod: {
       type: String,
-      required: [true, "Payment method is required"],
+      required: [true, 'Payment method is required'],
       enum: {
         values: Object.values(PaymentMethod),
-        message: "Invalid payment method: {VALUE}",
+        message: 'Invalid payment method: {VALUE}',
       },
     },
     amount: {
       type: Number,
-      required: [true, "Amount is required"],
-      min: [0, "Amount cannot be negative"],
+      required: [true, 'Amount is required'],
+      min: [0, 'Amount cannot be negative'],
     },
     currency: {
       type: String,
-      default: "INR",
+      default: 'INR',
       uppercase: true,
       trim: true,
     },
@@ -59,7 +59,7 @@ const paymentSchema = new Schema<IPayment>(
       type: String,
       enum: {
         values: Object.values(PaymentStatus),
-        message: "Invalid payment status: {VALUE}",
+        message: 'Invalid payment status: {VALUE}',
       },
       default: PaymentStatus.PENDING,
     },
@@ -78,12 +78,12 @@ const paymentSchema = new Schema<IPayment>(
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     isDeleted: {
@@ -104,16 +104,16 @@ paymentSchema.index({ tenantId: 1, status: 1 });
 paymentSchema.index({ createdAt: -1 });
 paymentSchema.index({ isDeleted: 1 });
 
-paymentSchema.pre("find", function () {
+paymentSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });
 
-paymentSchema.pre("findOne", function () {
+paymentSchema.pre('findOne', function () {
   this.where({ isDeleted: false });
 });
 
 const Payment: Model<IPayment> = mongoose.model<IPayment>(
-  "Payment",
+  'Payment',
   paymentSchema
 );
 export default Payment;

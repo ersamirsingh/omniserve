@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { WebhookProvider } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { WebhookProvider } from '../enums/enums.js';
 
 export interface IWebhookLog extends Document {
   tenantId: Types.ObjectId;
@@ -23,26 +23,26 @@ const webhookLogSchema = new Schema<IWebhookLog>(
   {
     tenantId: {
       type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: [true, "Tenant is required"],
+      ref: 'Tenant',
+      required: [true, 'Tenant is required'],
     },
     provider: {
       type: String,
-      required: [true, "Provider is required"],
+      required: [true, 'Provider is required'],
       trim: true,
       enum: {
         values: Object.values(WebhookProvider),
-        message: "Invalid webhook provider: {VALUE}",
+        message: 'Invalid webhook provider: {VALUE}',
       },
     },
     eventType: {
       type: String,
-      required: [true, "Event type is required"],
+      required: [true, 'Event type is required'],
       trim: true,
     },
     payload: {
       type: Schema.Types.Mixed,
-      required: [true, "Payload is required"],
+      required: [true, 'Payload is required'],
     },
     processed: {
       type: Boolean,
@@ -74,12 +74,12 @@ const webhookLogSchema = new Schema<IWebhookLog>(
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     isDeleted: {
@@ -102,16 +102,16 @@ webhookLogSchema.index({ createdAt: -1 });
 webhookLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7_776_000 });
 webhookLogSchema.index({ isDeleted: 1 });
 
-webhookLogSchema.pre("find", function () {
+webhookLogSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });
 
-webhookLogSchema.pre("findOne", function () {
+webhookLogSchema.pre('findOne', function () {
   this.where({ isDeleted: false });
 });
 
 const WebhookLog: Model<IWebhookLog> = mongoose.model<IWebhookLog>(
-  "WebhookLog",
+  'WebhookLog',
   webhookLogSchema
 );
 export default WebhookLog;

@@ -1,5 +1,5 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
-import { SubscriptionPlan, UserStatus } from "./enums.js";
+import mongoose, { Document, Model, Schema, Types } from 'mongoose';
+import { SubscriptionPlan, UserStatus } from '../enums/enums.js';
 
 export interface ITenant extends Document {
   name: string;
@@ -18,31 +18,31 @@ const tenantSchema = new Schema<ITenant>(
   {
     name: {
       type: String,
-      required: [true, "Tenant name is required"],
+      required: [true, 'Tenant name is required'],
       trim: true,
-      maxlength: [100, "Tenant name cannot exceed 100 characters"],
+      maxlength: [100, 'Tenant name cannot exceed 100 characters'],
     },
     slug: {
       type: String,
-      required: [true, "Slug is required"],
+      required: [true, 'Slug is required'],
       lowercase: true,
       trim: true,
       match: [
         /^[a-z0-9-]+$/,
-        "Slug can only contain lowercase letters, numbers, and hyphens",
+        'Slug can only contain lowercase letters, numbers, and hyphens',
       ],
-      maxlength: [100, "Slug cannot exceed 100 characters"],
+      maxlength: [100, 'Slug cannot exceed 100 characters'],
     },
     ownerId: {
       type: Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Owner is required"],
+      ref: 'User',
+      required: [true, 'Owner is required'],
     },
     subscriptionPlan: {
       type: String,
       enum: {
         values: Object.values(SubscriptionPlan),
-        message: "Invalid subscription plan: {VALUE}",
+        message: 'Invalid subscription plan: {VALUE}',
       },
       default: SubscriptionPlan.FREE,
     },
@@ -50,18 +50,18 @@ const tenantSchema = new Schema<ITenant>(
       type: String,
       enum: {
         values: Object.values(UserStatus),
-        message: "Invalid tenant status: {VALUE}",
+        message: 'Invalid tenant status: {VALUE}',
       },
       default: UserStatus.ACTIVE,
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     isDeleted: {
@@ -80,13 +80,13 @@ tenantSchema.index({ ownerId: 1 });
 tenantSchema.index({ status: 1 });
 tenantSchema.index({ isDeleted: 1 });
 
-tenantSchema.pre("find", function () {
+tenantSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });
 
-tenantSchema.pre("findOne", function () {
+tenantSchema.pre('findOne', function () {
   this.where({ isDeleted: false });
 });
 
-const Tenant: Model<ITenant> = mongoose.model<ITenant>("Tenant", tenantSchema);
+const Tenant: Model<ITenant> = mongoose.model<ITenant>('Tenant', tenantSchema);
 export default Tenant;
