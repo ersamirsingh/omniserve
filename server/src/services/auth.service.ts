@@ -3,10 +3,11 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import { IUser } from '../models/user.model.js';
 import User from '../models/user.model.js';
 import RefreshToken, { IRefreshToken } from '../models/refreshtoken.model.js';
-import { UserStatus } from '../enums/enums.js';
+import { SubscriptionPlan, UserRole, UserStatus } from '../enums/enums.js';
 import { Types } from 'mongoose';
+import Tenant from '../models/tenant.model.js';
 
-const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET: string  = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
 const JWT_EXPIRY: string | number = process.env.JWT_EXPIRY || '24h';
 const JWT_REFRESH_EXPIRY: string | number = process.env.JWT_REFRESH_EXPIRY || '7d';
@@ -100,9 +101,9 @@ export class AuthService {
     password: string,
     firstName: string,
     lastName: string,
-    tenantId: string,
     role: string,
-    createdBy?: string
+    tenantName: string,
+    tenantSlug: string,
   ): Promise<IUser> {
 
     const existingUser = await User.findOne({ email });
@@ -110,16 +111,40 @@ export class AuthService {
       throw new Error('Email already exists');
     }
 
+    const existingTenant = await Tenant.findOne({ slug: tenantSlug });
+    if (existingTenant) {
+      throw new Error('Tenant slug already taken');
+    }
+
+    const tenant = await Tenant.create({
+      name: tenantName,
+      slug: tenantSlug,
+      ownerId: new Types.ObjectId(), //Temporary placeholder
+      subscriptionPlan: SubscriptionPlan.FREE,
+      status: UserStatus.ACTIVE,
+    });
+
     const passwordHash = await this.hashPassword(password);
 
+    // const user = await User.create({
+    //   email,
+    //   passwordHash,
+    //   firstName,
+    //   lastName,
+    //   tenantId: new Types.ObjectId(tenantId),
+    //   role,
+    // });
+
+
     const user = await User.create({
-      email,
-      passwordHash,
+      tenantId: tenant._id,
       firstName,
       lastName,
-      tenantId: new Types.ObjectId(tenantId),
-      role,
-      createdBy: createdBy ? new Types.ObjectId(createdBy) : null,
+      email,
+      passwordHash,
+      role: role || UserRole.SUPER_ADMIN,   // first user of a tenant is always super_admin
+      status: UserStatus.ACTIVE,
+      createdBy: null,
     });
 
     return user;

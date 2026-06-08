@@ -10,9 +10,9 @@ export class AuthController {
    */
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password, firstName, lastName, tenantId, role } = req.body;
+      const { email, password, firstName, lastName, role, tenantName, tenantSlug } = req.body;
 
-      if (!email || !password || !firstName || !lastName || !tenantId || !role) {
+      if (!email || !password || !firstName || !lastName  || !role || !tenantName || !tenantSlug) {
         res.status(400).json({
           success: false,
           message: 'Email, password, firstName, lastName, tenantId, and role are required',
@@ -35,9 +35,9 @@ export class AuthController {
         password,
         firstName,
         lastName,
-        tenantId,
         role,
-        req.user?.userId
+        tenantName,
+        tenantSlug
       );
 
       res.status(201).json({
