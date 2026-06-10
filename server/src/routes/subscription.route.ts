@@ -22,7 +22,7 @@ router.get('/active', verifyToken, SubscriptionController.getActiveSubscription)
 /** Get subscription details with plan info (requires active subscription) */
 router.get('/details', verifyToken, checkSubscription, SubscriptionController.getSubscriptionDetails);
 
-/**  Get all subscriptions for current tenan */
+/**  Get all subscriptions for current tenant */
 router.get('/', verifyToken, SubscriptionController.getSubscriptionsByTenantId);
 
 /**  Get subscription by ID */

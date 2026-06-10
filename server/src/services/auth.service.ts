@@ -3,11 +3,9 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import { IUser } from '../models/user.model.js';
 import User from '../models/user.model.js';
 import RefreshToken, { IRefreshToken } from '../models/refreshtoken.model.js';
-import { SubscriptionPlan, UserRole, UserStatus } from '../enums/enums.js';
+import { UserStatus, SubscriptionPlan, UserRole } from '../enums/enums.js';
 import { Types } from 'mongoose';
 import Tenant from '../models/tenant.model.js';
-
-
 
 interface TokenPayload {
   userId: string;
@@ -24,19 +22,24 @@ interface AuthResponse {
 }
 
 export class AuthService {
-
-  /** Hash a password using bcrypt */
+  /**
+   * Hash a password using bcrypt
+   */
   static async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
     return bcrypt.hash(password, salt);
   }
 
-  /** Compare password with hash */
+  /**
+   * Compare password with hash
+   */
   static async comparePassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 
-  /**  Generate JWT access token */
+  /**
+   * Generate JWT access token
+   */
   static generateAccessToken(payload: TokenPayload): string {
     if(!process.env.JWT_SECRET || !process.env.JWT_EXPIRY) throw new Error('JWT_SECRET or JWT_EXPIRY is not defined');
     return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -44,7 +47,9 @@ export class AuthService {
     } as any);
   }
 
-  /** Generate JWT refresh token and store in database */
+  /**
+   * Generate JWT refresh token and store in database
+   */
   static async generateRefreshToken(
     userId: string,
     tenantId: string,
@@ -77,7 +82,9 @@ export class AuthService {
     return token;
   }
 
-  /** Verify JWT token */
+  /**
+   * Verify JWT token
+   */
   static verifyAccessToken(token: string): TokenPayload | null {
     try {
       if(!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not defined');
@@ -87,7 +94,9 @@ export class AuthService {
     }
   }
 
-  /** Verify refresh token  */
+  /**
+   * Verify refresh token
+   */
   static verifyRefreshToken(token: string): { userId: string; tenantId: string } | null {
     try {
       if(!process.env.JWT_REFRESH_SECRET) throw new Error('JWT_REFRESH_SECRET is not defined');
@@ -109,7 +118,6 @@ export class AuthService {
     lastName: string,
     tenantName: string,
   ): Promise<IUser> {
-
     const existingUser = await User.findOne({ email });
     if (existingUser && !existingUser.isDeleted) {
       throw new Error('Email already exists');
@@ -151,7 +159,9 @@ export class AuthService {
     return user;
   }
 
-  /** Login user */
+  /**
+   * Login user
+   */
   static async login(
     email: string,
     password: string,
@@ -203,7 +213,9 @@ export class AuthService {
     };
   }
 
-  /** Refresh access token */
+  /**
+   * Refresh access token
+   */
   static async refreshAccessToken(refreshToken: string): Promise<AuthResponse> {
     const decoded = this.verifyRefreshToken(refreshToken);
     if (!decoded) {
@@ -253,7 +265,9 @@ export class AuthService {
     };
   }
 
-  /** Logout user - revoke refresh token */
+  /**
+   * Logout user - revoke refresh token
+   */
   static async logout(refreshToken: string): Promise<void> {
     await RefreshToken.updateOne(
       { token: refreshToken },
@@ -264,7 +278,9 @@ export class AuthService {
     );
   }
 
-  /** Verify user credentials */
+  /**
+   * Verify user credentials
+   */
   static async verifyUserCredentials(
     email: string,
     password: string
@@ -283,12 +299,16 @@ export class AuthService {
     return user;
   }
 
-  /** Get user by ID */
+  /**
+   * Get user by ID
+   */
   static async getUserById(userId: string): Promise<IUser | null> {
     return User.findById(new Types.ObjectId(userId));
   }
 
-  /** Update user password */
+  /**
+   * Update user password
+   */
   static async updatePassword(
     userId: string,
     oldPassword: string,
@@ -309,13 +329,17 @@ export class AuthService {
     await User.updateOne({ _id: user._id }, { passwordHash });
   }
 
-  /** Remove sensitive fields from user object */
+  /**
+   * Remove sensitive fields from user object
+   */
   private static sanitizeUser(user: IUser): Partial<IUser> {
     const { passwordHash, ...rest } = user.toObject();
     return rest;
   }
 
-  /** Revoke all refresh tokens for a user */
+  /**
+   * Revoke all refresh tokens for a user
+   */
   static async revokeAllTokens(userId: string): Promise<void> {
     await RefreshToken.updateMany(
       { userId: new Types.ObjectId(userId) },
