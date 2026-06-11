@@ -19,6 +19,11 @@ const registerSchema = z
       .trim()
       .min(2, "Last name must be at least 2 characters"),
 
+    tenantName: z
+      .string()
+      .trim()
+      .min(3, "Restaurant or business name must be at least 3 characters"),
+
     email: z
       .string()
       .trim()
@@ -73,6 +78,7 @@ export default function RegisterForm() {
     defaultValues: {
       firstName: "",
       lastName: "",
+      tenantName: "",
       email: "",
       phone: "",
       password: "",
@@ -99,9 +105,8 @@ export default function RegisterForm() {
 
         password: formData.password,
 
-        // Replace dynamically later
-        tenantId:
-          "6a2a8dce9c8155a526a0983c",
+        tenantName:
+          formData.tenantName.trim(),
 
         role: "SUPER_ADMIN",
       };
@@ -176,6 +181,26 @@ export default function RegisterForm() {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Restaurant / Business Name */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-300">
+          Restaurant / Business Name
+        </label>
+
+        <input
+          type="text"
+          placeholder="e.g. Ajay's Kitchen"
+          {...register("tenantName")}
+          className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-indigo-500"
+        />
+
+        {errors.tenantName && (
+          <p className="mt-1 text-sm text-red-500">
+            {errors.tenantName.message}
+          </p>
+        )}
       </div>
 
       {/* Email */}

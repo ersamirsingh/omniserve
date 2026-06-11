@@ -20,7 +20,11 @@ let _id = 1000;
 function makeOrder(col, priorityBias = 0.2) {
   const name  = NAMES[Math.floor(Math.random() * NAMES.length)];
   const ch    = CH_SRC[Math.floor(Math.random() * CH_SRC.length)];
-  const items = ITEMS_POOL[Math.floor(Math.random() * ITEMS_POOL.length)];
+  const items = ITEMS_POOL[Math.floor(Math.random() * ITEMS_POOL.length)].map(itemName => ({
+    name: itemName,
+    qty: Math.floor(Math.random() * 3) + 1,
+    price: Math.floor(200 + Math.random() * 600)
+  }));
   const val   = Math.floor(800 + Math.random() * 2400);
   const pr    = Math.random() < priorityBias ? "high" : Math.random() < 0.4 ? "med" : "low";
   const mins  = Math.floor(2 + Math.random() * 45);
@@ -277,10 +281,10 @@ function OrderDrawer({ order, onClose }) {
           {order.items.map((item, i) => (
             <div key={i} className="item-row">
               <div>
-                <div className="item-name">{item}</div>
-                <div className="item-qty">Qty: {Math.floor(Math.random() * 3) + 1}</div>
+                <div className="item-name">{item.name}</div>
+                <div className="item-qty">Qty: {item.qty}</div>
               </div>
-              <div className="item-price">₹{Math.floor(200 + Math.random() * 600)}</div>
+              <div className="item-price">₹{item.price}</div>
             </div>
           ))}
           <div className="item-total">
@@ -425,8 +429,6 @@ export default function Dashboard() {
     }, 8000);
     return () => clearInterval(t);
   }, []);
-
-  const totalPending = orders.new.length + orders.accepted.length;
 
   return (
     <>

@@ -1,4 +1,4 @@
-import axiosInstance from "../services/axios";
+import axiosInstance from "@/services/axios";
 
 export const registerApi = async (payload) => {
   const response = await axiosInstance.post(
