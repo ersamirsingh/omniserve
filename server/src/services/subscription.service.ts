@@ -32,7 +32,7 @@ export class SubscriptionService {
    */
   static async getActiveSubscription(tenantId: string): Promise<ISubscription | null> {
     const now = new Date();
-    
+
     return await Subscription.findOne({
       tenantId: new Types.ObjectId(tenantId),
       status: UserStatus.ACTIVE,
@@ -78,7 +78,7 @@ export class SubscriptionService {
    */
   static async isSubscriptionActive(subscriptionId: string): Promise<boolean> {
     const subscription = await Subscription.findById(subscriptionId);
-    
+
     if (!subscription) return false;
 
     const now = new Date();
