@@ -1,42 +1,26 @@
 import express, { Router } from 'express';
 import { SubscriptionController } from '../controllers/subscription.controller.js';
-import { verifyToken } from '../middleware/auth.middleware.js';
-import { checkSubscription } from '../middleware/checkSubscription.middleware.js';
+import { verifyToken, isRestaurantOwner } from '../middleware/auth.middleware.js';
 
 const router: Router = express.Router();
 
 /**
- * Public routes (no auth required)
+ * All routes are protected and restricted to RESTAURANT_OWNER and SUPER_ADMIN
  */
 
-/**
- * Protected routes (requires authentication)
- */
+// GET current active subscription
+router.get('/current', verifyToken, isRestaurantOwner, SubscriptionController.getCurrentSubscription);
 
-/** Create a new subscription (admin/super-admin only) */
-router.post('/', verifyToken, SubscriptionController.createSubscription);
+// GET list of subscriptions for the tenant
+router.get('/', verifyToken, isRestaurantOwner, SubscriptionController.getSubscriptionsByTenantId);
 
-/**  Get active subscription for current tenant */
-router.get('/active', verifyToken, SubscriptionController.getActiveSubscription);
+// GET details of a single subscription
+router.get('/:id', verifyToken, isRestaurantOwner, SubscriptionController.getSubscriptionById);
 
-/** Get subscription details with plan info (requires active subscription) */
-router.get('/details', verifyToken, checkSubscription, SubscriptionController.getSubscriptionDetails);
+// Create a new active subscription (enforces single active subscription)
+router.post('/', verifyToken, isRestaurantOwner, SubscriptionController.createSubscription);
 
-/**  Get all subscriptions for current tenant */
-router.get('/', verifyToken, SubscriptionController.getSubscriptionsByTenantId);
-
-/**  Get subscription by ID */
-router.get('/:id', verifyToken, SubscriptionController.getSubscriptionById);
-
-/** Update subscription plan */
-router.patch('/:id/plan', verifyToken, SubscriptionController.updateSubscriptionPlan);
-
-/** Extend subscription end date */
-router.patch('/:id/extend', verifyToken, SubscriptionController.extendSubscription);
-
-/** Cancel subscription */
-router.delete('/:id', verifyToken, SubscriptionController.cancelSubscription);
-
-
+// Cancel subscription (sets status = CANCELLED)
+router.patch('/:id/cancel', verifyToken, isRestaurantOwner, SubscriptionController.cancelSubscription);
 
 export default router;

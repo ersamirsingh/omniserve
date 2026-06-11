@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { SubscriptionPlan, UserStatus } from '../enums/enums.js';
+import { SubscriptionPlan, SubscriptionStatus } from '../enums/enums.js';
 
 export interface ISubscription extends Document {
   tenantId: Types.ObjectId;
@@ -7,7 +7,7 @@ export interface ISubscription extends Document {
   amount: number;
   startDate: Date;
   endDate: Date;
-  status: UserStatus;
+  status: SubscriptionStatus;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -46,10 +46,10 @@ const subscriptionSchema = new Schema<ISubscription>(
     status: {
       type: String,
       enum: {
-        values: Object.values(UserStatus),
+        values: Object.values(SubscriptionStatus),
         message: 'Invalid subscription status: {VALUE}',
       },
-      default: UserStatus.ACTIVE,
+      default: SubscriptionStatus.ACTIVE,
     },
     createdBy: {
       type: Schema.Types.ObjectId,
@@ -73,7 +73,13 @@ const subscriptionSchema = new Schema<ISubscription>(
 );
 
 subscriptionSchema.index({ tenantId: 1 });
-subscriptionSchema.index({ tenantId: 1, status: 1 });
+subscriptionSchema.index(
+  { tenantId: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: 'ACTIVE', isDeleted: false },
+  }
+);
 subscriptionSchema.index({ endDate: 1 });
 subscriptionSchema.index({ isDeleted: 1 });
 

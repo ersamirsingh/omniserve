@@ -31,7 +31,7 @@ export const checkSubscription = async (
     }
 
     // Fetch active subscription for tenant
-    const subscription = await SubscriptionService.getActiveSubscription(req.user.tenantId);
+    const subscription = await SubscriptionService.getCurrentSubscription(req.user.tenantId);
 
     // Check if subscription exists and is active
     if (!subscription) {
@@ -71,7 +71,7 @@ export const optionalCheckSubscription = async (
     }
 
     // Fetch active subscription for tenant
-    const subscription = await SubscriptionService.getActiveSubscription(req.user.tenantId);
+    const subscription = await SubscriptionService.getCurrentSubscription(req.user.tenantId);
 
     // Attach subscription to request if it exists
     if (subscription) {
@@ -107,7 +107,7 @@ export const checkSubscriptionTier = (requiredTier: string) => {
       }
 
       // Fetch active subscription for tenant
-      const subscription = await SubscriptionService.getActiveSubscription(req.user.tenantId);
+      const subscription = await SubscriptionService.getCurrentSubscription(req.user.tenantId);
 
       // Check if subscription exists
       if (!subscription) {

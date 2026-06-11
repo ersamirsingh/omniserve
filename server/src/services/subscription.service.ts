@@ -1,10 +1,10 @@
+import mongoose, { Types } from 'mongoose';
 import Subscription, { ISubscription } from '../models/subscription.model.js';
-import { SubscriptionPlan, UserStatus } from '../enums/enums.js';
-import { Types } from 'mongoose';
+import { SubscriptionPlan, SubscriptionStatus } from '../enums/enums.js';
 
 export class SubscriptionService {
   /**
-   * Create a new subscription for a tenant
+   * Create a new subscription for a tenant (cancels other active subscriptions)
    */
   static async createSubscription(
     tenantId: string,
@@ -14,28 +14,58 @@ export class SubscriptionService {
     endDate: Date,
     createdBy?: string
   ): Promise<ISubscription> {
-    const subscription = new Subscription({
-      tenantId: new Types.ObjectId(tenantId),
-      plan,
-      amount,
-      startDate,
-      endDate,
-      status: UserStatus.ACTIVE,
-      createdBy: createdBy ? new Types.ObjectId(createdBy) : null,
-    });
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const userObjectId = createdBy ? new Types.ObjectId(createdBy) : null;
 
-    return await subscription.save();
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // Deactivate all previous active subscriptions for this tenant
+      await Subscription.updateMany(
+        {
+          tenantId: tenantObjectId,
+          status: SubscriptionStatus.ACTIVE,
+          isDeleted: false,
+        },
+        {
+          status: SubscriptionStatus.INACTIVE,
+          updatedBy: userObjectId,
+        },
+        { session }
+      );
+
+      const subscription = new Subscription({
+        tenantId: tenantObjectId,
+        plan,
+        amount,
+        startDate,
+        endDate,
+        status: SubscriptionStatus.ACTIVE,
+        createdBy: userObjectId,
+        isDeleted: false,
+      });
+
+      const saved = await subscription.save({ session });
+      await session.commitTransaction();
+      return saved;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
   }
 
   /**
-   * Get active subscription for a tenant (not expired, status ACTIVE, not deleted)
+   * Get current subscription for a tenant (new spec format)
    */
-  static async getActiveSubscription(tenantId: string): Promise<ISubscription | null> {
+  static async getCurrentSubscription(tenantId: string): Promise<ISubscription | null> {
     const now = new Date();
-    
+
     return await Subscription.findOne({
       tenantId: new Types.ObjectId(tenantId),
-      status: UserStatus.ACTIVE,
+      status: SubscriptionStatus.ACTIVE,
       startDate: { $lte: now },
       endDate: { $gte: now },
       isDeleted: false,
@@ -50,8 +80,10 @@ export class SubscriptionService {
     limit: number = 10,
     skip: number = 0
   ): Promise<{ subscriptions: ISubscription[]; total: number }> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
     const subscriptions = await Subscription.find({
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantObjectId,
       isDeleted: false,
     })
       .sort({ createdAt: -1 })
@@ -59,7 +91,7 @@ export class SubscriptionService {
       .skip(skip);
 
     const total = await Subscription.countDocuments({
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantObjectId,
       isDeleted: false,
     });
 
@@ -67,60 +99,47 @@ export class SubscriptionService {
   }
 
   /**
-   * Get subscription by ID
+   * Get subscription by ID (tenant isolated)
    */
-  static async getSubscriptionById(subscriptionId: string): Promise<ISubscription | null> {
-    return await Subscription.findById(subscriptionId);
+  static async getSubscriptionById(subscriptionId: string, tenantId: string): Promise<ISubscription | null> {
+    return await Subscription.findOne({
+      _id: new Types.ObjectId(subscriptionId),
+      tenantId: new Types.ObjectId(tenantId),
+      isDeleted: false,
+    });
   }
 
   /**
-   * Check if subscription is active and not expired
+   * Check if subscription is active and not expired (tenant isolated)
    */
-  static async isSubscriptionActive(subscriptionId: string): Promise<boolean> {
-    const subscription = await Subscription.findById(subscriptionId);
+  static async isSubscriptionActive(subscriptionId: string, tenantId: string): Promise<boolean> {
+    const subscription = await this.getSubscriptionById(subscriptionId, tenantId);
     
     if (!subscription) return false;
 
     const now = new Date();
     return (
-      subscription.status === UserStatus.ACTIVE &&
+      subscription.status === SubscriptionStatus.ACTIVE &&
       subscription.startDate <= now &&
       subscription.endDate >= now
     );
   }
 
   /**
-   * Update subscription plan
-   */
-  static async updateSubscriptionPlan(
-    subscriptionId: string,
-    newPlan: SubscriptionPlan,
-    newAmount: number,
-    newEndDate: Date,
-    updatedBy?: string
-  ): Promise<ISubscription | null> {
-    return await Subscription.findByIdAndUpdate(
-      subscriptionId,
-      {
-        plan: newPlan,
-        amount: newAmount,
-        endDate: newEndDate,
-        updatedBy: updatedBy ? new Types.ObjectId(updatedBy) : undefined,
-      },
-      { new: true }
-    );
-  }
-
-  /**
-   * Update subscription status
+   * Update subscription status (tenant isolated)
    */
   static async updateSubscriptionStatus(
     subscriptionId: string,
-    status: UserStatus,
+    tenantId: string,
+    status: SubscriptionStatus,
     updatedBy?: string
   ): Promise<ISubscription | null> {
-    return await Subscription.findByIdAndUpdate(
-      subscriptionId,
+    return await Subscription.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(subscriptionId),
+        tenantId: new Types.ObjectId(tenantId),
+        isDeleted: false,
+      },
       {
         status,
         updatedBy: updatedBy ? new Types.ObjectId(updatedBy) : undefined,
@@ -130,66 +149,25 @@ export class SubscriptionService {
   }
 
   /**
-   * Get subscription details with plan information
-   */
-  static async getSubscriptionDetails(
-    tenantId: string
-  ): Promise<{
-    subscription: ISubscription | null;
-    isActive: boolean;
-    daysRemaining: number | null;
-  } | null> {
-    const subscription = await this.getActiveSubscription(tenantId);
-
-    if (!subscription) {
-      return null;
-    }
-
-    const now = new Date();
-    const daysRemaining = Math.ceil(
-      (subscription.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    return {
-      subscription,
-      isActive: true,
-      daysRemaining,
-    };
-  }
-
-  /**
-   * Extend subscription end date
-   */
-  static async extendSubscription(
-    subscriptionId: string,
-    newEndDate: Date,
-    updatedBy?: string
-  ): Promise<ISubscription | null> {
-    return await Subscription.findByIdAndUpdate(
-      subscriptionId,
-      {
-        endDate: newEndDate,
-        updatedBy: updatedBy ? new Types.ObjectId(updatedBy) : undefined,
-      },
-      { new: true }
-    );
-  }
-
-  /**
-   * Cancel subscription (soft delete by marking as deleted)
+   * Cancel subscription - Set status = CANCELLED (new spec, does not soft delete)
    */
   static async cancelSubscription(
     subscriptionId: string,
+    tenantId: string,
     updatedBy?: string
   ): Promise<ISubscription | null> {
-    return await Subscription.findByIdAndUpdate(
-      subscriptionId,
+    return await Subscription.findOneAndUpdate(
       {
-        isDeleted: true,
-        status: UserStatus.INACTIVE,
+        _id: new Types.ObjectId(subscriptionId),
+        tenantId: new Types.ObjectId(tenantId),
+        isDeleted: false,
+      },
+      {
+        status: SubscriptionStatus.CANCELLED,
         updatedBy: updatedBy ? new Types.ObjectId(updatedBy) : undefined,
       },
       { new: true }
     );
   }
+
 }

@@ -68,6 +68,12 @@ export enum WebhookStatus {
   FAILED = "FAILED",
 }
 
+export enum SubscriptionStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  CANCELLED = "CANCELLED",
+}
+
 export enum PaymentMethod {
   CASH = "CASH",
   CARD = "CARD",
