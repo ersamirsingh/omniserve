@@ -16,6 +16,8 @@ export interface IOrder extends Document {
   paymentStatus: PaymentStatus;
   acceptedAt: Date | null;
   preparedAt: Date | null;
+  readyAt: Date | null;
+  pickedUpAt: Date | null;
   deliveredAt: Date | null;
   cancelledAt: Date | null;
   cancellationReason?: string;
@@ -100,6 +102,8 @@ const orderSchema = new Schema<IOrder>(
     },
     acceptedAt: { type: Date, default: null },
     preparedAt: { type: Date, default: null },
+    readyAt: { type: Date, default: null },
+    pickedUpAt: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
     cancellationReason: {

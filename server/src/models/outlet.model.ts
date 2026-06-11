@@ -116,12 +116,19 @@ const outletSchema = new Schema<IOutlet>(
         type: [Number],
         default: [0, 0],
         validate: {
-          validator: (v: number[]) =>
-            v.length === 2 &&
-            v[0] >= -180 &&
-            v[0] <= 180 &&
-            v[1] >= -90 &&
-            v[1] <= 90,
+          validator: (v: number[]) => {
+            if (!v || v.length !== 2) return false;
+            const lng = v[0];
+            const lat = v[1];
+            return (
+              lng !== undefined &&
+              lat !== undefined &&
+              lng >= -180 &&
+              lng <= 180 &&
+              lat >= -90 &&
+              lat <= 90
+            );
+          },
           message:
             'Coordinates must be [longitude, latitude] within valid ranges',
         },
