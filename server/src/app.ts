@@ -7,16 +7,29 @@ import { rateLimiter } from './middleware/rateLimiter.middleware.js';
 
 const app = express();
 
+
+app.use(cors({
+   credentials: true,
+   origin: (origin, callback) => {
+      if (!origin) {
+         return callback(null, true);
+      }
+
+      if (origin === process.env.CLIENT_URL) {
+         return callback(null, true);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+   }
+}));
+
+
 app.use(express.json());
 app.use(cookieParser())
 
-app.use(cors({
-   origin: process.env.CLIENT_URL,
-   credentials: true
-}))
 
 app.get("/", (req, res) => {
-   res.json({connection: "OK"});
+   res.json({ connection: "OK" });
 })
 
 // Apply global rate limiter to all api routes: 100 requests per 15 minutes
