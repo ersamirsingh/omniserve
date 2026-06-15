@@ -6,6 +6,7 @@ import RefreshToken, { IRefreshToken } from '../models/refreshtoken.model.js';
 import { UserStatus, SubscriptionPlan, UserRole } from '../enums/enums.js';
 import { Types } from 'mongoose';
 import Tenant from '../models/tenant.model.js';
+import { SubscriptionService } from './subscription.service.js';
 
 
 interface TokenPayload {
@@ -157,6 +158,16 @@ export class AuthService {
     //update tenant owner
     tenant.ownerId = user._id;
     await tenant.save();
+
+    // Create default FREE non-expiring subscription
+    await SubscriptionService.createSubscription(
+      tenant._id.toString(),
+      SubscriptionPlan.FREE,
+      0,
+      new Date(),
+      null,
+      user._id.toString()
+    );
 
     return user;
   }

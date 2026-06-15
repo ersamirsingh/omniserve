@@ -11,7 +11,7 @@ export class SubscriptionService {
     plan: SubscriptionPlan,
     amount: number,
     startDate: Date,
-    endDate: Date,
+    endDate: Date | null,
     createdBy?: string
   ): Promise<ISubscription> {
     const tenantObjectId = new Types.ObjectId(tenantId);
@@ -67,7 +67,10 @@ export class SubscriptionService {
       tenantId: new Types.ObjectId(tenantId),
       status: SubscriptionStatus.ACTIVE,
       startDate: { $lte: now },
-      endDate: { $gte: now },
+      $or: [
+        { endDate: { $gte: now } },
+        { endDate: null }
+      ],
       isDeleted: false,
     });
   }
@@ -121,7 +124,7 @@ export class SubscriptionService {
     return (
       subscription.status === SubscriptionStatus.ACTIVE &&
       subscription.startDate <= now &&
-      subscription.endDate >= now
+      (subscription.endDate === null || subscription.endDate >= now)
     );
   }
 

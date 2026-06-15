@@ -6,7 +6,7 @@ export interface ISubscription extends Document {
   plan: SubscriptionPlan;
   amount: number;
   startDate: Date;
-  endDate: Date;
+  endDate: Date | null;
   status: SubscriptionStatus;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
@@ -41,7 +41,8 @@ const subscriptionSchema = new Schema<ISubscription>(
     },
     endDate: {
       type: Date,
-      required: [true, 'End date is required'],
+      required: false,
+      default: null,
     },
     status: {
       type: String,

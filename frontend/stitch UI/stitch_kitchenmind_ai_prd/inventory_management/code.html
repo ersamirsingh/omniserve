@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventory Management - Karigar Ops</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-subtle": "#FDFDFD",
+                      "primary": "#4900be",
+                      "on-secondary": "#ffffff",
+                      "error": "#ba1a1a",
+                      "error-container": "#ffdad6",
+                      "border-base": "#E2E8F0",
+                      "on-error-container": "#93000a",
+                      "secondary-container": "#61f6ea",
+                      "surface-container": "#f0edec",
+                      "inverse-on-surface": "#f3f0ef",
+                      "data-blue": "#2563EB",
+                      "surface": "#fcf9f8",
+                      "on-primary-fixed-variant": "#5100cf",
+                      "on-primary-fixed": "#20005e",
+                      "outline": "#7a7488",
+                      "primary-fixed-dim": "#cebdff",
+                      "on-background": "#1c1b1b",
+                      "secondary": "#006a64",
+                      "on-secondary-fixed-variant": "#00504b",
+                      "inverse-primary": "#cebdff",
+                      "on-surface": "#1c1b1b",
+                      "surface-container-low": "#f6f3f2",
+                      "secondary-fixed": "#65f8ed",
+                      "tertiary": "#762404",
+                      "surface-container-high": "#ebe7e7",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed": "#e8ddff",
+                      "surface-dim": "#dcd9d9",
+                      "on-tertiary-fixed-variant": "#7f2a0a",
+                      "success-green": "#10B981",
+                      "inverse-surface": "#313030",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-fixed": "#ffdbd0",
+                      "tertiary-fixed-dim": "#ffb59d",
+                      "surface-variant": "#e5e2e1",
+                      "on-error": "#ffffff",
+                      "surface-container-highest": "#e5e2e1",
+                      "on-secondary-fixed": "#00201e",
+                      "on-primary-container": "#d4c5ff",
+                      "surface-tint": "#6a23fb",
+                      "surface-bright": "#fcf9f8",
+                      "on-surface-variant": "#494456",
+                      "on-tertiary-container": "#ffbfab",
+                      "primary-container": "#6311f4",
+                      "on-secondary-container": "#006f69",
+                      "on-tertiary-fixed": "#390b00",
+                      "ai-accent": "#E6F9F8",
+                      "outline-variant": "#cbc3da",
+                      "tertiary-container": "#963a1a",
+                      "background": "#fcf9f8",
+                      "on-primary": "#ffffff",
+                      "secondary-fixed-dim": "#40dcd1"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "margin-desktop": "32px",
+                      "stack-lg": "32px",
+                      "gutter": "24px",
+                      "unit": "4px",
+                      "container-max": "1440px",
+                      "stack-sm": "8px",
+                      "stack-md": "16px"
+              },
+              "fontFamily": {
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "mono-data": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "mono-data": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body { background-color: #fcf9f8; }
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+        }
+        .table-row-hover:hover { background-color: #F8FAFC; }
+    </style>
+</head>
+<body class="text-on-surface antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface dark:bg-inverse-surface border-r border-border-base dark:border-outline p-4 overflow-y-auto z-50">
+<div class="mb-8">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary tracking-tight">Karigar Ops</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Enterprise Management</p>
+</div>
+<button class="w-full bg-primary-container text-on-primary text-label-md font-label-md rounded-lg py-3 px-4 mb-6 hover:bg-primary transition-colors flex items-center justify-center gap-2 active:scale-95 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+            New Order
+        </button>
+<ul class="flex-1 flex flex-col gap-1 space-y-1">
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                    Dashboard
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">storefront</span>
+                    Restaurants
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">location_on</span>
+                    Outlets
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+                    Menu
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary-container text-on-primary-container font-bold font-label-md text-label-md active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+                    Inventory
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">group</span>
+                    Customers
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+                    Orders
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">payments</span>
+                    Payments
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">analytics</span>
+                    Analytics
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">notifications</span>
+                    Notifications
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">subscriptions</span>
+                    Subscriptions
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">history_edu</span>
+                    Audit Logs
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">webhook</span>
+                    Webhooks
+                </a>
+</li>
+<li class="mt-auto pt-4 border-t border-border-base">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">settings</span>
+                    Settings
+                </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col ml-0 md:ml-64 w-full relative">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] h-16 bg-surface-subtle dark:bg-surface-container-low border-b border-border-base dark:border-outline flex items-center justify-between px-margin-desktop z-40">
+<div class="flex items-center flex-1 max-w-md">
+<div class="relative w-full focus-within:ring-2 focus-within:ring-primary/20 rounded-lg">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size: 20px;">search</span>
+<input class="w-full bg-white border border-border-base rounded-lg pl-10 pr-4 py-2 font-body-sm text-body-sm focus:outline-none focus:border-primary transition-colors" placeholder="Search inventory..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6 ml-auto">
+<button class="text-on-surface-variant hover:text-primary dark:hover:text-inverse-primary transition-colors flex items-center gap-1 font-label-md text-label-md">
+                    Support
+                </button>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary dark:hover:text-inverse-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary dark:hover:text-inverse-primary transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+<div class="h-8 w-8 rounded-full bg-primary-fixed flex items-center justify-center border border-border-base overflow-hidden cursor-pointer">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A small circular avatar placeholder image for a user profile, featuring a soft purple background and dark purple text. Modern corporate style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdPYIdtw1LR489a-7WO0QTKVBre6D-NKBxjmD_5vvR595bWjrN1lYJQwnH07J16oG5IT1AJ1YxMD4Xbn6Pp5zjieQhq8lAqzzBR9hkO4DxSeYtfRk7x-Zsz4j5m0HXn1OkxpSJ25GJ7EPCLAOzImGXDAXjbVgymr-W-pc4-zjGwo2tQhy2JfkqPDqghYulOC9fDJo8FolKWXJU72qmbvqMlzrGaYuleqBTUsGoR0bJ8rSeWWBkjnnA99Rlh-sdJYokyg7oc23BLGU"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 mt-16 p-4 md:p-margin-desktop overflow-y-auto bg-background">
+<div class="max-w-container-max mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg font-semibold text-on-surface tracking-tight mb-1">Inventory Management</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Real-time stock levels and automated replenishment triggers.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 bg-white border border-border-base rounded-lg font-label-md text-label-md text-primary hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">download</span>
+                            Export
+                        </button>
+<button class="px-4 py-2 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                            Add Item
+                        </button>
+</div>
+</div>
+<!-- Metrics Bento -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter mb-8">
+<div class="bg-white p-6 rounded-xl border border-border-base flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-outline" style="font-size: 18px;">inventory</span> Total Items</span>
+<div class="font-display-lg text-display-lg text-on-surface">1,248</div>
+<span class="font-body-sm text-body-sm text-success-green flex items-center"><span class="material-symbols-outlined" style="font-size: 14px;">arrow_upward</span> 12 this week</span>
+</div>
+<div class="bg-white p-6 rounded-xl border border-border-base flex flex-col gap-2 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-error" style="font-size: 18px;">warning</span> Low Stock Alerts</span>
+<div class="font-display-lg text-display-lg text-on-surface">14</div>
+<span class="font-body-sm text-body-sm text-error flex items-center"><span class="material-symbols-outlined" style="font-size: 14px;">arrow_upward</span> 3 require immediate action</span>
+</div>
+<div class="bg-white p-6 rounded-xl border border-border-base flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-outline" style="font-size: 18px;">shopping_cart</span> Pending POs</span>
+<div class="font-display-lg text-display-lg text-on-surface">5</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">2 arriving today</span>
+</div>
+<div class="bg-ai-accent p-6 rounded-xl border border-secondary-container flex flex-col gap-2">
+<span class="font-label-md text-label-md text-secondary flex items-center gap-2"><span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span> AI Forecast</span>
+<div class="font-headline-md text-headline-md text-on-surface mt-2">Tomato supply low before weekend.</div>
+<button class="mt-auto text-left font-label-sm text-label-sm text-primary hover:underline flex items-center gap-1">Review Suggestion <span class="material-symbols-outlined" style="font-size: 14px;">arrow_forward</span></button>
+</div>
+</div>
+<!-- Tabs & Controls -->
+<div class="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-border-base pb-2 gap-4">
+<div class="flex gap-6 w-full md:w-auto">
+<button class="font-label-md text-label-md text-primary border-b-2 border-primary pb-2 px-1">Current Stock</button>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary pb-2 px-1 transition-colors">Purchase Orders</button>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary pb-2 px-1 transition-colors">Suppliers</button>
+</div>
+<div class="flex items-center gap-3 w-full md:w-auto">
+<div class="relative focus-within:ring-2 focus-within:ring-primary/20 rounded">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size: 18px;">filter_list</span>
+<select class="pl-8 pr-8 py-1.5 bg-white border border-border-base rounded font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary appearance-none cursor-pointer">
+<option>All Categories</option>
+<option>Produce</option>
+<option>Dairy</option>
+<option>Meat</option>
+<option>Packaging</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Data Table -->
+<div class="bg-white border border-border-base rounded-xl overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-subtle border-b border-border-base">
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap">Item Name</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap">SKU</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap">Category</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap text-right">Current Stock</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap">Unit</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap">Status</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant whitespace-nowrap text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-surface">
+<!-- Row 1 - Normal -->
+<tr class="border-b border-border-base table-row-hover transition-colors">
+<td class="px-6 py-4 font-medium">Roma Tomatoes</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-outline">PRD-001</td>
+<td class="px-6 py-4">Produce</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-right">145.5</td>
+<td class="px-6 py-4 text-on-surface-variant">kg</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-success-green/10 text-success-green font-label-sm text-label-sm">
+                                            In Stock
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined" style="font-size: 20px;">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 2 - Low Stock (Requires Reorder) -->
+<tr class="border-b border-border-base bg-error-container/20 table-row-hover transition-colors relative">
+<td class="px-6 py-4 font-medium flex items-center gap-2">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
+                                        Olive Oil (Extra Virgin)
+                                    </td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-outline">DRY-042</td>
+<td class="px-6 py-4">Pantry</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-right font-bold text-error">12.0</td>
+<td class="px-6 py-4 text-on-surface-variant">Liters</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-error/10 text-error font-label-sm text-label-sm">
+                                            Low Stock
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="px-3 py-1 bg-primary text-white rounded text-label-sm font-label-sm hover:bg-on-primary-fixed-variant transition-colors mr-2">Reorder</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors align-middle"><span class="material-symbols-outlined" style="font-size: 20px;">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 3 - Normal -->
+<tr class="border-b border-border-base table-row-hover transition-colors">
+<td class="px-6 py-4 font-medium">Arborio Rice</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-outline">DRY-018</td>
+<td class="px-6 py-4">Pantry</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-right">250.0</td>
+<td class="px-6 py-4 text-on-surface-variant">kg</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-success-green/10 text-success-green font-label-sm text-label-sm">
+                                            In Stock
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined" style="font-size: 20px;">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 4 - Out of Stock -->
+<tr class="border-b border-border-base table-row-hover transition-colors opacity-75">
+<td class="px-6 py-4 font-medium text-outline">Fresh Basil</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-outline">PRD-009</td>
+<td class="px-6 py-4">Produce</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-right text-outline">0.0</td>
+<td class="px-6 py-4 text-on-surface-variant">Bunches</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-sm text-label-sm">
+                                            Out of Stock
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="px-3 py-1 bg-white border border-primary text-primary rounded text-label-sm font-label-sm hover:bg-primary-fixed transition-colors mr-2">Track PO</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors align-middle"><span class="material-symbols-outlined" style="font-size: 20px;">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 5 - Normal -->
+<tr class="table-row-hover transition-colors">
+<td class="px-6 py-4 font-medium">Mozzarella Cheese</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-outline">DRY-102</td>
+<td class="px-6 py-4">Dairy</td>
+<td class="px-6 py-4 font-mono-data text-mono-data text-right">45.0</td>
+<td class="px-6 py-4 text-on-surface-variant">kg</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-success-green/10 text-success-green font-label-sm text-label-sm">
+                                            In Stock
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined" style="font-size: 20px;">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination (Minimalist) -->
+<div class="px-6 py-4 border-t border-border-base bg-surface-subtle flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Showing 1 to 5 of 1,248 items</span>
+<div class="flex items-center gap-2">
+<button class="p-1 rounded text-outline hover:bg-surface-container-low transition-colors cursor-not-allowed" disabled=""><span class="material-symbols-outlined">chevron_left</span></button>
+<button class="p-1 rounded text-on-surface hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
