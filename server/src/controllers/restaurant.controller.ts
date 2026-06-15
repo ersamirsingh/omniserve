@@ -1,14 +1,26 @@
 import { Request, Response } from 'express';
 import { RestaurantService } from '../services/restaurant.service.js';
 import { Types } from 'mongoose';
+import { RestaurantParams } from '../types/restro.type.js';
+
 
 export class RestaurantController {
 
 
-   static async getRestaurants(req: any, res: any): Promise<void> {
+   static async getRestaurants(req: Request, res: Response): Promise<void> {
 
       try {
-         const restaurants = await RestaurantService.getRestaurants(req.user?.tenantId);
+
+         const tenantId: string | undefined = req.user?.tenantId;
+
+         if (!tenantId || !Types.ObjectId.isValid(tenantId)) {
+            res.status(401).json({
+               success: false,
+               message: 'User not authenticated or tenantId not found',
+            });
+            return;
+         }
+         const restaurants = await RestaurantService.getRestaurants(tenantId);
 
          res.status(200).json({
             success: true,
@@ -21,13 +33,13 @@ export class RestaurantController {
       }
    }
 
-   static async getRestaurantById(req: any, res: any) {
-      
+   static async getRestaurantById(req: Request<RestaurantParams>, res: Response): Promise<void> {
 
       try {
 
          const restaurantId = req.params.id;
-         if(!Types.ObjectId.isValid(restaurantId)) {
+
+         if(!restaurantId || !Types.ObjectId.isValid(restaurantId)) {
             res.status(400).json({
                success: false,
                message: 'Invalid restaurantId',
@@ -35,7 +47,7 @@ export class RestaurantController {
             return;
          }
 
-         const restaurant = await RestaurantService.getRestaurantById(req.user?.tenantId, restaurantId);
+         const restaurant = await RestaurantService.getRestaurantById(restaurantId);
 
          if (!restaurant) {
             res.status(404).json({ message: 'Restaurant not found' });
@@ -98,17 +110,17 @@ export class RestaurantController {
       }
    }
 
-   static async updateRestaurant(req: any, res: any): Promise<void> {
+   static async updateRestaurant(req: Request<RestaurantParams>, res: Response): Promise<void> {
       try {
 
          const { name, description, brandName, gstNumber, logoUrl } = req.body;
-         const id = req.params.id;
+         const restaurantId: string = req.params.id;
 
          const tenantId: string | undefined = req.user?.tenantId;
-         if (!tenantId || !id || !name || !description) {
+         if (!tenantId || !restaurantId || !name || !description) {
             res.status(400).json({
                success: false,
-               message: 'tenantId, id, name, and description are required',
+               message: 'tenantId, restaurantId, name, and description are required',
             });
             return;
          }
@@ -121,7 +133,7 @@ export class RestaurantController {
             return;
          }
 
-         if(!Types.ObjectId.isValid(id)) {
+         if(!Types.ObjectId.isValid(restaurantId)) {
             res.status(400).json({
                success: false,
                message: 'Invalid restaurantId',
@@ -131,12 +143,8 @@ export class RestaurantController {
 
          const restaurant = await RestaurantService.updateRestaurant(
             tenantId,
-            id,
-            name,
-            description,
-            brandName,
-            gstNumber,
-            logoUrl
+            restaurantId,
+            { name, description, brandName, gstNumber, logoUrl }
          );
 
          if (!restaurant) {
@@ -156,7 +164,54 @@ export class RestaurantController {
    }
 
 
-   static deleteRestaurant(req: any, res: any) {
-      res.status(200).json({ message: 'Restaurant deleted successfully' });
+   static async deleteRestaurant(req: Request<RestaurantParams>, res: Response): Promise<void> {
+    
+      try {
+         const restaurantId = req.params.id;
+         const tenantId: string | undefined = req.user?.tenantId;
+         if (!tenantId || !restaurantId) {
+            res.status(400).json({
+               success: false,
+               message: 'tenantId and restaurantId are required',
+            });
+            return;
+         }
+
+         if(!Types.ObjectId.isValid(tenantId)) {
+            res.status(400).json({
+               success: false,
+               message: 'Invalid tenantId or Invalid restaurantId',
+            });
+            return;
+         }
+
+         if(!Types.ObjectId.isValid(restaurantId)) {
+            res.status(400).json({
+               success: false,
+               message: 'Invalid restaurantId',
+            });
+            return;
+         }
+
+         const deletedRestaurant = await RestaurantService.deleteRestaurant(tenantId, restaurantId);
+
+         if (!deletedRestaurant) {
+            res.status(404).json({ message: 'Restaurant not found' });
+            return;
+         }
+
+         res.status(200).json({
+            success: true,
+            message: 'Restaurant deleted successfully',
+            deletedRestaurant,
+         });
+
+      } catch (error: any) {
+         res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to delete restaurant',
+         })
+      }
    }
+
 }

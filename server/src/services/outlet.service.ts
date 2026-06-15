@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import Outlet, { IOutlet } from '../models/outlet.model.js';
 import Restaurant from '../models/restaurant.model.js';
 import { UserStatus } from '../enums/enums.js';
+import { escapeRegex } from '../utils/sanitize.utils.js';
 
 export class OutletService {
   /**
@@ -68,8 +69,8 @@ export class OutletService {
     }
 
     if (filters.city) {
-      // Case-insensitive query for city
-      query.city = { $regex: new RegExp(`^${filters.city}$`, 'i') };
+      // Case-insensitive query for city — escaped to prevent ReDoS
+      query.city = { $regex: new RegExp(`^${escapeRegex(filters.city)}$`, 'i') };
     }
 
     const outlets = await Outlet.find(query)

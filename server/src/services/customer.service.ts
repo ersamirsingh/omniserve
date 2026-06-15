@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import Customer, { ICustomer, IAddress } from '../models/customer.model.js';
+import { escapeRegex } from '../utils/sanitize.utils.js';
 
 export class CustomerService {
   /**
@@ -153,7 +154,8 @@ export class CustomerService {
     };
 
     if (filters.search) {
-      const regex = new RegExp(filters.search, 'i');
+      const safeSearch = escapeRegex(filters.search);
+      const regex = new RegExp(safeSearch, 'i');
       query.$or = [
         { firstName: { $regex: regex } },
         { lastName: { $regex: regex } },

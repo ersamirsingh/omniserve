@@ -6,12 +6,19 @@ import {
   isSuperAdmin,
   isRestaurantOwner,
 } from '../middleware/auth.middleware.js';
+import { rateLimiter } from '../middleware/rateLimiter.middleware.js';
 
 const router: Router = express.Router();
 
+const authRateLimiter = rateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: 'Too many authentication attempts, please try again after 15 minutes'
+});
+
 /**  Public routes */
-router.post('/register', AuthController.register);
-router.post('/login', AuthController.login);
+router.post('/register', authRateLimiter, AuthController.register);
+router.post('/login', authRateLimiter, AuthController.login);
 router.post('/refresh', AuthController.refreshToken);
 router.post('/verify', AuthController.verifyToken);
 

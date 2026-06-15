@@ -112,13 +112,17 @@ export class WebhookService {
         return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig));
       }
 
-      // Generic HMAC validation
+      // Generic HMAC validation (Swiggy, Zomato, Dunzo, Porter, Custom)
       const expectedSig = crypto
         .createHmac('sha256', secret)
         .update(rawBody)
         .digest('hex');
 
-      return signature === expectedSig;
+      // Use timingSafeEqual to prevent timing attacks; guard against length mismatch
+      const sigBuf = Buffer.from(signature);
+      const expectedBuf = Buffer.from(expectedSig);
+      if (sigBuf.length !== expectedBuf.length) return false;
+      return crypto.timingSafeEqual(sigBuf, expectedBuf);
     } catch {
       return false;
     }

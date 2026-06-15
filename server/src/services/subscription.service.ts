@@ -112,9 +112,9 @@ export class SubscriptionService {
   /**
    * Check if subscription is active and not expired (tenant isolated)
    */
-  static async isSubscriptionActive(subscriptionId: string, tenantId: string): Promise<boolean> {
-    const subscription = await this.getSubscriptionById(subscriptionId, tenantId);
-    
+  static async isSubscriptionActive(subscriptionId: string): Promise<boolean> {
+    const subscription = await Subscription.findById(subscriptionId);
+
     if (!subscription) return false;
 
     const now = new Date();

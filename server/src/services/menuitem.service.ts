@@ -4,6 +4,7 @@ import Category from '../models/category.model.js';
 import Outlet from '../models/outlet.model.js';
 import Variant from '../models/variant.model.js';
 import Addon from '../models/addon.model.js';
+import { escapeRegex } from '../utils/sanitize.utils.js';
 
 export class MenuItemService {
   /**
@@ -87,9 +88,10 @@ export class MenuItemService {
     }
 
     if (filters.search) {
+      const safeSearch = escapeRegex(filters.search);
       query.$or = [
-        { name: { $regex: new RegExp(filters.search, 'i') } },
-        { description: { $regex: new RegExp(filters.search, 'i') } },
+        { name: { $regex: new RegExp(safeSearch, 'i') } },
+        { description: { $regex: new RegExp(safeSearch, 'i') } },
       ];
     }
 

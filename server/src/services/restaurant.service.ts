@@ -27,23 +27,31 @@ export class RestaurantService {
       return restaurants;
    }
 
-   static async getRestaurantById(tenantId: string, restaurantId: string) : Promise<IRestaurant | null> {
-      const restaurant = await Restaurant.findOne({ tenantId, _id: restaurantId, isDeleted: false });
+   static async getRestaurantById(restaurantId: string) : Promise<IRestaurant | null> {
+      const restaurant = await Restaurant.findOne({ _id: restaurantId, isDeleted: false });
       if(!restaurant) return null;
       return restaurant;
    }
 
-   static async updateRestaurant(tenantId: string, restaurantId: string, ...rest: any) : Promise<IRestaurant | null> {
+   static async updateRestaurant(tenantId: string, restaurantId: string, data: any) : Promise<IRestaurant | null> {
+      // Explicit allowlist — prevents mass assignment of tenantId, isDeleted, createdBy, etc.
+      const allowedFields: Record<string, any> = {};
+      if (data.name !== undefined) allowedFields.name = data.name;
+      if (data.description !== undefined) allowedFields.description = data.description;
+      if (data.brandName !== undefined) allowedFields.brandName = data.brandName;
+      if (data.gstNumber !== undefined) allowedFields.gstNumber = data.gstNumber;
+      if (data.logoUrl !== undefined) allowedFields.logoUrl = data.logoUrl;
+
       const restaurant = await Restaurant.findOneAndUpdate(
-         { tenantId, _id: restaurantId },
-         { name: rest.name, description: rest.description, brandName: rest.brandName, gstNumber: rest.gstNumber, logoUrl: rest.logoUrl }, 
+         { tenantId, _id: restaurantId, isDeleted: false },
+         allowedFields, 
          { new: true }
       );
       if(!restaurant) return null;
       return restaurant;
    }
 
-   static async deleteRestaurant(tenantId: string, restaurantId: string, id: string) : Promise<IRestaurant | null> {
+   static async deleteRestaurant(tenantId: string, restaurantId: string) : Promise<IRestaurant | null> {
       const restaurant = await Restaurant.findOneAndUpdate({ tenantId, _id: restaurantId }, { isDeleted: true }, { new: true });
       if(!restaurant) return null;
       return restaurant;
