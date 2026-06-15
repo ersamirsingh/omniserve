@@ -1,95 +1,106 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import LoginPage from "./features/auth/pages/LoginPage";
-import RegisterPage from "./features/auth/pages/RegisterPage";
-import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage";
-import ResetPasswordPage from "./features/auth/pages/ResetPasswordPage";
-import LandingPage from "./features/landing/pages/LandingPage";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { USER_ROLES } from './utils/constants';
+import { useSelector, useDispatch } from 'react-redux';
+import { useEffect } from 'react';
+import { fetchCurrentUser } from './store/authSlice';
 
-// Dashboards and layouts
-import DashboardPage from "./features/dashboard/pages/DashboardPage";
-import DashboardLayout from "./features/dashboard/components/DashboardLayout";
-import SuperAdminDashboard from "./features/dashboard/pages/SuperAdminDashboard";
-import OwnerDashboard from "./features/dashboard/pages/OwnerDashboard";
+/* Layouts */
+import AuthLayout from './layouts/AuthLayout';
+import DashboardLayout from './layouts/DashboardLayout';
+import ProtectedRoute from './layouts/ProtectedRoute';
 
-// New features
-import OrderPage from "./features/orders/pages/OrderPage";
-import OfflinePOSPage from "./features/orders/pages/OfflinePOSPage";
-import InventoryDashboard from "./features/inventory/pages/InventoryDashboard";
-import AnalyticsPage from "./features/analytics/pages/AnalyticsPage";
-import PlanManagement from "./features/subscriptions/pages/PlanManagement";
-import AuditLogsPage from "./features/admin/pages/AuditLogsPage";
-import WebhookLogsPage from "./features/admin/pages/WebhookLogsPage";
-import CustomerDirectory from "./features/crm/pages/CustomerDirectory";
+/* Auth pages */
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import JoinRestaurantPage from './pages/auth/JoinRestaurantPage';
 
-// Guard rails
-import ProtectedRoute from "./features/auth/component/ProtectedRoute";
-import RoleGuard from "./features/auth/component/RoleGuard";
-import ToastProvider from "./components/common/ToastProvider";
-import ErrorBoundary from "./components/common/ErrorBoundary";
+/* Dashboard pages */
+import DashboardPage from './pages/dashboard/DashboardPage';
+
+/* Management pages */
+import RestaurantsPage from './pages/restaurants/RestaurantsPage';
+import RestaurantJoinRequestsPage from './pages/restaurants/RestaurantJoinRequestsPage';
+import OutletsPage from './pages/outlets/OutletsPage';
+import CategoriesPage from './pages/menu/CategoriesPage';
+import MenuItemsPage from './pages/menu/MenuItemsPage';
+import VariantsPage from './pages/menu/VariantsPage';
+import AddonsPage from './pages/menu/AddonsPage';
+
+/* Operations pages */
+import OrdersPage from './pages/orders/OrdersPage';
+import CustomersPage from './pages/customers/CustomersPage';
+import InventoryPage from './pages/inventory/InventoryPage';
+
+/* Finance pages */
+import SubscriptionsPage from './pages/subscriptions/SubscriptionsPage';
+
+/* Insights pages */
+import AnalyticsPage from './pages/analytics/AnalyticsPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
+import AuditLogsPage from './pages/audit/AuditLogsPage';
+import UsersPage from './pages/users/UsersPage';
+
+const { SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER } = USER_ROLES;
 
 export default function App() {
+
+  const dispatch = useDispatch();
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    dispatch(fetchCurrentUser());
+  }, [dispatch]);
+
+  // const user = useSelector(state=>state.auth.user);
+  // console.log(user);
   return (
-    <ErrorBoundary>
-      <BrowserRouter>
-        <ToastProvider />
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <BrowserRouter>
+      <Routes>
+        {/* ── Public auth routes ── */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={user && isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+          <Route path="/register" element={user && isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
+          <Route path="/join-restaurant" element={<JoinRestaurantPage />} />
+        </Route>
 
-          {/* Protected Routes & Dashboard Layout Shell */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<DashboardLayout />}>
-              {/* Common protected redirects */}
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/orders" element={<OrderPage />} />
-              <Route path="/pos" element={<OfflinePOSPage />} />
-              <Route path="/inventory" element={<InventoryDashboard />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/subscriptions" element={<PlanManagement />} />
-              <Route path="/settings" element={<OwnerDashboard />} />
-              <Route path="/crm" element={<CustomerDirectory />} />
+        {/* ── Protected dashboard routes ── */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            {/* All roles */}
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+
+            {/* Super Admin only */}
+            <Route element={<ProtectedRoute roles={[SUPER_ADMIN]} />}>
+              <Route path="/restaurants" element={<RestaurantsPage />} />
               <Route path="/audit-logs" element={<AuditLogsPage />} />
-              <Route path="/webhooks" element={<WebhookLogsPage />} />
+            </Route>
 
-              {/* Super Admin Area */}
-              <Route
-                path="/super-admin"
-                element={
-                  <RoleGuard allowedRoles={["SUPER_ADMIN"]}>
-                    <SuperAdminDashboard />
-                  </RoleGuard>
-                }
-              />
+            {/* Super Admin + Restaurant Owner */}
+            <Route element={<ProtectedRoute roles={[SUPER_ADMIN, RESTAURANT_OWNER]} />}>
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/outlets" element={<OutletsPage />} />
+              <Route path="/subscriptions" element={<SubscriptionsPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+            </Route>
 
-              {/* Unauthorized Redirect */}
-              <Route
-                path="/unauthorized"
-                element={
-                  <div
-                    style={{
-                      padding: 40,
-                      textAlign: "center",
-                      color: "var(--red)",
-                      fontSize: 16,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Unauthorized Access. You do not have permission to view this
-                    page.
-                  </div>
-                }
-              />
+            {/* Super Admin + Restaurant Owner + Outlet Manager */}
+            <Route element={<ProtectedRoute roles={[SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER]} />}>
+              <Route path="/join-requests" element={<RestaurantJoinRequestsPage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/menu-items" element={<MenuItemsPage />} />
+              <Route path="/variants" element={<VariantsPage />} />
+              <Route path="/addons" element={<AddonsPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
             </Route>
           </Route>
+        </Route>
 
-          {/* Fallback Catch-all Route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </ErrorBoundary>
+        {/* ── Fallback ── */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

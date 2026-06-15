@@ -4,6 +4,7 @@ import { UserRole, UserStatus } from '../enums/enums.js';
 export interface IAuthRequest {
   userId: string;
   tenantId: string;
+  restaurantId?: string;
   email: string;
   role: UserRole;
   status: UserStatus;
@@ -26,6 +27,7 @@ export interface IRegisterRequest {
 export interface ITokenPayload {
   userId: string;
   tenantId: string;
+  restaurantId?: string;
   email: string;
   role: string;
   status: string;
@@ -39,6 +41,7 @@ export interface IAuthResponse {
   user: {
     _id: Types.ObjectId;
     tenantId: Types.ObjectId;
+    restaurantId?: Types.ObjectId | null;
     firstName: string;
     lastName: string;
     email: string;

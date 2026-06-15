@@ -1,8 +1,9 @@
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import User, { IUser } from '../models/user.model.js';
-import { UserStatus } from '../enums/enums.js';
+import { UserRole, UserStatus } from '../enums/enums.js';
 import { escapeRegex } from '../utils/sanitize.utils.js';
+import { RoleHierarchy } from '../utils/roleHierarchy.utils.js';
 
 export class UserService {
   /**
@@ -28,16 +29,22 @@ export class UserService {
   static async createUser(
     tenantId: string,
     data: any,
-    creatorUserId: string
+    creatorUserId: string,
+    creatorRole?: UserRole
   ): Promise<IUser> {
     const emailClean = data.email.trim().toLowerCase();
     await this.checkEmailConflict(emailClean);
+
+    if (creatorRole && !RoleHierarchy.canManageRole(creatorRole, data.role as UserRole)) {
+      throw new Error('You can only create users with a role below your own role.');
+    }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(data.password, salt);
 
     const newUser = new User({
       tenantId: new Types.ObjectId(tenantId),
+      restaurantId: data.restaurantId ? new Types.ObjectId(data.restaurantId) : undefined,
       firstName: data.firstName.trim(),
       lastName: data.lastName.trim(),
       email: emailClean,
@@ -112,7 +119,8 @@ export class UserService {
     id: string,
     tenantId: string,
     data: any,
-    updaterUserId: string
+    updaterUserId: string,
+    updaterRole?: UserRole
   ): Promise<IUser | null> {
     const user = await User.findOne({
       _id: new Types.ObjectId(id),
@@ -122,6 +130,10 @@ export class UserService {
 
     if (!user) {
       return null;
+    }
+
+    if (updaterRole && !RoleHierarchy.canManageRole(updaterRole, user.role as UserRole)) {
+      throw new Error('You can only update users with a role below your own role.');
     }
 
     if (data.email) {
@@ -135,7 +147,13 @@ export class UserService {
     if (data.firstName !== undefined) user.firstName = data.firstName.trim();
     if (data.lastName !== undefined) user.lastName = data.lastName.trim();
     if (data.phone !== undefined) user.phone = data.phone ? data.phone.trim() : undefined;
-    if (data.role !== undefined) user.role = data.role;
+    if (data.role !== undefined) {
+      if (updaterRole && !RoleHierarchy.canManageRole(updaterRole, data.role as UserRole)) {
+        throw new Error('You can only assign users a role below your own role.');
+      }
+
+      user.role = data.role;
+    }
     if (data.status !== undefined) user.status = data.status;
 
     if (data.password) {
@@ -150,22 +168,32 @@ export class UserService {
   /**
    * Soft-delete a user (scoped to tenantId) and prevent self-deletion
    */
-  static async deleteUser(id: string, tenantId: string, deleterUserId: string): Promise<IUser | null> {
+  static async deleteUser(
+    id: string,
+    tenantId: string,
+    deleterUserId: string,
+    deleterRole?: UserRole
+  ): Promise<IUser | null> {
     if (id === deleterUserId) {
       throw new Error('You cannot delete your own account.');
     }
 
-    return await User.findOneAndUpdate(
-      {
+    const user = await User.findOne({
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
         isDeleted: false,
-      },
-      {
-        isDeleted: true,
-        updatedBy: new Types.ObjectId(deleterUserId),
-      },
-      { new: true }
-    );
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    if (deleterRole && !RoleHierarchy.canManageRole(deleterRole, user.role as UserRole)) {
+      throw new Error('You can only delete users with a role below your own role.');
+    }
+
+    user.isDeleted = true;
+    user.updatedBy = new Types.ObjectId(deleterUserId);
+    return await user.save();
   }
 }

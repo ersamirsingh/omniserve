@@ -11,6 +11,7 @@ declare global {
       user?: {
         userId: string;
         tenantId: string;
+        restaurantId?: string;
         email: string;
         role: string;
         status: string;

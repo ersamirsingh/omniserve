@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { UserService } from '../services/user.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
 import { UserRole, UserStatus } from '../enums/enums.js';
+import { RoleHierarchy } from '../utils/roleHierarchy.utils.js';
 
 export class UserController {
   private static EMAIL_REGEX = /^\S+@\S+\.\S+$/;
@@ -58,6 +59,11 @@ export class UserController {
         return;
       }
 
+      if (!RoleHierarchy.canManageRole(req.user.role as UserRole, role as UserRole)) {
+        ApiResponseHandler.forbidden(res, 'You can only create users with a role below your own role');
+        return;
+      }
+
       if (status && !Object.values(UserStatus).includes(status as UserStatus)) {
         ApiResponseHandler.badRequest(res, `Invalid user status: ${status}`);
         return;
@@ -76,7 +82,8 @@ export class UserController {
       const user = await UserService.createUser(
         req.user.tenantId,
         userData,
-        req.user.userId
+        req.user.userId,
+        req.user.role as UserRole
       );
 
       ApiResponseHandler.success(res, 201, 'User created successfully', {
@@ -246,6 +253,11 @@ export class UserController {
         return;
       }
 
+      if (role !== undefined && !RoleHierarchy.canManageRole(req.user.role as UserRole, role as UserRole)) {
+        ApiResponseHandler.forbidden(res, 'You can only assign users a role below your own role');
+        return;
+      }
+
       if (status !== undefined && !Object.values(UserStatus).includes(status as UserStatus)) {
         ApiResponseHandler.badRequest(res, `Invalid user status: ${status}`);
         return;
@@ -265,7 +277,8 @@ export class UserController {
         id,
         req.user.tenantId,
         updateData,
-        req.user.userId
+        req.user.userId,
+        req.user.role as UserRole
       );
 
       if (!user) {
@@ -307,7 +320,12 @@ export class UserController {
         return;
       }
 
-      const deletedUser = await UserService.deleteUser(id, req.user.tenantId, req.user.userId);
+      const deletedUser = await UserService.deleteUser(
+        id,
+        req.user.tenantId,
+        req.user.userId,
+        req.user.role as UserRole
+      );
       if (!deletedUser) {
         ApiResponseHandler.notFound(res, 'User not found');
         return;

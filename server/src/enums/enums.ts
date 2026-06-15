@@ -5,6 +5,14 @@ export enum UserRole {
   STAFF = "STAFF",
 }
 
+export enum RestaurantJoinRequestStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  CANCELLED = "CANCELLED",
+  EXPIRED = "EXPIRED",
+}
+
 export enum UserStatus {
   ACTIVE = "ACTIVE",
   INACTIVE = "INACTIVE",

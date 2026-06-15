@@ -11,6 +11,7 @@ import Tenant from '../models/tenant.model.js';
 interface TokenPayload {
   userId: string;
   tenantId: string;
+  restaurantId?: string;
   email: string;
   role: string;
   status: string;
@@ -191,6 +192,7 @@ export class AuthService {
     const tokenPayload: TokenPayload = {
       userId: user._id.toString(),
       tenantId: user.tenantId.toString(),
+      ...(user.restaurantId ? { restaurantId: user.restaurantId.toString() } : {}),
       email: user.email,
       role: user.role,
       status: user.status,
@@ -248,6 +250,7 @@ export class AuthService {
     const tokenPayload: TokenPayload = {
       userId: user._id.toString(),
       tenantId: user.tenantId.toString(),
+      ...(user.restaurantId ? { restaurantId: user.restaurantId.toString() } : {}),
       email: user.email,
       role: user.role,
       status: user.status,

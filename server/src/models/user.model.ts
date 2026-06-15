@@ -3,6 +3,7 @@ import { UserRole, UserStatus } from '../enums/enums.js';
 
 export interface IUser extends Document {
   tenantId: Types.ObjectId;
+  restaurantId?: Types.ObjectId | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -26,6 +27,11 @@ const userSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: 'Tenant',
       required: [true, 'Tenant is required'],
+    },
+    restaurantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Restaurant',
+      default: null,
     },
     firstName: {
       type: String,
@@ -99,6 +105,7 @@ const userSchema = new Schema<IUser>(
 
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ tenantId: 1 });
+userSchema.index({ tenantId: 1, restaurantId: 1 });
 userSchema.index({ tenantId: 1, role: 1 });
 userSchema.index({ tenantId: 1, status: 1 });
 userSchema.index({ isDeleted: 1 });
