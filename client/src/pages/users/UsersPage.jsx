@@ -31,7 +31,7 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    try { const r = await listUsersApi(); setData(Array.isArray(r.data?.data) ? r.data.data : []); }
+    try { const r = await listUsersApi(); setData(Array.isArray(r.data?.data?.users) ? r.data.data.users : []); }
     catch { addToast('Failed', 'error'); }
     finally { setLoading(false); }
   };
@@ -51,13 +51,18 @@ export default function UsersPage() {
     e.preventDefault();
     try {
       if (modal.mode === 'create') { await createUserApi(form); addToast('User created', 'success'); }
-      else { const { password, ...rest } = form; await updateUserApi(modal.item._id, rest); addToast('User updated', 'success'); }
+      else { 
+        const { password, ...rest } = form; 
+        await updateUserApi(modal.item.id, rest); 
+        addToast('User updated', 'success'); 
+      }
       closeModal(); fetchData();
     } catch (err) { addToast(err.response?.data?.message || 'Failed', 'error'); }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this user?')) return;
+    console.log(id)
     try { await deleteUserApi(id); addToast('Deleted', 'success'); fetchData(); }
     catch { addToast('Failed', 'error'); }
   };
@@ -72,8 +77,9 @@ export default function UsersPage() {
     { key: 'status', label: 'Status', render: (r) => <Badge variant={USER_STATUS_VARIANT[r.status] || 'neutral'}>{r.status}</Badge> },
     { key: 'actions', label: 'Actions', render: (r) => (
       <div className="flex gap-2">
+        {console.log(r?.id)}
         <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>Edit</Button>
-        <Button size="sm" variant="danger" onClick={() => handleDelete(r._id)}>Delete</Button>
+        <Button size="sm" variant="danger" onClick={() => handleDelete(r?.id)}>Delete</Button>
       </div>
     )},
   ];

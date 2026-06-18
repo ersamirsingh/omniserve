@@ -18,7 +18,7 @@ export default function Table({ columns = [], data = [], loading, emptyMessage =
             <tr><td colSpan={columns.length} className="text-center py-12 text-slate-500">{emptyMessage}</td></tr>
           ) : (
             data.map((row, i) => (
-              <tr key={row._id || i} className="transition-colors hover:bg-indigo-500/5 border-b border-indigo-500/5 last:border-b-0">
+              <tr key={row.id || row._id || i} className="transition-colors hover:bg-indigo-500/5 border-b border-indigo-500/5 last:border-b-0">
                 {columns.map((col) => (
                   <td key={col.key} className="px-5 py-3.5 text-slate-100 align-middle">
                     {col.render ? col.render(row) : row[col.key] ?? '—'}

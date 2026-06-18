@@ -17,7 +17,7 @@ export default function RestaurantsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    try { const r = await listRestaurantsApi(); setData(Array.isArray(r.data?.data) ? r.data.data : []); }
+    try { const r = await listRestaurantsApi(); setData(Array.isArray(r.data?.restaurants) ? r.data.restaurants : []); }
     catch { addToast('Failed to load restaurants', 'error'); }
     finally { setLoading(false); }
   };
