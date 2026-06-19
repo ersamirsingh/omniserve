@@ -243,37 +243,58 @@ export class UserService {
     tenantId: string,
     filters: { limit: number; skip: number; search?: string; role?: string; status?: string; restaurantId?: string; outletId?: string }
   ): Promise<{ users: IUser[]; total: number }> {
-    const query: any = {
-      tenantId: new Types.ObjectId(tenantId),
-      isDeleted: false,
-    };
+    const conditions: any[] = [
+      { tenantId: new Types.ObjectId(tenantId) },
+      { isDeleted: false }
+    ];
 
     if (filters.search) {
       const safeSearch = escapeRegex(filters.search);
       const regex = new RegExp(safeSearch, 'i');
-      query.$or = [
-        { firstName: { $regex: regex } },
-        { lastName: { $regex: regex } },
-        { email: { $regex: regex } },
-        { phone: { $regex: regex } },
-      ];
+      conditions.push({
+        $or: [
+          { firstName: { $regex: regex } },
+          { lastName: { $regex: regex } },
+          { email: { $regex: regex } },
+          { phone: { $regex: regex } },
+        ]
+      });
     }
 
     if (filters.role) {
-      query.role = filters.role;
+      conditions.push({
+        $or: [
+          { role: filters.role },
+          { pendingRole: filters.role }
+        ]
+      });
     }
 
     if (filters.status) {
-      query.status = filters.status;
+      conditions.push({ status: filters.status });
     }
 
     if (filters.restaurantId) {
-      query.restaurantId = new Types.ObjectId(filters.restaurantId);
+      const restId = new Types.ObjectId(filters.restaurantId);
+      conditions.push({
+        $or: [
+          { restaurantId: restId },
+          { pendingRestaurantId: restId }
+        ]
+      });
     }
 
     if (filters.outletId) {
-      query.outletId = new Types.ObjectId(filters.outletId);
+      const outId = new Types.ObjectId(filters.outletId);
+      conditions.push({
+        $or: [
+          { outletId: outId },
+          { pendingOutletId: outId }
+        ]
+      });
     }
+
+    const query = { $and: conditions };
 
     const [users, total] = await Promise.all([
       User.find(query)

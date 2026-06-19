@@ -15,6 +15,7 @@ export default function NotificationsPage() {
   const dispatch = useDispatch();
   const { addToast } = useToast();
   const { notifications, loading, unreadCount } = useSelector((s) => s.notifications);
+  const { user } = useSelector((s) => s.auth);
   useEffect(() => { dispatch(fetchNotifications()); }, [dispatch]);
 
   const handleAcceptInvitation = async (notification) => {
@@ -22,7 +23,7 @@ export default function NotificationsPage() {
       await acceptMyInvitationApi();
       addToast('Invitation accepted', 'success');
       if (!notification.isRead) dispatch(markAsRead(notification.id || notification._id));
-      dispatch(fetchCurrentUser());
+      dispatch(fetchCurrentUser(true));
       dispatch(fetchNotifications());
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to accept invitation', 'error');
@@ -59,9 +60,17 @@ export default function NotificationsPage() {
               <p className="text-sm text-slate-100">{n.message || n.title || 'Notification'}</p>
               <span className="text-xs text-slate-500">{new Date(n.createdAt).toLocaleString()}</span>
               {isInvitation && (
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={() => handleAcceptInvitation(n)}>Accept Invitation</Button>
-                  {!n.isRead && <Button size="sm" variant="secondary" onClick={() => dispatch(markAsRead(notificationId))}>Mark Read</Button>}
+                <div className="mt-3 flex gap-2 items-center">
+                  {!user?.invitationAccepted ? (
+                    <>
+                      <Button size="sm" onClick={() => handleAcceptInvitation(n)}>Accept Invitation</Button>
+                      {!n.isRead && <Button size="sm" variant="secondary" onClick={() => dispatch(markAsRead(notificationId))}>Mark Read</Button>}
+                    </>
+                  ) : (
+                    <span className="text-sm font-medium text-emerald-400 flex items-center gap-1">
+                      <HiCheck className="text-lg" /> Invitation Accepted
+                    </span>
+                  )}
                 </div>
               )}
             </div>

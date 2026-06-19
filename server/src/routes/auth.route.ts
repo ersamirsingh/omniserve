@@ -28,9 +28,5 @@ router.get('/me', verifyToken, AuthController.getCurrentUser);
 router.post('/change-password', verifyToken, AuthController.changePassword);
 router.post('/revoke-all', verifyToken, AuthController.revokeAllTokens);
 
-// router.post('/invite/restro-owner', verifyToken, isSuperAdmin, /*funs */)
-// router.post('/invite/staff', verifyToken, isRestaurantOwner, /*funs */)
-// router.post('/invite/accept', verifyToken, /*funs */)
-// router.post('/invite/decline', verifyToken, /*funs */)
 
 export default router;
