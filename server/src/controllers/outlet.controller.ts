@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { OutletService } from '../services/outlet.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
 import { UserStatus, WeekDay } from '../enums/enums.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class OutletController {
   /**
@@ -66,6 +67,11 @@ export class OutletController {
       // Validate ObjectIds
       if (!Types.ObjectId.isValid(restaurantId)) {
         ApiResponseHandler.badRequest(res, 'Invalid restaurantId format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessRestaurant(req.user, restaurantId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot create outlets for this restaurant');
         return;
       }
 
@@ -199,7 +205,7 @@ export class OutletController {
         return;
       }
 
-      const restaurantId = req.query.restaurantId as string | undefined;
+      let restaurantId = req.query.restaurantId as string | undefined;
       const status = req.query.status as string | undefined;
       const city = req.query.city as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
@@ -209,6 +215,11 @@ export class OutletController {
       // Validate filter ObjectId
       if (restaurantId && !Types.ObjectId.isValid(restaurantId)) {
         ApiResponseHandler.badRequest(res, 'Invalid restaurantId query parameter format');
+        return;
+      }
+
+      if (restaurantId && !(await AccessScope.canAccessRestaurant(req.user, restaurantId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access outlets for this restaurant');
         return;
       }
 
@@ -236,14 +247,22 @@ export class OutletController {
         skip: number;
       } = { limit, skip };
 
+      if (!restaurantId && AccessScope.isRestaurantScoped(req.user.role) && req.user.restaurantId) {
+        restaurantId = req.user.restaurantId;
+      }
+
       if (restaurantId) filters.restaurantId = restaurantId;
       if (normalizedStatus) filters.status = normalizedStatus;
       if (city) filters.city = city;
 
       const { outlets, total } = await OutletService.getOutlets(req.user.tenantId, filters);
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      const scopedOutlets = allowedOutletIds === null
+        ? outlets
+        : outlets.filter(outlet => allowedOutletIds.includes(outlet._id.toString()));
 
       ApiResponseHandler.success(res, 200, 'Outlets retrieved successfully', {
-        outlets: outlets.map(outlet => ({
+        outlets: scopedOutlets.map(outlet => ({
           id: outlet._id,
           restaurantId: outlet.restaurantId,
           tenantId: outlet.tenantId,
@@ -261,7 +280,7 @@ export class OutletController {
           updatedAt: outlet.updatedAt,
         })),
         pagination: {
-          total,
+          total: scopedOutlets.length,
           page,
           limit,
           pages: Math.ceil(total / limit),
@@ -292,6 +311,10 @@ export class OutletController {
       const outlet = await OutletService.getOutletById(id, req.user.tenantId);
       if (!outlet) {
         ApiResponseHandler.notFound(res, 'Outlet not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, id))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access this outlet');
         return;
       }
 
@@ -354,6 +377,11 @@ export class OutletController {
 
       if (!Types.ObjectId.isValid(restaurantId)) {
         ApiResponseHandler.badRequest(res, 'Invalid restaurantId format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, id)) || !(await AccessScope.canAccessRestaurant(req.user, restaurantId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this outlet');
         return;
       }
 
@@ -465,6 +493,11 @@ export class OutletController {
         return;
       }
 
+      if (!(await AccessScope.canAccessOutlet(req.user, id))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this outlet');
+        return;
+      }
+
       const statusUpper = status.trim().toUpperCase();
       let userStatus: UserStatus;
       if (statusUpper === 'ACTIVE') {
@@ -518,6 +551,11 @@ export class OutletController {
       const { operatingHours } = req.body;
       if (!operatingHours || !Array.isArray(operatingHours)) {
         ApiResponseHandler.badRequest(res, 'operatingHours array is required');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, id))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this outlet');
         return;
       }
 
@@ -583,6 +621,11 @@ export class OutletController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid outlet ID format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, id))) {
+        ApiResponseHandler.forbidden(res, 'You cannot delete this outlet');
         return;
       }
 

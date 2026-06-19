@@ -48,6 +48,7 @@ export class ReviewService {
     tenantId: string,
     filters: {
       outletId?: string;
+      outletIds?: string[];
       source?: string;
       sentimentLabel?: string;
       rating?: number;
@@ -62,6 +63,8 @@ export class ReviewService {
 
     if (filters.outletId) {
       query.outletId = new Types.ObjectId(filters.outletId);
+    } else if (filters.outletIds) {
+      query.outletId = { $in: filters.outletIds.map(id => new Types.ObjectId(id)) };
     }
     if (filters.source) {
       query.source = filters.source;
@@ -89,7 +92,8 @@ export class ReviewService {
    */
   static async getSentimentSummary(
     tenantId: string,
-    outletId?: string
+    outletId?: string,
+    outletIds?: string[] | null
   ): Promise<{
     positive: { count: number; percentage: number };
     neutral: { count: number; percentage: number };
@@ -102,6 +106,8 @@ export class ReviewService {
 
     if (outletId) {
       match.outletId = new Types.ObjectId(outletId);
+    } else if (outletIds) {
+      match.outletId = { $in: outletIds.map(id => new Types.ObjectId(id)) };
     }
 
     const result = await ReviewAnalytics.aggregate([

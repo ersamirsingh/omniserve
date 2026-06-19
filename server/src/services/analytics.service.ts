@@ -77,7 +77,7 @@ export class AnalyticsService {
    */
   static async getDailyStats(
     tenantId: string,
-    filters: { outletId?: string; from?: string; to?: string }
+    filters: { outletId?: string; outletIds?: string[]; from?: string; to?: string }
   ): Promise<IAnalyticsDaily[]> {
     const query: any = {
       tenantId: new Types.ObjectId(tenantId),
@@ -86,6 +86,8 @@ export class AnalyticsService {
 
     if (filters.outletId) {
       query.outletId = new Types.ObjectId(filters.outletId);
+    } else if (filters.outletIds) {
+      query.outletId = { $in: filters.outletIds.map(id => new Types.ObjectId(id)) };
     }
 
     if (filters.from || filters.to) {
@@ -108,20 +110,25 @@ export class AnalyticsService {
   /**
    * Aggregate statistics for the tenant
    */
-  static async getSummaryStats(tenantId: string): Promise<{
+  static async getSummaryStats(tenantId: string, outletIds?: string[] | null): Promise<{
     totalRevenue: number;
     totalOrders: number;
     averageOrderValue: number;
     outletCount: number;
   }> {
     const tenantObjectId = new Types.ObjectId(tenantId);
+    const match: any = {
+      tenantId: tenantObjectId,
+      isDeleted: false,
+    };
+
+    if (outletIds) {
+      match.outletId = { $in: outletIds.map(id => new Types.ObjectId(id)) };
+    }
 
     const result = await AnalyticsDaily.aggregate([
       {
-        $match: {
-          tenantId: tenantObjectId,
-          isDeleted: false,
-        },
+        $match: match,
       },
       {
         $group: {

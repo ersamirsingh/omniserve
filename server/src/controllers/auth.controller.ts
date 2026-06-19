@@ -45,6 +45,8 @@ export class AuthController {
         user: {
           id: user._id,
           tenantId: user.tenantId,
+          restaurantId: user.restaurantId,
+          outletId: user.outletId,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,

@@ -4,6 +4,7 @@ import { AnalyticsService } from '../services/analytics.service.js';
 import { ReviewService } from '../services/review.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
 import Outlet from '../models/outlet.model.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class AnalyticsController {
   /**
@@ -53,6 +54,10 @@ export class AnalyticsController {
       const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
       if (!isOwner) {
         ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot write analytics for this outlet');
         return;
       }
 
@@ -107,10 +112,16 @@ export class AnalyticsController {
           ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
           return;
         }
+        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+          ApiResponseHandler.forbidden(res, 'You cannot access analytics for this outlet');
+          return;
+        }
       }
 
-      const filters: { outletId?: string; from?: string; to?: string } = {};
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      const filters: { outletId?: string; outletIds?: string[]; from?: string; to?: string } = {};
       if (outletId) filters.outletId = outletId;
+      else if (allowedOutletIds) filters.outletIds = allowedOutletIds;
       if (from) filters.from = from;
       if (to) filters.to = to;
 
@@ -134,7 +145,8 @@ export class AnalyticsController {
         return;
       }
 
-      const summary = await AnalyticsService.getSummaryStats(tenantId);
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      const summary = await AnalyticsService.getSummaryStats(tenantId, allowedOutletIds);
 
       ApiResponseHandler.success(res, 200, 'Tenant stats summary retrieved successfully', summary);
     } catch (error: any) {
@@ -171,6 +183,10 @@ export class AnalyticsController {
       const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
       if (!isOwner) {
         ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot submit reviews for this outlet');
         return;
       }
 
@@ -210,12 +226,18 @@ export class AnalyticsController {
           ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
           return;
         }
+        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+          ApiResponseHandler.forbidden(res, 'You cannot access reviews for this outlet');
+          return;
+        }
       }
 
       const rating = ratingQuery ? parseInt(ratingQuery) : undefined;
 
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
       const filters: {
         outletId?: string;
+        outletIds?: string[];
         source?: string;
         sentimentLabel?: string;
         rating?: number;
@@ -224,6 +246,7 @@ export class AnalyticsController {
       } = { limit, skip };
 
       if (outletId) filters.outletId = outletId;
+      else if (allowedOutletIds) filters.outletIds = allowedOutletIds;
       if (source) filters.source = source;
       if (sentimentLabel) filters.sentimentLabel = sentimentLabel;
       if (rating !== undefined && !isNaN(rating)) filters.rating = rating;
@@ -265,9 +288,14 @@ export class AnalyticsController {
           ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
           return;
         }
+        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+          ApiResponseHandler.forbidden(res, 'You cannot access reviews for this outlet');
+          return;
+        }
       }
 
-      const summary = await ReviewService.getSentimentSummary(tenantId, outletId);
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      const summary = await ReviewService.getSentimentSummary(tenantId, outletId, outletId ? undefined : allowedOutletIds);
 
       ApiResponseHandler.success(res, 200, 'Sentiment analysis aggregated successfully', summary);
     } catch (error: any) {

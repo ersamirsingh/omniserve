@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { RestaurantService } from '../services/restaurant.service.js';
 import { Types } from 'mongoose';
 import { RestaurantParams } from '../types/restro.type.js';
+import { UserRole } from '../enums/enums.js';
 
 
 export class RestaurantController {
@@ -20,7 +21,13 @@ export class RestaurantController {
             });
             return;
          }
-         const restaurants = await RestaurantService.getRestaurants(tenantId);
+         let restaurants = await RestaurantService.getRestaurants(tenantId) || [];
+
+         if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.restaurantId) {
+            restaurants = restaurants.filter((restaurant: any) => restaurant._id.toString() === req.user?.restaurantId);
+         } else if (req.user?.role !== UserRole.SUPER_ADMIN && !req.user?.restaurantId) {
+            restaurants = [];
+         }
 
          res.status(200).json({
             success: true,
@@ -43,6 +50,14 @@ export class RestaurantController {
             res.status(400).json({
                success: false,
                message: 'Invalid restaurantId',
+            });
+            return;
+         }
+
+         if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.restaurantId && req.user.restaurantId !== restaurantId) {
+            res.status(403).json({
+               success: false,
+               message: 'Access denied for this restaurant',
             });
             return;
          }

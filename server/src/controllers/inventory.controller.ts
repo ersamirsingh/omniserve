@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { InventoryService } from '../services/inventory.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class InventoryController {
   /**
@@ -26,6 +27,11 @@ export class InventoryController {
       // Validate ObjectId format
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot create inventory for this outlet');
         return;
       }
 
@@ -91,7 +97,7 @@ export class InventoryController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
+      let outletId = req.query.outletId as string | undefined;
       const menuItemId = req.query.menuItemId as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -100,6 +106,11 @@ export class InventoryController {
       // Validate query parameter ObjectIds if provided
       if (outletId && !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId query parameter format');
+        return;
+      }
+
+      if (outletId && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access inventory for this outlet');
         return;
       }
 
@@ -115,6 +126,11 @@ export class InventoryController {
         skip: number;
       } = { limit, skip };
 
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      if (!outletId && allowedOutletIds && allowedOutletIds.length === 1) {
+        outletId = allowedOutletIds[0];
+      }
+
       if (outletId) filters.outletId = outletId;
       if (menuItemId) filters.menuItemId = menuItemId;
 
@@ -122,9 +138,12 @@ export class InventoryController {
         req.user.tenantId,
         filters
       );
+      const scopedInventory = allowedOutletIds === null || outletId
+        ? inventory
+        : inventory.filter(item => allowedOutletIds.includes(item.outletId.toString()));
 
       ApiResponseHandler.success(res, 200, 'Inventory retrieved successfully', {
-        inventory: inventory.map(item => ({
+        inventory: scopedInventory.map(item => ({
           id: item._id,
           outletId: item.outletId,
           menuItemId: item.menuItemId,
@@ -136,7 +155,7 @@ export class InventoryController {
           updatedAt: item.updatedAt,
         })),
         pagination: {
-          total,
+          total: scopedInventory.length,
           page,
           limit,
           pages: Math.ceil(total / limit),
@@ -167,6 +186,10 @@ export class InventoryController {
       const inventory = await InventoryService.getInventoryById(id, req.user.tenantId);
       if (!inventory) {
         ApiResponseHandler.notFound(res, 'Inventory record not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, inventory.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access this inventory record');
         return;
       }
 
@@ -216,6 +239,16 @@ export class InventoryController {
         return;
       }
 
+      const inventory = await InventoryService.getInventoryById(id, req.user.tenantId);
+      if (!inventory) {
+        ApiResponseHandler.notFound(res, 'Inventory record not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, inventory.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this inventory record');
+        return;
+      }
+
       const updatedInventory = await InventoryService.updateQuantity(
         id,
         req.user.tenantId,
@@ -255,7 +288,7 @@ export class InventoryController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
+      let outletId = req.query.outletId as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
@@ -265,11 +298,21 @@ export class InventoryController {
         return;
       }
 
+      if (outletId && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access inventory for this outlet');
+        return;
+      }
+
       const filters: {
         outletId?: string;
         limit: number;
         skip: number;
       } = { limit, skip };
+
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      if (!outletId && allowedOutletIds && allowedOutletIds.length === 1) {
+        outletId = allowedOutletIds[0];
+      }
 
       if (outletId) filters.outletId = outletId;
 
@@ -277,9 +320,12 @@ export class InventoryController {
         req.user.tenantId,
         filters
       );
+      const scopedInventory = allowedOutletIds === null || outletId
+        ? inventory
+        : inventory.filter(item => allowedOutletIds.includes(item.outletId.toString()));
 
       ApiResponseHandler.success(res, 200, 'Low stock inventory retrieved successfully', {
-        inventory: inventory.map(item => ({
+        inventory: scopedInventory.map(item => ({
           id: item._id,
           outletId: item.outletId,
           menuItemId: item.menuItemId,
@@ -291,7 +337,7 @@ export class InventoryController {
           updatedAt: item.updatedAt,
         })),
         pagination: {
-          total,
+          total: scopedInventory.length,
           page,
           limit,
           pages: Math.ceil(total / limit),

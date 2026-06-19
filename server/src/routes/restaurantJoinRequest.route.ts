@@ -19,28 +19,28 @@ router.post(
 router.get(
   '/restaurants/:restaurantId',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   RestaurantJoinRequestController.listJoinRequests
 );
 
 router.post(
   '/restaurants/:restaurantId',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   RestaurantJoinRequestController.createJoinRequest
 );
 
 router.post(
   '/:requestId/messages',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   RestaurantJoinRequestController.addMessage
 );
 
 router.patch(
   '/:requestId/decision',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   RestaurantJoinRequestController.rejectOrCancel
 );
 

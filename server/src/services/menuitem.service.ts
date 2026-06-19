@@ -142,6 +142,14 @@ export class MenuItemService {
     };
   }
 
+  static async getMenuItemById(id: string, tenantId: string): Promise<IMenuItem | null> {
+    return MenuItem.findOne({
+      _id: new Types.ObjectId(id),
+      tenantId: new Types.ObjectId(tenantId),
+      isDeleted: false,
+    });
+  }
+
   /**
    * Update menu item details (PUT operation replacing details)
    */

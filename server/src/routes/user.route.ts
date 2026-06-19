@@ -5,11 +5,17 @@ import { UserRole } from '../enums/enums.js';
 
 const router: Router = express.Router();
 
-// Get list of users (Auth required, restricted to Outlet Manager and above)
+router.patch(
+  '/me/accept-invitation',
+  verifyToken,
+  UserController.acceptMyInvitation
+);
+
+// Get list of users (Auth required, restricted to Restaurant Owner and above)
 router.get(
   '/',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   UserController.listUsers
 );
 
@@ -21,11 +27,11 @@ router.post(
   UserController.createUser
 );
 
-// Get user details by ID (Auth required, restricted to Outlet Manager and above)
+// Get user details by ID (Auth required, restricted to Restaurant Owner and above)
 router.get(
   '/:id',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   UserController.getUserById
 );
 

@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { OrderService } from '../services/order.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
 import { OrderSource, OrderStatus } from '../enums/enums.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class OrderController {
   /**
@@ -38,6 +39,10 @@ export class OrderController {
       // Validate ObjectIds
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot place orders for this outlet');
         return;
       }
       if (!Types.ObjectId.isValid(customerId)) {
@@ -129,7 +134,7 @@ export class OrderController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
+      let outletId = req.query.outletId as string | undefined;
       const orderStatus = req.query.orderStatus as string | undefined;
       const date = req.query.date as string | undefined; // YYYY-MM-DD
       const page = parseInt(req.query.page as string) || 1;
@@ -140,6 +145,10 @@ export class OrderController {
         ApiResponseHandler.badRequest(res, 'Invalid outletId query format');
         return;
       }
+      if (outletId && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access orders for this outlet');
+        return;
+      }
 
       if (date && isNaN(Date.parse(date))) {
         ApiResponseHandler.badRequest(res, 'Invalid date query parameter format (use YYYY-MM-DD)');
@@ -147,14 +156,21 @@ export class OrderController {
       }
 
       const filters: { outletId?: string; orderStatus?: string; date?: string; limit: number; skip: number } = { limit, skip };
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      if (!outletId && allowedOutletIds && allowedOutletIds.length === 1) {
+        outletId = allowedOutletIds[0];
+      }
       if (outletId) filters.outletId = outletId;
       if (orderStatus) filters.orderStatus = orderStatus;
       if (date) filters.date = date;
 
       const { orders, total } = await OrderService.getOrders(req.user.tenantId, filters);
+      const scopedOrders = allowedOutletIds === null || outletId
+        ? orders
+        : orders.filter(order => allowedOutletIds.includes(order.outletId.toString()));
 
       ApiResponseHandler.success(res, 200, 'Orders retrieved successfully', {
-        orders: orders.map(o => ({
+        orders: scopedOrders.map(o => ({
           id: o._id,
           orderNumber: o.orderNumber,
           outletId: o.outletId,
@@ -170,7 +186,7 @@ export class OrderController {
           createdAt: o.createdAt,
         })),
         pagination: {
-          total,
+          total: scopedOrders.length,
           page,
           limit,
           pages: Math.ceil(total / limit),
@@ -201,6 +217,10 @@ export class OrderController {
       const details = await OrderService.getOrderWithDetails(id, req.user.tenantId);
       if (!details) {
         ApiResponseHandler.notFound(res, 'Order not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access this order');
         return;
       }
 
@@ -281,6 +301,16 @@ export class OrderController {
         return;
       }
 
+      const details = await OrderService.getOrderWithDetails(id, req.user.tenantId);
+      if (!details) {
+        ApiResponseHandler.notFound(res, 'Order not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this order');
+        return;
+      }
+
       const order = await OrderService.updateOrderStatus(
         id,
         req.user.tenantId,
@@ -338,6 +368,16 @@ export class OrderController {
         return;
       }
 
+      const details = await OrderService.getOrderWithDetails(id, req.user.tenantId);
+      if (!details) {
+        ApiResponseHandler.notFound(res, 'Order not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot cancel this order');
+        return;
+      }
+
       const order = await OrderService.cancelOrder(
         id,
         req.user.tenantId,
@@ -374,6 +414,16 @@ export class OrderController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid order ID format');
+        return;
+      }
+
+      const details = await OrderService.getOrderWithDetails(id, req.user.tenantId);
+      if (!details) {
+        ApiResponseHandler.notFound(res, 'Order not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access this order');
         return;
       }
 
@@ -441,6 +491,16 @@ export class OrderController {
         return;
       }
 
+      const details = await OrderService.getOrderWithDetails(id, req.user.tenantId);
+      if (!details) {
+        ApiResponseHandler.notFound(res, 'Order not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this order');
+        return;
+      }
+
       const itemData = {
         menuItemId,
         variantId,
@@ -492,6 +552,16 @@ export class OrderController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid order ID format');
+        return;
+      }
+
+      const details = await OrderService.getOrderWithDetails(id, req.user.tenantId);
+      if (!details) {
+        ApiResponseHandler.notFound(res, 'Order not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot delete this order');
         return;
       }
 

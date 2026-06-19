@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { VariantService } from '../services/variant.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
+import { MenuItemService } from '../services/menuitem.service.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class VariantController {
   /**
@@ -26,6 +28,16 @@ export class VariantController {
       // Validate ObjectId format
       if (!Types.ObjectId.isValid(menuItemId)) {
         ApiResponseHandler.badRequest(res, 'Invalid menuItemId format');
+        return;
+      }
+
+      const menuItem = await MenuItemService.getMenuItemById(menuItemId, req.user.tenantId);
+      if (!menuItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot manage variants for this menu item');
         return;
       }
 
@@ -97,6 +109,16 @@ export class VariantController {
         return;
       }
 
+      const menuItem = await MenuItemService.getMenuItemById(menuItemId, req.user.tenantId);
+      if (!menuItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access variants for this menu item');
+        return;
+      }
+
       const variants = await VariantService.getVariants(req.user.tenantId, menuItemId);
 
       ApiResponseHandler.success(res, 200, 'Variants retrieved successfully', {
@@ -143,6 +165,16 @@ export class VariantController {
 
       if (!Types.ObjectId.isValid(menuItemId)) {
         ApiResponseHandler.badRequest(res, 'Invalid menuItemId format');
+        return;
+      }
+
+      const menuItem = await MenuItemService.getMenuItemById(menuItemId, req.user.tenantId);
+      if (!menuItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update variants for this menu item');
         return;
       }
 
@@ -209,6 +241,17 @@ export class VariantController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid variant ID format');
+        return;
+      }
+
+      const existingVariant = await VariantService.getVariantById(id, req.user.tenantId);
+      if (!existingVariant) {
+        ApiResponseHandler.notFound(res, 'Variant not found');
+        return;
+      }
+      const menuItem = await MenuItemService.getMenuItemById(existingVariant.menuItemId.toString(), req.user.tenantId);
+      if (!menuItem || !(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot delete this variant');
         return;
       }
 

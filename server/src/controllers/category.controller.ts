@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { CategoryService } from '../services/category.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class CategoryController {
   /**
@@ -26,6 +27,11 @@ export class CategoryController {
       // Validate outletId format
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot create categories for this outlet');
         return;
       }
 
@@ -84,7 +90,7 @@ export class CategoryController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
+      let outletId = req.query.outletId as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
@@ -95,20 +101,33 @@ export class CategoryController {
         return;
       }
 
+      if (outletId && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access categories for this outlet');
+        return;
+      }
+
       const filters: {
         outletId?: string;
         limit: number;
         skip: number;
       } = { limit, skip };
 
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      if (!outletId && allowedOutletIds && allowedOutletIds.length === 1) {
+        outletId = allowedOutletIds[0];
+      }
+
       if (outletId) {
         filters.outletId = outletId;
       }
 
       const { categories, total } = await CategoryService.getCategories(req.user.tenantId, filters);
+      const scopedCategories = allowedOutletIds === null || outletId
+        ? categories
+        : categories.filter(category => allowedOutletIds.includes(category.outletId.toString()));
 
       ApiResponseHandler.success(res, 200, 'Categories retrieved successfully', {
-        categories: categories.map(category => ({
+        categories: scopedCategories.map(category => ({
           id: category._id,
           outletId: category.outletId,
           tenantId: category.tenantId,
@@ -119,7 +138,7 @@ export class CategoryController {
           updatedAt: category.updatedAt,
         })),
         pagination: {
-          total,
+          total: scopedCategories.length,
           page,
           limit,
           pages: Math.ceil(total / limit),
@@ -150,6 +169,10 @@ export class CategoryController {
       const category = await CategoryService.getCategoryById(id, req.user.tenantId);
       if (!category) {
         ApiResponseHandler.notFound(res, 'Category not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, category.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access this category');
         return;
       }
 
@@ -206,6 +229,16 @@ export class CategoryController {
       const parsedDisplayOrder = Number(displayOrder);
       if (isNaN(parsedDisplayOrder) || parsedDisplayOrder < 0) {
         ApiResponseHandler.badRequest(res, 'displayOrder must be a non-negative number');
+        return;
+      }
+
+      const existingCategory = await CategoryService.getCategoryById(id, req.user.tenantId);
+      if (!existingCategory) {
+        ApiResponseHandler.notFound(res, 'Category not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, existingCategory.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this category');
         return;
       }
 
@@ -271,6 +304,16 @@ export class CategoryController {
         return;
       }
 
+      const existingCategory = await CategoryService.getCategoryById(id, req.user.tenantId);
+      if (!existingCategory) {
+        ApiResponseHandler.notFound(res, 'Category not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, existingCategory.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this category');
+        return;
+      }
+
       const updatedCategory = await CategoryService.updateCategoryOrder(
         id,
         req.user.tenantId,
@@ -307,6 +350,16 @@ export class CategoryController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid category ID format');
+        return;
+      }
+
+      const existingCategory = await CategoryService.getCategoryById(id, req.user.tenantId);
+      if (!existingCategory) {
+        ApiResponseHandler.notFound(res, 'Category not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, existingCategory.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot delete this category');
         return;
       }
 

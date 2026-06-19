@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { MenuItemService } from '../services/menuitem.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class MenuItemController {
   /**
@@ -37,6 +38,11 @@ export class MenuItemController {
       // Validate ObjectIds format
       if (!Types.ObjectId.isValid(categoryId) || !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid categoryId or outletId format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot create menu items for this outlet');
         return;
       }
 
@@ -133,7 +139,7 @@ export class MenuItemController {
       }
 
       const categoryId = req.query.categoryId as string | undefined;
-      const outletId = req.query.outletId as string | undefined;
+      let outletId = req.query.outletId as string | undefined;
       const search = req.query.search as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -149,6 +155,11 @@ export class MenuItemController {
         return;
       }
 
+      if (outletId && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access menu items for this outlet');
+        return;
+      }
+
       const filters: {
         limit: number;
         skip: number;
@@ -158,13 +169,21 @@ export class MenuItemController {
       } = { limit, skip };
 
       if (categoryId) filters.categoryId = categoryId;
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      if (!outletId && allowedOutletIds && allowedOutletIds.length === 1) {
+        outletId = allowedOutletIds[0];
+      }
+
       if (outletId) filters.outletId = outletId;
       if (search) filters.search = search;
 
       const { menuItems, total } = await MenuItemService.getMenuItems(req.user.tenantId, filters);
+      const scopedMenuItems = allowedOutletIds === null || outletId
+        ? menuItems
+        : menuItems.filter(item => allowedOutletIds.includes(item.outletId.toString()));
 
       ApiResponseHandler.success(res, 200, 'Menu items retrieved successfully', {
-        menuItems: menuItems.map(item => ({
+        menuItems: scopedMenuItems.map(item => ({
           id: item._id,
           categoryId: item.categoryId,
           outletId: item.outletId,
@@ -181,7 +200,7 @@ export class MenuItemController {
           updatedAt: item.updatedAt,
         })),
         pagination: {
-          total,
+          total: scopedMenuItems.length,
           page,
           limit,
           pages: Math.ceil(total / limit),
@@ -216,6 +235,10 @@ export class MenuItemController {
       }
 
       const { menuItem, variants, addons } = details;
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access this menu item');
+        return;
+      }
 
       ApiResponseHandler.success(res, 200, 'Menu item details retrieved', {
         id: menuItem._id,
@@ -289,6 +312,11 @@ export class MenuItemController {
       // Validate ObjectIds format
       if (!Types.ObjectId.isValid(categoryId) || !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid categoryId or outletId format');
+        return;
+      }
+
+      if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update menu items for this outlet');
         return;
       }
 
@@ -399,6 +427,16 @@ export class MenuItemController {
         return;
       }
 
+      const existingItem = await MenuItemService.getMenuItemById(id, req.user.tenantId);
+      if (!existingItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, existingItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update this menu item');
+        return;
+      }
+
       const updatedItem = await MenuItemService.updateAvailabilityStatus(
         id,
         req.user.tenantId,
@@ -435,6 +473,16 @@ export class MenuItemController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid menu item ID format');
+        return;
+      }
+
+      const existingItem = await MenuItemService.getMenuItemById(id, req.user.tenantId);
+      if (!existingItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, existingItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot delete this menu item');
         return;
       }
 

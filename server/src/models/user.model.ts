@@ -4,12 +4,19 @@ import { UserRole, UserStatus } from '../enums/enums.js';
 export interface IUser extends Document {
   tenantId: Types.ObjectId;
   restaurantId?: Types.ObjectId | null;
+  outletId?: Types.ObjectId | null;
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
   passwordHash: string;
   role: UserRole;
+  pendingRole?: UserRole | null;
+  pendingRestaurantId?: Types.ObjectId | null;
+  pendingOutletId?: Types.ObjectId | null;
+  invitationLink?: string | null;
+  invitationExpiresAt?: Date | null;
+  invitationAccepted: boolean;
   status: UserStatus;
   lastLogin: Date | null;
   createdBy: Types.ObjectId | null;
@@ -31,6 +38,11 @@ const userSchema = new Schema<IUser>(
     restaurantId: {
       type: Schema.Types.ObjectId,
       ref: 'Restaurant',
+      default: null,
+    },
+    outletId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Outlet',
       default: null,
     },
     firstName: {
@@ -70,6 +82,37 @@ const userSchema = new Schema<IUser>(
       },
       required: [true, 'Role is required'],
     },
+    pendingRole: {
+      type: String,
+      enum: {
+        values: Object.values(UserRole),
+        message: 'Invalid pending user role: {VALUE}',
+      },
+      default: null,
+    },
+    pendingRestaurantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Restaurant',
+      default: null,
+    },
+    pendingOutletId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Outlet',
+      default: null,
+    },
+    invitationLink: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    invitationExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    invitationAccepted: {
+      type: Boolean,
+      default: true,
+    },
     status: {
       type: String,
       enum: {
@@ -106,6 +149,7 @@ const userSchema = new Schema<IUser>(
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ tenantId: 1 });
 userSchema.index({ tenantId: 1, restaurantId: 1 });
+userSchema.index({ tenantId: 1, outletId: 1 });
 userSchema.index({ tenantId: 1, role: 1 });
 userSchema.index({ tenantId: 1, status: 1 });
 userSchema.index({ isDeleted: 1 });

@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { AddonService } from '../services/addon.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
+import { MenuItemService } from '../services/menuitem.service.js';
+import { AccessScope } from '../utils/accessScope.utils.js';
 
 export class AddonController {
   /**
@@ -26,6 +28,16 @@ export class AddonController {
       // Validate ObjectId format
       if (!Types.ObjectId.isValid(menuItemId)) {
         ApiResponseHandler.badRequest(res, 'Invalid menuItemId format');
+        return;
+      }
+
+      const menuItem = await MenuItemService.getMenuItemById(menuItemId, req.user.tenantId);
+      if (!menuItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot manage addons for this menu item');
         return;
       }
 
@@ -97,6 +109,16 @@ export class AddonController {
         return;
       }
 
+      const menuItem = await MenuItemService.getMenuItemById(menuItemId, req.user.tenantId);
+      if (!menuItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access addons for this menu item');
+        return;
+      }
+
       const addons = await AddonService.getAddons(req.user.tenantId, menuItemId);
 
       ApiResponseHandler.success(res, 200, 'Addons retrieved successfully', {
@@ -143,6 +165,16 @@ export class AddonController {
 
       if (!Types.ObjectId.isValid(menuItemId)) {
         ApiResponseHandler.badRequest(res, 'Invalid menuItemId format');
+        return;
+      }
+
+      const menuItem = await MenuItemService.getMenuItemById(menuItemId, req.user.tenantId);
+      if (!menuItem) {
+        ApiResponseHandler.notFound(res, 'Menu item not found');
+        return;
+      }
+      if (!(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot update addons for this menu item');
         return;
       }
 
@@ -209,6 +241,17 @@ export class AddonController {
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid addon ID format');
+        return;
+      }
+
+      const existingAddon = await AddonService.getAddonById(id, req.user.tenantId);
+      if (!existingAddon) {
+        ApiResponseHandler.notFound(res, 'Addon not found');
+        return;
+      }
+      const menuItem = await MenuItemService.getMenuItemById(existingAddon.menuItemId.toString(), req.user.tenantId);
+      if (!menuItem || !(await AccessScope.canAccessOutlet(req.user, menuItem.outletId.toString()))) {
+        ApiResponseHandler.forbidden(res, 'You cannot delete this addon');
         return;
       }
 

@@ -11,6 +11,41 @@ export class UserController {
   private static PHONE_REGEX = /^\+?[\d\s\-().]{7,20}$/;
 
   /**
+   * Accept the logged-in user's pending invitation
+   * PATCH /users/me/accept-invitation
+   */
+  static async acceptMyInvitation(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user?.tenantId || !req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
+        return;
+      }
+
+      const user = await UserService.acceptInvitation(req.user.userId, req.user.tenantId);
+      if (!user) {
+        ApiResponseHandler.notFound(res, 'User not found');
+        return;
+      }
+
+      ApiResponseHandler.success(res, 200, 'Invitation accepted successfully', {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        restaurantId: user.restaurantId,
+        outletId: user.outletId,
+        invitationAccepted: user.invitationAccepted,
+        status: user.status,
+      });
+    } catch (error: any) {
+      ApiResponseHandler.badRequest(res, error.message || 'Failed to accept invitation');
+    }
+  }
+
+  /**
    * Create a new User
    * POST /users
    */
@@ -21,7 +56,7 @@ export class UserController {
         return;
       }
 
-      const { firstName, lastName, email, phone, password, role, status } = req.body;
+      const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId } = req.body;
 
       // Validate required fields
       if (!firstName || !lastName || !email || !password || !role) {
@@ -69,6 +104,16 @@ export class UserController {
         return;
       }
 
+      if (restaurantId && !Types.ObjectId.isValid(restaurantId)) {
+        ApiResponseHandler.badRequest(res, 'Invalid restaurantId format');
+        return;
+      }
+
+      if (outletId && !Types.ObjectId.isValid(outletId)) {
+        ApiResponseHandler.badRequest(res, 'Invalid outletId format');
+        return;
+      }
+
       const userData = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -77,13 +122,17 @@ export class UserController {
         password,
         role,
         status: status || UserStatus.ACTIVE,
+        restaurantId,
+        outletId,
       };
 
       const user = await UserService.createUser(
         req.user.tenantId,
         userData,
         req.user.userId,
-        req.user.role as UserRole
+        req.user.role as UserRole,
+        req.user.restaurantId,
+        req.user.outletId
       );
 
       ApiResponseHandler.success(res, 201, 'User created successfully', {
@@ -94,6 +143,12 @@ export class UserController {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        restaurantId: user.restaurantId,
+        outletId: user.outletId,
+        pendingRole: user.pendingRole,
+        pendingRestaurantId: user.pendingRestaurantId,
+        pendingOutletId: user.pendingOutletId,
+        invitationAccepted: user.invitationAccepted,
         status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -121,7 +176,7 @@ export class UserController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
 
-      const filters: { limit: number; skip: number; search?: string; role?: string; status?: string } = {
+      const filters: { limit: number; skip: number; search?: string; role?: string; status?: string; restaurantId?: string; outletId?: string } = {
         limit,
         skip,
       };
@@ -135,6 +190,12 @@ export class UserController {
       if (status && status.trim().length > 0) {
         filters.status = status.trim();
       }
+      if (req.user.role === UserRole.RESTAURANT_OWNER) {
+        if (req.user.restaurantId) filters.restaurantId = req.user.restaurantId;
+      }
+      if (req.user.role === UserRole.OUTLET_MANAGER || req.user.role === UserRole.STAFF) {
+        if (req.user.outletId) filters.outletId = req.user.outletId;
+      }
 
       const { users, total } = await UserService.getUsers(req.user.tenantId, filters);
 
@@ -147,6 +208,12 @@ export class UserController {
           email: user.email,
           phone: user.phone,
           role: user.role,
+          restaurantId: user.restaurantId,
+          outletId: user.outletId,
+          pendingRole: user.pendingRole,
+          pendingRestaurantId: user.pendingRestaurantId,
+          pendingOutletId: user.pendingOutletId,
+          invitationAccepted: user.invitationAccepted,
           status: user.status,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
@@ -194,6 +261,12 @@ export class UserController {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        restaurantId: user.restaurantId,
+        outletId: user.outletId,
+        pendingRole: user.pendingRole,
+        pendingRestaurantId: user.pendingRestaurantId,
+        pendingOutletId: user.pendingOutletId,
+        invitationAccepted: user.invitationAccepted,
         status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -220,7 +293,7 @@ export class UserController {
         return;
       }
 
-      const { firstName, lastName, email, phone, password, role, status } = req.body;
+      const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId } = req.body;
 
       // Validate inputs if provided
       if (firstName !== undefined && (typeof firstName !== 'string' || firstName.trim().length === 0 || firstName.length > 50)) {
@@ -263,6 +336,16 @@ export class UserController {
         return;
       }
 
+      if (restaurantId !== undefined && restaurantId && !Types.ObjectId.isValid(restaurantId)) {
+        ApiResponseHandler.badRequest(res, 'Invalid restaurantId format');
+        return;
+      }
+
+      if (outletId !== undefined && outletId && !Types.ObjectId.isValid(outletId)) {
+        ApiResponseHandler.badRequest(res, 'Invalid outletId format');
+        return;
+      }
+
       const updateData = {
         firstName,
         lastName,
@@ -271,6 +354,8 @@ export class UserController {
         password,
         role,
         status,
+        restaurantId,
+        outletId,
       };
 
       const user = await UserService.updateUser(
@@ -278,7 +363,9 @@ export class UserController {
         req.user.tenantId,
         updateData,
         req.user.userId,
-        req.user.role as UserRole
+        req.user.role as UserRole,
+        req.user.restaurantId,
+        req.user.outletId
       );
 
       if (!user) {
@@ -294,6 +381,12 @@ export class UserController {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        restaurantId: user.restaurantId,
+        outletId: user.outletId,
+        pendingRole: user.pendingRole,
+        pendingRestaurantId: user.pendingRestaurantId,
+        pendingOutletId: user.pendingOutletId,
+        invitationAccepted: user.invitationAccepted,
         status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

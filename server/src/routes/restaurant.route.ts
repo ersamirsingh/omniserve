@@ -5,7 +5,7 @@ import { verifyToken, isSuperAdmin, isRestaurantOwner } from '../middleware/auth
 
 const router: Router = express.Router();
 
-router.get('/', verifyToken, isSuperAdmin, RestaurantController.getRestaurants);
+router.get('/', verifyToken, RestaurantController.getRestaurants);
 router.post('/', verifyToken, isSuperAdmin, RestaurantController.createRestaurant);
 router.get('/:id', verifyToken, isRestaurantOwner, RestaurantController.getRestaurantById);
 router.patch('/:id', verifyToken, isSuperAdmin, RestaurantController.updateRestaurant);
