@@ -13,6 +13,7 @@ declare global {
         tenantId: string;
         restaurantId?: string;
         outletId?: string;
+        outletIds?: string[];
         email: string;
         role: string;
         status: string;

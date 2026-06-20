@@ -6,6 +6,7 @@ interface ScopeUser {
   tenantId: string;
   restaurantId?: string;
   outletId?: string;
+  outletIds?: string[];
   role: string;
 }
 
@@ -27,6 +28,9 @@ export class AccessScope {
     if (this.isTenantWide(user.role)) return null;
 
     if (this.isOutletScoped(user.role)) {
+      if (user.outletIds && user.outletIds.length > 0) {
+        return user.outletIds;
+      }
       return user.outletId ? [user.outletId] : [];
     }
 

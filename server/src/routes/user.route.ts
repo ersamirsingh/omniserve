@@ -35,11 +35,10 @@ router.get(
   UserController.getUserById
 );
 
-// Update user details (Auth required, restricted to Restaurant Owner and above)
+// Update user details (Auth required, restricted to Restaurant Owner and above, or self-update)
 router.put(
   '/:id',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
   UserController.updateUser
 );
 

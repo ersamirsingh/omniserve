@@ -13,6 +13,7 @@ interface TokenPayload {
   tenantId: string;
   restaurantId?: string;
   outletId?: string;
+  outletIds?: string[];
   email: string;
   role: string;
   status: string;
@@ -195,6 +196,7 @@ export class AuthService {
       tenantId: user.tenantId.toString(),
       ...(user.restaurantId ? { restaurantId: user.restaurantId.toString() } : {}),
       ...(user.outletId ? { outletId: user.outletId.toString() } : {}),
+      ...(user.outletIds && user.outletIds.length > 0 ? { outletIds: user.outletIds.map(id => id.toString()) } : {}),
       email: user.email,
       role: user.role,
       status: user.status,
@@ -254,6 +256,7 @@ export class AuthService {
       tenantId: user.tenantId.toString(),
       ...(user.restaurantId ? { restaurantId: user.restaurantId.toString() } : {}),
       ...(user.outletId ? { outletId: user.outletId.toString() } : {}),
+      ...(user.outletIds && user.outletIds.length > 0 ? { outletIds: user.outletIds.map(id => id.toString()) } : {}),
       email: user.email,
       role: user.role,
       status: user.status,

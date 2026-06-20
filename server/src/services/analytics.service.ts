@@ -1,5 +1,11 @@
 import mongoose, { Types } from 'mongoose';
 import AnalyticsDaily, { IAnalyticsDaily } from '../models/analyticsdaily.model.js';
+import Restaurant from '../models/restaurant.model.js';
+import Subscription from '../models/subscription.model.js';
+import User from '../models/user.model.js';
+import Outlet from '../models/outlet.model.js';
+import MenuItem from '../models/menuitems.model.js';
+import { UserStatus, SubscriptionStatus } from '../enums/enums.js';
 
 export class AnalyticsService {
   /**
@@ -115,6 +121,12 @@ export class AnalyticsService {
     totalOrders: number;
     averageOrderValue: number;
     outletCount: number;
+    totalRestaurants: number;
+    activeSubscriptions: number;
+    totalUsers: number;
+    activeOutlets: number;
+    totalMenuItems: number;
+    avgOrderValue: number;
   }> {
     const tenantObjectId = new Types.ObjectId(tenantId);
     const match: any = {
@@ -140,12 +152,75 @@ export class AnalyticsService {
       },
     ]);
 
+    let totalRestaurants = 0;
+    let activeSubscriptions = 0;
+    let totalUsers = 0;
+    let activeOutlets = 0;
+    let totalMenuItems = 0;
+
+    if (!outletIds) {
+      const [
+        restaurantsCount,
+        subscriptionsCount,
+        usersCount,
+        outletsCountVal,
+        menuItemsCount,
+      ] = await Promise.all([
+        Restaurant.countDocuments({ tenantId: tenantObjectId, isDeleted: false }),
+        Subscription.countDocuments({ tenantId: tenantObjectId, status: SubscriptionStatus.ACTIVE, isDeleted: false }),
+        User.countDocuments({ tenantId: tenantObjectId, isDeleted: false }),
+        Outlet.countDocuments({ tenantId: tenantObjectId, isDeleted: false, status: UserStatus.ACTIVE }),
+        MenuItem.countDocuments({ tenantId: tenantObjectId, isDeleted: false }),
+      ]);
+      totalRestaurants = restaurantsCount;
+      activeSubscriptions = subscriptionsCount;
+      totalUsers = usersCount;
+      activeOutlets = outletsCountVal;
+      totalMenuItems = menuItemsCount;
+    } else {
+      const outletObjectIds = outletIds.map(id => new Types.ObjectId(id));
+      const outletsList = await Outlet.find({ _id: { $in: outletObjectIds }, isDeleted: false }).select('restaurantId');
+      const uniqueRestIds = Array.from(new Set(outletsList.map(o => o.restaurantId?.toString()).filter(Boolean))).map(id => new Types.ObjectId(id));
+
+      const [
+        restaurantsCount,
+        subscriptionsCount,
+        usersCount,
+        outletsCountVal,
+        menuItemsCount,
+      ] = await Promise.all([
+        Restaurant.countDocuments({ _id: { $in: uniqueRestIds }, isDeleted: false }),
+        Subscription.countDocuments({ tenantId: tenantObjectId, status: SubscriptionStatus.ACTIVE, isDeleted: false }),
+        User.countDocuments({ 
+          tenantId: tenantObjectId, 
+          isDeleted: false, 
+          $or: [
+            { outletId: { $in: outletObjectIds } },
+            { outletIds: { $in: outletObjectIds } }
+          ]
+        }),
+        Outlet.countDocuments({ _id: { $in: outletObjectIds }, isDeleted: false, status: UserStatus.ACTIVE }),
+        MenuItem.countDocuments({ tenantId: tenantObjectId, outletId: { $in: outletObjectIds }, isDeleted: false }),
+      ]);
+      totalRestaurants = restaurantsCount;
+      activeSubscriptions = subscriptionsCount;
+      totalUsers = usersCount;
+      activeOutlets = outletsCountVal;
+      totalMenuItems = menuItemsCount;
+    }
+
     if (result.length === 0) {
       return {
         totalRevenue: 0,
         totalOrders: 0,
         averageOrderValue: 0,
         outletCount: 0,
+        totalRestaurants,
+        activeSubscriptions,
+        totalUsers,
+        activeOutlets,
+        totalMenuItems,
+        avgOrderValue: 0,
       };
     }
 
@@ -157,6 +232,12 @@ export class AnalyticsService {
       totalOrders,
       averageOrderValue,
       outletCount: outlets.length,
+      totalRestaurants,
+      activeSubscriptions,
+      totalUsers,
+      activeOutlets,
+      totalMenuItems,
+      avgOrderValue: averageOrderValue,
     };
   }
 }

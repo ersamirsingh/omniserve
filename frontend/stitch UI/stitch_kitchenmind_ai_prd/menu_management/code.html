@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Menu Management - KitchenMind AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Hanken+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-subtle": "#FDFDFD",
+                        "primary": "#4900be",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "error-container": "#ffdad6",
+                        "border-base": "#E2E8F0",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#61f6ea",
+                        "surface-container": "#f0edec",
+                        "inverse-on-surface": "#f3f0ef",
+                        "data-blue": "#2563EB",
+                        "surface": "#fcf9f8",
+                        "on-primary-fixed-variant": "#5100cf",
+                        "on-primary-fixed": "#20005e",
+                        "outline": "#7a7488",
+                        "primary-fixed-dim": "#cebdff",
+                        "on-background": "#1c1b1b",
+                        "secondary": "#006a64",
+                        "on-secondary-fixed-variant": "#00504b",
+                        "inverse-primary": "#cebdff",
+                        "on-surface": "#1c1b1b",
+                        "surface-container-low": "#f6f3f2",
+                        "secondary-fixed": "#65f8ed",
+                        "tertiary": "#762404",
+                        "surface-container-high": "#ebe7e7",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#e8ddff",
+                        "surface-dim": "#dcd9d9",
+                        "on-tertiary-fixed-variant": "#7f2a0a",
+                        "success-green": "#10B981",
+                        "inverse-surface": "#313030",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#ffdbd0",
+                        "tertiary-fixed-dim": "#ffb59d",
+                        "surface-variant": "#e5e2e1",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-secondary-fixed": "#00201e",
+                        "on-primary-container": "#d4c5ff",
+                        "surface-tint": "#6a23fb",
+                        "surface-bright": "#fcf9f8",
+                        "on-surface-variant": "#494456",
+                        "on-tertiary-container": "#ffbfab",
+                        "primary-container": "#6311f4",
+                        "on-secondary-container": "#006f69",
+                        "on-tertiary-fixed": "#390b00",
+                        "ai-accent": "#E6F9F8",
+                        "outline-variant": "#cbc3da",
+                        "tertiary-container": "#963a1a",
+                        "background": "#fcf9f8",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed-dim": "#40dcd1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "stack-lg": "32px",
+                        "gutter": "24px",
+                        "unit": "4px",
+                        "container-max": "1440px",
+                        "stack-sm": "8px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "mono-data": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "mono-data": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom Scrollbar for Drawer */
+        .drawer-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .drawer-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .drawer-scroll::-webkit-scrollbar-thumb {
+            background-color: #E2E8F0;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-full py-6 px-4 gap-y-1 bg-surface-container-low dark:bg-surface-container-low text-primary dark:text-primary docked left-0 h-screen w-64 border-r border-outline-variant/20 flat no shadows z-30 shrink-0">
+<div class="mb-8 px-2">
+<h1 class="text-title-md font-title-md font-black text-primary">KitchenMind</h1>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-1">Restaurant OS</p>
+</div>
+<div class="flex-1 overflow-y-auto drawer-scroll flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-body-md font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">receipt_long</span>
+<span class="text-body-md font-body-md">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container text-on-secondary-container font-semibold rounded-lg Active: translate-x-1 duration-200 group" href="#">
+<span class="material-symbols-outlined text-[20px] fill">sync_alt</span>
+<span class="text-body-md font-body-md">Menu Sync</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">inventory_2</span>
+<span class="text-body-md font-body-md">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">local_shipping</span>
+<span class="text-body-md font-body-md">Suppliers</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">groups</span>
+<span class="text-body-md font-body-md">Staff</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">storefront</span>
+<span class="text-body-md font-body-md">Outlets</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">analytics</span>
+<span class="text-body-md font-body-md">Analytics</span>
+</a>
+<div class="mt-6 mb-2 px-3">
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-outline">Intelligence</span>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group bg-ai-accent/30" href="#">
+<span class="material-symbols-outlined text-[20px] text-secondary">psychology</span>
+<span class="text-body-md font-body-md text-secondary font-medium">AI Copilot</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">hub</span>
+<span class="text-body-md font-body-md">Integrations</span>
+</a>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant/20 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">notifications_active</span>
+<span class="text-body-md font-body-md">Alerts</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">settings</span>
+<span class="text-body-md font-body-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden relative">
+<!-- TopNavBar (Mobile mainly, but keeping structural alignment) -->
+<header class="flex justify-between items-center px-6 py-2 w-full bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm sticky top-0 z-20 md:hidden">
+<div class="flex items-center gap-3">
+<button class="text-on-surface-variant p-2 -ml-2 rounded-lg hover:bg-surface-container-high/50 transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<span class="text-title-md font-title-md font-bold text-primary dark:text-primary">KitchenMind AI</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant p-2 rounded-lg hover:bg-surface-container-high/50 transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-on-surface-variant p-2 rounded-lg hover:bg-surface-container-high/50 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Page Header & Canvas -->
+<main class="flex-1 overflow-y-auto bg-surface-subtle relative" id="main-scroll-area">
+<!-- Header Section -->
+<div class="px-margin-mobile md:px-margin-desktop py-8 border-b border-border-base bg-surface">
+<div class="max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="text-label-sm font-label-sm text-outline uppercase tracking-wider">Operations</span>
+<span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
+<span class="text-label-sm font-label-sm text-primary font-medium">Menu Management</span>
+</div>
+<h2 class="text-headline-lg font-headline-lg text-on-background">Menu Management</h2>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1">Manage items, variants, and platform synchronization.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-white border border-primary text-primary rounded-lg text-label-md font-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">cloud_download</span>
+                            Pull from POS
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-label-md font-label-md hover:bg-primary-container transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                            New Item
+                        </button>
+</div>
+</div>
+<!-- Tabs -->
+<div class="max-w-[1440px] mx-auto mt-8 flex gap-8">
+<button class="pb-3 border-b-2 border-primary text-primary text-label-md font-label-md font-semibold">Menu Items</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors text-label-md font-label-md">Categories</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors text-label-md font-label-md">Variants</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors text-label-md font-label-md">Addons</button>
+</div>
+</div>
+<!-- Content Area -->
+<div class="p-margin-mobile md:p-margin-desktop max-w-[1440px] mx-auto">
+<!-- Filters & Search Bar -->
+<div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+<div class="relative w-full md:w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-white border border-border-base rounded-lg text-body-sm font-body-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" placeholder="Search menu items..." type="text"/>
+</div>
+<div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
+<button class="px-3 py-1.5 bg-surface-container-low border border-border-base rounded-full text-label-sm font-label-sm whitespace-nowrap hover:bg-surface-container transition-colors flex items-center gap-1">
+                            Category: All <span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</button>
+<button class="px-3 py-1.5 bg-surface-container-low border border-border-base rounded-full text-label-sm font-label-sm whitespace-nowrap hover:bg-surface-container transition-colors flex items-center gap-1">
+                            Status: Active <span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</button>
+<button class="px-3 py-1.5 bg-surface-container-low border border-border-base rounded-full text-label-sm font-label-sm whitespace-nowrap hover:bg-surface-container transition-colors flex items-center gap-1">
+                            Sync: Issues <span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</button>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="bg-white border border-border-base rounded-xl overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-subtle border-b border-border-base">
+<th class="px-6 py-4 text-label-sm font-label-sm text-on-surface-variant font-medium w-12">
+<input class="rounded border-border-base text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+</th>
+<th class="px-6 py-4 text-label-sm font-label-sm text-on-surface-variant font-medium">Item Details</th>
+<th class="px-6 py-4 text-label-sm font-label-sm text-on-surface-variant font-medium">Category</th>
+<th class="px-6 py-4 text-label-sm font-label-sm text-on-surface-variant font-medium">Base Price</th>
+<th class="px-6 py-4 text-label-sm font-label-sm text-on-surface-variant font-medium">Status</th>
+<th class="px-6 py-4 text-label-sm font-label-sm text-on-surface-variant font-medium">Sync Channels</th>
+<th class="px-6 py-4 text-right text-label-sm font-label-sm text-on-surface-variant font-medium">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-base">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50 transition-colors cursor-pointer group" onclick="toggleDrawer(true)">
+<td class="px-6 py-4">
+<input class="rounded border-border-base text-primary focus:ring-primary w-4 h-4" onclick="event.stopPropagation()" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high border border-border-base overflow-hidden flex-shrink-0">
+<img alt="Classic Cheeseburger" class="w-full h-full object-cover" data-alt="A high-quality, professional food photography shot of a classic double cheeseburger on a clean white background, brightly lit with modern studio lighting. The style is clean, appetizing, and fits a high-end restaurant menu interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIStDfVDNnMXfW3PdmT2OBEyEzje3lwl4O3dPCMONNWa7kBsi3uvIFQUUwv354AE6aKkTo5TcRiw8PGkzT6pR-SLomfMzcT7dqF_NarNyHfIzX1ZuE48h0M6Z90doq3Vk4_v2IAOYF3zlHzgUGwYfNVtIjDdFkjOZFegGpVhkv7p5BAxqkxKTbNeBroSyCECJadRhApZ2IgOorNsRhYcBTANISu_WyVRguKuPd6qVXjBCcLUK5zxMTLw3RUzSbBd6KUL7qhFnRj_A"/>
+</div>
+<div>
+<div class="text-label-md font-label-md text-on-background group-hover:text-primary transition-colors">Classic Double Smashburger</div>
+<div class="text-label-sm font-label-sm text-outline mt-0.5">SKU: BUR-001 • 2 Variants</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface text-label-sm font-label-sm">Burgers</span>
+</td>
+<td class="px-6 py-4 text-mono-data font-mono-data text-on-background">$14.50</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success-green/10 text-success-green text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span> Active
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-[18px] text-success-green" title="UberEats: Synced">delivery_dining</span>
+<span class="material-symbols-outlined text-[18px] text-success-green" title="DoorDash: Synced">takeout_dining</span>
+<span class="material-symbols-outlined text-[18px] text-success-green" title="POS: Synced">point_of_sale</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-1 text-outline hover:text-primary transition-colors rounded" onclick="event.stopPropagation()">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 (Sync Issue Example) -->
+<tr class="hover:bg-slate-50 transition-colors cursor-pointer group" onclick="toggleDrawer(true)">
+<td class="px-6 py-4">
+<input class="rounded border-border-base text-primary focus:ring-primary w-4 h-4" onclick="event.stopPropagation()" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high border border-border-base overflow-hidden flex-shrink-0">
+<div class="w-full h-full flex items-center justify-center bg-surface-container text-outline">
+<span class="material-symbols-outlined">image</span>
+</div>
+</div>
+<div>
+<div class="text-label-md font-label-md text-on-background group-hover:text-primary transition-colors">Truffle Fries (Large)</div>
+<div class="text-label-sm font-label-sm text-error mt-0.5 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                                    Missing POS mapping
+                                                </div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface text-label-sm font-label-sm">Sides</span>
+</td>
+<td class="px-6 py-4 text-mono-data font-mono-data text-on-background">$8.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Draft
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-[18px] text-error" title="UberEats: Sync Failed">delivery_dining</span>
+<span class="material-symbols-outlined text-[18px] text-surface-dim" title="DoorDash: Not configured">takeout_dining</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-1 text-outline hover:text-primary transition-colors rounded" onclick="event.stopPropagation()">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Add more rows as needed for visual density -->
+<tr class="hover:bg-slate-50 transition-colors cursor-pointer group">
+<td class="px-6 py-4"><input class="rounded border-border-base text-primary focus:ring-primary w-4 h-4" type="checkbox"/></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high border border-border-base overflow-hidden flex-shrink-0 bg-slate-100"></div>
+<div>
+<div class="text-label-md font-label-md text-on-background">Spicy Chicken Sandwich</div>
+<div class="text-label-sm font-label-sm text-outline mt-0.5">SKU: SND-012 • 0 Variants</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface text-label-sm font-label-sm">Sandwiches</span></td>
+<td class="px-6 py-4 text-mono-data font-mono-data text-on-background">$12.99</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success-green/10 text-success-green text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span> Active
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-[18px] text-success-green">delivery_dining</span>
+<span class="material-symbols-outlined text-[18px] text-success-green">point_of_sale</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-[20px] text-outline">more_vert</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="px-6 py-4 border-t border-border-base flex items-center justify-between bg-surface-subtle">
+<div class="text-label-sm font-label-sm text-on-surface-variant">Showing 1 to 10 of 124 items</div>
+<div class="flex items-center gap-2">
+<button class="p-1 border border-border-base rounded text-outline hover:bg-surface-container disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="p-1 border border-border-base rounded text-outline hover:bg-surface-container">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Side Drawer Modal Overlay -->
+<div class="fixed inset-0 bg-on-background/20 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" id="drawer-overlay" onclick="toggleDrawer(false)"></div>
+<!-- Side Drawer (Item Details) -->
+<aside class="fixed right-0 top-0 h-screen w-full md:w-[480px] bg-surface border-l border-border-base shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col" id="item-drawer">
+<!-- Drawer Header -->
+<div class="px-6 py-4 border-b border-border-base flex items-center justify-between bg-surface-subtle shrink-0">
+<h3 class="text-headline-sm font-headline-sm text-on-background">Item Details</h3>
+<div class="flex items-center gap-2">
+<button class="p-2 text-outline hover:text-primary transition-colors rounded-lg hover:bg-surface-container" title="Edit">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-on-background transition-colors rounded-lg hover:bg-surface-container" onclick="toggleDrawer(false)">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+</div>
+<!-- Drawer Content Scrollable -->
+<div class="flex-1 overflow-y-auto drawer-scroll p-6 bg-background">
+<!-- Quick Header Info -->
+<div class="flex gap-4 mb-8">
+<div class="w-24 h-24 rounded-xl bg-surface-container border border-border-base overflow-hidden flex-shrink-0 shadow-sm">
+<img alt="Classic Cheeseburger" class="w-full h-full object-cover" data-alt="A high-quality, professional food photography shot of a classic double cheeseburger on a clean white background, brightly lit with modern studio lighting. The style is clean, appetizing, and fits a high-end restaurant menu interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAkm80oxITiO17D59c-LXiCcqTy4Wec9Uib852XXuKWXq41_QNrd_brMuhJkkiWB_zNHv0en17DqNlc6J4yMhFZ_8Y6zr1lVaPlr02yxZITFroYM9BS4EAHQ0wKtVayyDH8Gb9LsRGCXtx5ZCpLSr9-y-dH4fk6nzMZhSD_Zp3Jtx2VZu6e96ZTRrZvRA-p__660m_n5Uw3VZYwzYNiTNeoSQD9prHUaWHWUOmir47n8ZUjtjf9I1bZL423AX1GqrBKhokmqX8eWw"/>
+</div>
+<div class="flex flex-col justify-center">
+<div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success-green/10 text-success-green text-[11px] font-bold uppercase tracking-wider mb-1 w-max">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span> Active
+                    </div>
+<h2 class="text-headline-md font-headline-md text-on-background leading-tight">Classic Double Smashburger</h2>
+<div class="text-label-sm font-label-sm text-outline mt-1">SKU: BUR-001 • Category: Burgers</div>
+</div>
+</div>
+<!-- Bento Grid Stats -->
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="p-4 rounded-xl bg-white border border-border-base flex flex-col gap-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Base Price</span>
+<span class="text-headline-sm font-headline-sm text-on-background font-mono-data">$14.50</span>
+</div>
+<div class="p-4 rounded-xl bg-white border border-border-base flex flex-col gap-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Tax Rate</span>
+<span class="text-headline-sm font-headline-sm text-on-background font-mono-data">Standard (8%)</span>
+</div>
+</div>
+<!-- Variants Section -->
+<div class="mb-8">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-label-md font-label-md text-on-background uppercase tracking-wider">Variants</h4>
+<button class="text-label-sm font-label-sm text-primary hover:underline">Manage</button>
+</div>
+<div class="bg-white border border-border-base rounded-xl overflow-hidden divide-y divide-border-base">
+<div class="p-3 flex justify-between items-center hover:bg-slate-50">
+<div>
+<div class="text-label-md font-label-md text-on-background">Single Patty</div>
+<div class="text-label-sm font-label-sm text-outline">SKU: BUR-001-SGL</div>
+</div>
+<div class="text-label-md font-label-md font-mono-data text-on-background">-$3.00</div>
+</div>
+<div class="p-3 flex justify-between items-center hover:bg-slate-50">
+<div>
+<div class="text-label-md font-label-md text-on-background">Double Patty (Default)</div>
+<div class="text-label-sm font-label-sm text-outline">SKU: BUR-001-DBL</div>
+</div>
+<div class="text-label-md font-label-md font-mono-data text-on-background">—</div>
+</div>
+</div>
+</div>
+<!-- Addon Groups Section -->
+<div class="mb-8">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-label-md font-label-md text-on-background uppercase tracking-wider">Associated Addon Groups</h4>
+<button class="text-label-sm font-label-sm text-primary hover:underline">Link Group</button>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Addon Group Card -->
+<div class="p-4 rounded-xl bg-white border border-border-base">
+<div class="flex justify-between items-start mb-2">
+<div>
+<div class="text-label-md font-label-md text-on-background">Cheese Options</div>
+<div class="text-label-sm font-label-sm text-outline">Choose up to 2 • Optional</div>
+</div>
+<button class="text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">link_off</span></button>
+</div>
+<div class="flex flex-wrap gap-2 mt-3">
+<span class="inline-flex px-2 py-1 bg-surface-container-low border border-border-base rounded text-[11px] text-on-surface-variant">American (+$0.00)</span>
+<span class="inline-flex px-2 py-1 bg-surface-container-low border border-border-base rounded text-[11px] text-on-surface-variant">Cheddar (+$1.00)</span>
+<span class="inline-flex px-2 py-1 bg-surface-container-low border border-border-base rounded text-[11px] text-on-surface-variant">Pepperjack (+$1.00)</span>
+</div>
+</div>
+<!-- Addon Group Card -->
+<div class="p-4 rounded-xl bg-white border border-border-base">
+<div class="flex justify-between items-start mb-2">
+<div>
+<div class="text-label-md font-label-md text-on-background">Burger Extras</div>
+<div class="text-label-sm font-label-sm text-outline">Choose unlimited • Optional</div>
+</div>
+<button class="text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">link_off</span></button>
+</div>
+<div class="flex flex-wrap gap-2 mt-3">
+<span class="inline-flex px-2 py-1 bg-surface-container-low border border-border-base rounded text-[11px] text-on-surface-variant">Bacon (+$2.50)</span>
+<span class="inline-flex px-2 py-1 bg-surface-container-low border border-border-base rounded text-[11px] text-on-surface-variant">Extra Pickles (+$0.00)</span>
+<span class="inline-flex px-2 py-1 bg-surface-container-low border border-border-base rounded text-[11px] text-on-surface-variant">Fried Egg (+$1.50)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Insights Block -->
+<div class="p-4 rounded-xl bg-ai-accent/30 border border-secondary/20 flex gap-3 mb-4">
+<span class="material-symbols-outlined text-secondary mt-0.5">psychology</span>
+<div>
+<h5 class="text-label-md font-label-md text-secondary mb-1">AI Pricing Insight</h5>
+<p class="text-body-sm font-body-sm text-secondary/80">Similar items in your region are priced between $15.00 and $18.00. Consider raising the base price to improve margins without affecting order volume.</p>
+</div>
+</div>
+</div>
+<!-- Drawer Footer -->
+<div class="p-4 border-t border-border-base bg-surface-subtle flex gap-3 shrink-0">
+<button class="flex-1 py-2 bg-white border border-border-base rounded-lg text-label-md font-label-md text-on-surface hover:bg-surface-container-low transition-colors" onclick="toggleDrawer(false)">Close</button>
+<button class="flex-1 py-2 bg-primary rounded-lg text-label-md font-label-md text-white hover:bg-primary-container transition-colors shadow-sm">Edit Item</button>
+</div>
+</aside>
+<script>
+        function toggleDrawer(open) {
+            const drawer = document.getElementById('item-drawer');
+            const overlay = document.getElementById('drawer-overlay');
+            const mainScroll = document.getElementById('main-scroll-area');
+            
+            if (open) {
+                overlay.classList.remove('hidden');
+                // tiny delay for transition to apply after display:block
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    drawer.classList.remove('translate-x-full');
+                }, 10);
+                mainScroll.style.overflow = 'hidden'; // prevent background scrolling
+            } else {
+                overlay.classList.add('opacity-0');
+                drawer.classList.add('translate-x-full');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300); // match duration
+                mainScroll.style.overflow = 'auto';
+            }
+        }
+    </script>
+</body></html>

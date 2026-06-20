@@ -56,7 +56,7 @@ export class UserController {
         return;
       }
 
-      const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId } = req.body;
+      const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId, outletIds } = req.body;
 
       // Validate required fields
       if (!firstName || !lastName || !email || !password || !role) {
@@ -114,6 +114,15 @@ export class UserController {
         return;
       }
 
+      if (outletIds && Array.isArray(outletIds)) {
+        for (const id of outletIds) {
+          if (!Types.ObjectId.isValid(id)) {
+            ApiResponseHandler.badRequest(res, 'Invalid outletId format in outletIds');
+            return;
+          }
+        }
+      }
+
       const userData = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -124,6 +133,7 @@ export class UserController {
         status: status || UserStatus.ACTIVE,
         restaurantId,
         outletId,
+        outletIds,
       };
 
       const user = await UserService.createUser(
@@ -145,9 +155,11 @@ export class UserController {
         role: user.role,
         restaurantId: user.restaurantId,
         outletId: user.outletId,
+        outletIds: user.outletIds,
         pendingRole: user.pendingRole,
         pendingRestaurantId: user.pendingRestaurantId,
         pendingOutletId: user.pendingOutletId,
+        pendingOutletIds: user.pendingOutletIds,
         invitationAccepted: user.invitationAccepted,
         status: user.status,
         createdAt: user.createdAt,
@@ -210,11 +222,17 @@ export class UserController {
           role: user.role,
           restaurantId: user.restaurantId,
           outletId: user.outletId,
+          outletIds: user.outletIds,
           pendingRole: user.pendingRole,
           pendingRestaurantId: user.pendingRestaurantId,
           pendingOutletId: user.pendingOutletId,
+          pendingOutletIds: user.pendingOutletIds,
           invitationAccepted: user.invitationAccepted,
           status: user.status,
+          profileImage: user.profileImage,
+          address: user.address,
+          idProof: user.idProof,
+          idProofStatus: user.idProofStatus,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         })),
@@ -263,11 +281,17 @@ export class UserController {
         role: user.role,
         restaurantId: user.restaurantId,
         outletId: user.outletId,
+        outletIds: user.outletIds,
         pendingRole: user.pendingRole,
         pendingRestaurantId: user.pendingRestaurantId,
         pendingOutletId: user.pendingOutletId,
+        pendingOutletIds: user.pendingOutletIds,
         invitationAccepted: user.invitationAccepted,
         status: user.status,
+        profileImage: user.profileImage,
+        address: user.address,
+        idProof: user.idProof,
+        idProofStatus: user.idProofStatus,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });
@@ -293,7 +317,15 @@ export class UserController {
         return;
       }
 
-      const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId } = req.body;
+      const isSelfUpdate = id === req.user.userId;
+      const hasManagerPrivileges = [UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER].includes(req.user.role as UserRole);
+
+      if (!isSelfUpdate && !hasManagerPrivileges) {
+        ApiResponseHandler.forbidden(res, 'You do not have permission to update this user');
+        return;
+      }
+
+      const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId, outletIds, profileImage, address, idProof, idProofStatus } = req.body;
 
       // Validate inputs if provided
       if (firstName !== undefined && (typeof firstName !== 'string' || firstName.trim().length === 0 || firstName.length > 50)) {
@@ -326,7 +358,7 @@ export class UserController {
         return;
       }
 
-      if (role !== undefined && !RoleHierarchy.canManageRole(req.user.role as UserRole, role as UserRole)) {
+      if (role !== undefined && !isSelfUpdate && !RoleHierarchy.canManageRole(req.user.role as UserRole, role as UserRole)) {
         ApiResponseHandler.forbidden(res, 'You can only assign users a role below your own role');
         return;
       }
@@ -346,6 +378,15 @@ export class UserController {
         return;
       }
 
+      if (outletIds !== undefined && Array.isArray(outletIds)) {
+        for (const id of outletIds) {
+          if (!Types.ObjectId.isValid(id)) {
+            ApiResponseHandler.badRequest(res, 'Invalid outletId format in outletIds');
+            return;
+          }
+        }
+      }
+
       const updateData = {
         firstName,
         lastName,
@@ -356,6 +397,11 @@ export class UserController {
         status,
         restaurantId,
         outletId,
+        outletIds,
+        profileImage,
+        address,
+        idProof,
+        idProofStatus,
       };
 
       const user = await UserService.updateUser(
@@ -383,11 +429,17 @@ export class UserController {
         role: user.role,
         restaurantId: user.restaurantId,
         outletId: user.outletId,
+        outletIds: user.outletIds,
         pendingRole: user.pendingRole,
         pendingRestaurantId: user.pendingRestaurantId,
         pendingOutletId: user.pendingOutletId,
+        pendingOutletIds: user.pendingOutletIds,
         invitationAccepted: user.invitationAccepted,
         status: user.status,
+        profileImage: user.profileImage,
+        address: user.address,
+        idProof: user.idProof,
+        idProofStatus: user.idProofStatus,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });

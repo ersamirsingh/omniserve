@@ -9,6 +9,7 @@ import { RestaurantJoinRequestStatus, UserRole, UserStatus } from '../enums/enum
 import { EmailService } from './email.service.js';
 import { AuthService } from './auth.service.js';
 import { NotificationService } from './notification.service.js';
+import { UserService } from './user.service.js';
 import { NotificationType } from '../enums/enums.js';
 import { RoleHierarchy } from '../utils/roleHierarchy.utils.js';
 
@@ -105,6 +106,26 @@ export class RestaurantJoinRequestService {
 
     if (existingPending) {
       return { request: existingPending, emailSent: false, alreadyPending: true };
+    }
+
+    await UserService.ensureScopedRoleAvailable(
+      data.tenantId,
+      data.requestedRole,
+      data.restaurantId
+    );
+
+    if (data.requestedRole === UserRole.RESTAURANT_OWNER) {
+      const existingOwnerRequest = await RestaurantJoinRequest.findOne({
+        tenantId: new Types.ObjectId(data.tenantId),
+        restaurantId: new Types.ObjectId(data.restaurantId),
+        requestedRole: UserRole.RESTAURANT_OWNER,
+        status: RestaurantJoinRequestStatus.PENDING,
+        isDeleted: false,
+      });
+
+      if (existingOwnerRequest) {
+        throw new Error('This restaurant already has a pending restaurant owner invitation.');
+      }
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -271,6 +292,14 @@ export class RestaurantJoinRequestService {
     if (user && user.tenantId.toString() !== request.tenantId.toString()) {
       throw new Error('A user with this email already belongs to another tenant.');
     }
+
+    await UserService.ensureScopedRoleAvailable(
+      request.tenantId.toString(),
+      request.requestedRole,
+      request.restaurantId,
+      undefined,
+      user?._id.toString()
+    );
 
     if (!user) {
       if (!data.firstName || !data.lastName || !data.password) {

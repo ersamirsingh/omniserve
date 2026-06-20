@@ -5,6 +5,7 @@ export interface IUser extends Document {
   tenantId: Types.ObjectId;
   restaurantId?: Types.ObjectId | null;
   outletId?: Types.ObjectId | null;
+  outletIds?: Types.ObjectId[];
   firstName: string;
   lastName: string;
   email: string;
@@ -14,6 +15,7 @@ export interface IUser extends Document {
   pendingRole?: UserRole | null;
   pendingRestaurantId?: Types.ObjectId | null;
   pendingOutletId?: Types.ObjectId | null;
+  pendingOutletIds?: Types.ObjectId[];
   invitationLink?: string | null;
   invitationExpiresAt?: Date | null;
   invitationAccepted: boolean;
@@ -24,6 +26,10 @@ export interface IUser extends Document {
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
+  profileImage?: string | null;
+  address?: string | null;
+  idProof?: string | null;
+  idProofStatus?: string | null;
   // virtuals
   fullName: string;
 }
@@ -44,6 +50,10 @@ const userSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: 'Outlet',
       default: null,
+    },
+    outletIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Outlet' }],
+      default: [],
     },
     firstName: {
       type: String,
@@ -100,6 +110,10 @@ const userSchema = new Schema<IUser>(
       ref: 'Outlet',
       default: null,
     },
+    pendingOutletIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Outlet' }],
+      default: [],
+    },
     invitationLink: {
       type: String,
       trim: true,
@@ -139,6 +153,23 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    profileImage: {
+      type: String,
+      default: null,
+    },
+    address: {
+      type: String,
+      default: null,
+    },
+    idProof: {
+      type: String,
+      default: null,
+    },
+    idProofStatus: {
+      type: String,
+      enum: ['NONE', 'PENDING', 'VERIFIED', 'REJECTED'],
+      default: 'NONE',
+    },
   },
   {
     timestamps: true,
@@ -153,6 +184,50 @@ userSchema.index({ tenantId: 1, outletId: 1 });
 userSchema.index({ tenantId: 1, role: 1 });
 userSchema.index({ tenantId: 1, status: 1 });
 userSchema.index({ isDeleted: 1 });
+userSchema.index(
+  { tenantId: 1, restaurantId: 1, role: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      role: UserRole.RESTAURANT_OWNER,
+      isDeleted: false,
+      restaurantId: { $type: 'objectId' },
+    },
+  }
+);
+userSchema.index(
+  { tenantId: 1, pendingRestaurantId: 1, pendingRole: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      pendingRole: UserRole.RESTAURANT_OWNER,
+      isDeleted: false,
+      pendingRestaurantId: { $type: 'objectId' },
+    },
+  }
+);
+userSchema.index(
+  { tenantId: 1, outletId: 1, role: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      role: UserRole.OUTLET_MANAGER,
+      isDeleted: false,
+      outletId: { $type: 'objectId' },
+    },
+  }
+);
+userSchema.index(
+  { tenantId: 1, pendingOutletId: 1, pendingRole: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      pendingRole: UserRole.OUTLET_MANAGER,
+      isDeleted: false,
+      pendingOutletId: { $type: 'objectId' },
+    },
+  }
+);
 
 userSchema.virtual('fullName').get(function (this: IUser) {
   return `${this.firstName} ${this.lastName}`;

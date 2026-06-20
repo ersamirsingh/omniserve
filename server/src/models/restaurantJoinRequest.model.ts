@@ -164,6 +164,17 @@ restaurantJoinRequestSchema.index(
   { tenantId: 1, restaurantId: 1, email: 1, requestedRole: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: RestaurantJoinRequestStatus.PENDING, isDeleted: false } }
 );
+restaurantJoinRequestSchema.index(
+  { tenantId: 1, restaurantId: 1, requestedRole: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      requestedRole: UserRole.RESTAURANT_OWNER,
+      status: RestaurantJoinRequestStatus.PENDING,
+      isDeleted: false,
+    },
+  }
+);
 restaurantJoinRequestSchema.index({ expiresAt: 1 });
 restaurantJoinRequestSchema.index({ isDeleted: 1 });
 
