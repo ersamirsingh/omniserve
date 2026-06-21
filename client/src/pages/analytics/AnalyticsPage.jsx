@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
         title="Analytics"
         description="Live order and review metrics across the outlets you can access."
         actions={(
-          <div className="min-w-[240px]">
+          <div className="min-w-60">
             <Select
               id="analytics-outlet-filter"
               label="Outlet Scope"
