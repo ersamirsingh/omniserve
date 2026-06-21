@@ -30,7 +30,9 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
-    "redis": "^5.12.1"
+    "node-cron": "^4.4.1",
+    "redis": "^5.12.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
