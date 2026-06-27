@@ -60,6 +60,13 @@ export const routeComponents = {
   CheckoutPage: createLazyPage(() => import('../../pages/website/CheckoutPage')),
   OrderSuccessPage: createLazyPage(() => import('../../pages/website/OrderSuccessPage')),
   OrderTrackingPage: createLazyPage(() => import('../../pages/website/OrderTrackingPage')),
+  DineInDashboardPage: createLazyPage(() => import('../../pages/dinein/DineInDashboardPage')),
+  DineInFloorPage: createLazyPage(() => import('../../pages/dinein/DineInFloorPage')),
+  DineInSessionsPage: createLazyPage(() => import('../../pages/dinein/DineInSessionsPage')),
+  DineInReservationsPage: createLazyPage(() => import('../../pages/dinein/DineInReservationsPage')),
+  DineInOrdersPage: createLazyPage(() => import('../../pages/dinein/DineInOrdersPage')),
+  DineInAssistancePage: createLazyPage(() => import('../../pages/dinein/DineInAssistancePage')),
+  DineInBillingPage: createLazyPage(() => import('../../pages/dinein/DineInBillingPage')),
 };
 
 export const authRoutes = [
@@ -89,6 +96,13 @@ export const dashboardRoutes = [
   { path: '/integrations/mappings', title: 'Integrations', component: routeComponents.MappingReviewPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
   { path: '/integrations/dev', title: 'Integrations', component: routeComponents.DeveloperCockpitPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Developer Sandbox', icon: HiOutlineCog6Tooth } },
   { path: '/inventory', title: 'Inventory', component: routeComponents.InventoryPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER, STAFF], nav: { section: 'Operations', label: 'Inventory', icon: HiOutlineCube } },
+  { path: '/dine-in/dashboard', title: 'Dine-In Dashboard', component: routeComponents.DineInDashboardPage, roles: 'all', nav: { section: 'Dine In', label: 'Dashboard', icon: HiOutlineHome } },
+  { path: '/dine-in/floor', title: 'Live Floor', component: routeComponents.DineInFloorPage, roles: 'all', nav: { section: 'Dine In', label: 'Floor', icon: HiOutlineSquares2X2 } },
+  { path: '/dine-in/sessions', title: 'Dine-In Sessions', component: routeComponents.DineInSessionsPage, roles: 'all', nav: { section: 'Dine In', label: 'Sessions', icon: HiOutlineClipboardDocumentList } },
+  { path: '/dine-in/reservations', title: 'Reservations', component: routeComponents.DineInReservationsPage, roles: 'all', nav: { section: 'Dine In', label: 'Reservations', icon: HiOutlineMapPin } },
+  { path: '/dine-in/orders', title: 'Dine-In Orders', component: routeComponents.DineInOrdersPage, roles: 'all', nav: { section: 'Dine In', label: 'Orders', icon: HiOutlineShoppingCart } },
+  { path: '/dine-in/assistance', title: 'Assistance Queue', component: routeComponents.DineInAssistancePage, roles: 'all', nav: { section: 'Dine In', label: 'Assistance', icon: HiOutlineBell } },
+  { path: '/dine-in/billing', title: 'Dine-In Billing', component: routeComponents.DineInBillingPage, roles: 'all', nav: { section: 'Dine In', label: 'Billing', icon: HiOutlineCreditCard } },
 ];
 
 export const publicWebsiteRoutes = [
