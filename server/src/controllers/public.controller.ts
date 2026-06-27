@@ -141,13 +141,12 @@ export class PublicController {
       }
 
       // 4. Resolve or initialize QRSession for scan analytics funnel
-      let session = await QRSession.findOne({
-        tableId: table._id,
-        status: "OPEN",
-        isDeleted: false,
-      });
+      let session = null;
+      if (table.activeSessionId) {
+        session = await QRSession.findById(table.activeSessionId);
+      }
 
-      if (!session) {
+      if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
         session = await QRSession.create({
           tenantId: table.tenantId,
           outletId: table.outletId,
@@ -156,6 +155,8 @@ export class PublicController {
           openedAt: new Date(),
           menuViewedAt: new Date(),
         });
+        table.activeSessionId = session._id;
+        await table.save();
       } else if (!session.menuViewedAt) {
         session.menuViewedAt = new Date();
         await session.save();
@@ -262,13 +263,12 @@ export class PublicController {
       }
 
       // 2. Resolve or create active OPEN QRSession
-      let session = await QRSession.findOne({
-        tableId: table._id,
-        status: "OPEN",
-        isDeleted: false,
-      });
+      let session = null;
+      if (table.activeSessionId) {
+        session = await QRSession.findById(table.activeSessionId);
+      }
 
-      if (!session) {
+      if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
         session = await QRSession.create({
           tenantId: table.tenantId,
           outletId: table.outletId,
@@ -279,6 +279,8 @@ export class PublicController {
           checkoutStartedAt: new Date(),
           orderPlacedAt: new Date(),
         });
+        table.activeSessionId = session._id;
+        await table.save();
       } else {
         session.orderPlacedAt = new Date();
         if (!session.firstItemAddedAt) session.firstItemAddedAt = new Date();
@@ -433,7 +435,7 @@ export class PublicController {
 
   /**
    * POST /api/public/qr/assist
-   * Dispatches operational notification alerts for a table
+   * Dispatches operational notification alerts for a table via outbox events
    */
   static async requestQrAssistance(req: Request, res: Response): Promise<void> {
     try {
@@ -451,41 +453,70 @@ export class PublicController {
         return;
       }
 
-      // 2. Format title and alert message
+      // 2. Resolve or create active session
+      let session = await QRSession.findOne({
+        tableId: table._id,
+        status: { $in: ["OPEN", "ACTIVE", "ORDERING", "DINING", "PAYMENT_PENDING", "ORDERED"] },
+        isDeleted: false
+      });
+
+      if (!session) {
+        const joinCode = Math.floor(100000 + Math.random() * 900000).toString();
+        session = new QRSession({
+          tenantId: table.tenantId,
+          outletId: table.outletId,
+          tableId: table._id,
+          status: "ACTIVE",
+          joinCode,
+          openedAt: new Date(),
+          seatNumber: seatNumber || null
+        });
+        await session.save();
+
+        // Update table operational status to OCCUPIED
+        table.operationalStatus = "OCCUPIED";
+        await table.save();
+
+        // Publish table occupied event
+        await EventBusService.publishTableOccupied(
+          table.tenantId,
+          table.outletId,
+          table._id,
+          {
+            tableId: table._id.toString(),
+            tableNumber: table.tableNumber,
+            status: table.operationalStatus,
+            updatedAt: new Date()
+          },
+          { correlationId: session.sessionToken }
+        );
+      }
+
+      // 3. Construct event payload and publish QR_ASSISTANCE_REQUESTED outbox event
       const actionText = String(action).toUpperCase();
-      let alertMessage = `Table ${table.tableNumber}`;
-      if (seatNumber) {
-        alertMessage += ` (Seat ${seatNumber})`;
-      }
+      const payload = {
+        tenantId: table.tenantId.toString(),
+        outletId: table.outletId.toString(),
+        tableId: table._id.toString(),
+        sessionId: session._id.toString(),
+        assistanceType: actionText,
+        seatNumber: seatNumber || null,
+        createdAt: new Date()
+      };
 
-      let alertTitle = "Assistance Alert";
-      if (actionText === "CALL_WAITER") {
-        alertTitle = "Waiter Requested";
-        alertMessage += " requested waiter assistance.";
-      } else if (actionText === "WATER") {
-        alertTitle = "Water Requested";
-        alertMessage += " requested drinking water.";
-      } else if (actionText === "BILL") {
-        alertTitle = "Bill Requested";
-        alertMessage += " requested checkout bill.";
-      } else {
-        alertMessage += " requested general assistance.";
-      }
-
-      // 3. Dispatch alert to outlet staff/manager
-      await NotificationService.notifyOutletOperationalAlert(
-        table.tenantId.toString(),
-        table.outletId.toString(),
-        alertTitle,
-        alertMessage,
-        table._id.toString(),
-        "Table"
+      await EventBusService.publishQRAssistanceRequested(
+        table.tenantId,
+        table.outletId,
+        table._id,
+        payload,
+        { correlationId: session.sessionToken }
       );
 
-      ApiResponseHandler.success(res, 200, "Assistance alert dispatched successfully", {
+      ApiResponseHandler.success(res, 200, "Assistance request queued successfully", {
         tableNumber: table.tableNumber,
         action: actionText,
         seatNumber: seatNumber || null,
+        sessionId: session._id.toString()
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to request assistance");

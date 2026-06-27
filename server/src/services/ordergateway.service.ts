@@ -6,6 +6,7 @@ import ChannelVariantMapping from "../models/channelvariantmapping.model.js";
 import ExternalOrder, { IExternalOrder } from "../models/externalorder.model.js";
 import IntegrationEvent from "../models/integrationevent.model.js";
 import QRSession from "../models/qrsession.model.js";
+import Table from "../models/table.model.js";
 import {
   CanonicalOrder,
   CanonicalOrderAddon,
@@ -424,13 +425,12 @@ export class OrderGatewayService {
 
     let sessionId: string | undefined = undefined;
     if (canonicalOrder.fulfillment.tableId && Types.ObjectId.isValid(canonicalOrder.fulfillment.tableId)) {
-      const activeSession = await QRSession.findOne({
-        tableId: new Types.ObjectId(canonicalOrder.fulfillment.tableId),
-        status: "OPEN",
-        isDeleted: false,
-      });
-      if (activeSession) {
-        sessionId = activeSession._id.toString();
+      const table = await Table.findOne({ _id: new Types.ObjectId(canonicalOrder.fulfillment.tableId), isDeleted: false });
+      if (table && table.activeSessionId) {
+        const activeSession = await QRSession.findById(table.activeSessionId);
+        if (activeSession && activeSession.status !== "CLOSED" && activeSession.status !== "EXPIRED") {
+          sessionId = activeSession._id.toString();
+        }
       }
     }
 
