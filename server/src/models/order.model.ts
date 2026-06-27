@@ -29,6 +29,8 @@ export interface IOrder extends Document {
   cancelledAt: Date | null;
   cancellationReason?: string;
   notes?: string;
+  waiterId?: Types.ObjectId | null;
+  kitchenPriority?: 'NEW' | 'RUSH' | 'DELAYED' | 'CRITICAL' | 'VIP' | 'LARGE_PARTY' | 'HIGH_VALUE';
   diningContext?: IDiningContext | null;
   isSandbox?: boolean;
   sandboxVersion?: string;
@@ -126,6 +128,19 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       trim: true,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
+    },
+    waiterId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    kitchenPriority: {
+      type: String,
+      enum: {
+        values: ['NEW', 'RUSH', 'DELAYED', 'CRITICAL', 'VIP', 'LARGE_PARTY', 'HIGH_VALUE'],
+        message: 'Invalid kitchen priority: {VALUE}',
+      },
+      default: 'NEW',
     },
     createdBy: {
       type: Schema.Types.ObjectId,

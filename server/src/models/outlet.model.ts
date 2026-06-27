@@ -24,6 +24,7 @@ export interface IOutlet extends Document {
     coordinates: [number, number]; // [longitude, latitude]
   };
   operatingHours: IOperatingHours[];
+  waiterTaskSlas?: Map<string, number>;
   status: UserStatus;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
@@ -145,6 +146,19 @@ const outletSchema = new Schema<IOutlet>(
     operatingHours: {
       type: [operatingHoursSchema],
       default: [],
+    },
+    waiterTaskSlas: {
+      type: Map,
+      of: Number,
+      default: {
+        SERVE_FOOD: 180000,
+        WATER: 300000,
+        TISSUE: 300000,
+        SPOON: 300000,
+        BILL: 180000,
+        CLEANING: 600000,
+        CUSTOM: 300000
+      }
     },
     status: {
       type: String,

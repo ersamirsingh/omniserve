@@ -1,8 +1,17 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
+export interface IOrderTimelineAudit {
+  triggeredByType: 'CUSTOMER' | 'WAITER' | 'KITCHEN' | 'MANAGER' | 'SYSTEM' | 'PAYMENT';
+  triggeredById: Types.ObjectId;
+  sourceChannel: string;
+  traceId: string;
+  correlationId: string;
+}
+
 export interface IOrderTimeline extends Document {
   tenantId: Types.ObjectId;
-  orderId: Types.ObjectId;
+  orderId?: Types.ObjectId | null;
+  qrsessionId?: Types.ObjectId | null;
   status: string;
   timestamp: Date;
   sourceSystem: string;
@@ -10,6 +19,7 @@ export interface IOrderTimeline extends Document {
   isSandbox?: boolean;
   sandboxVersion?: string;
   sessionId?: Types.ObjectId | null;
+  audit?: IOrderTimelineAudit | null;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -25,7 +35,14 @@ const orderTimelineSchema = new Schema<IOrderTimeline>(
     orderId: {
       type: Schema.Types.ObjectId,
       ref: "Order",
-      required: [true, "Order is required"],
+      required: false,
+      default: null,
+    },
+    qrsessionId: {
+      type: Schema.Types.ObjectId,
+      ref: "QRSession",
+      required: false,
+      default: null,
     },
     status: {
       type: String,
@@ -57,6 +74,17 @@ const orderTimelineSchema = new Schema<IOrderTimeline>(
       type: Schema.Types.ObjectId,
       ref: "SimulationSession",
       default: null,
+    },
+    audit: {
+      triggeredByType: {
+        type: String,
+        enum: ['CUSTOMER', 'WAITER', 'KITCHEN', 'MANAGER', 'SYSTEM', 'PAYMENT'],
+        required: false,
+      },
+      triggeredById: { type: Schema.Types.ObjectId, required: false },
+      sourceChannel: { type: String, required: false },
+      traceId: { type: String, required: false },
+      correlationId: { type: String, required: false },
     },
     isDeleted: {
       type: Boolean,

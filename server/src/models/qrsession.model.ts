@@ -1,6 +1,15 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 import crypto from 'crypto';
 
+export interface IQRSessionSeat {
+  seatNumber: string;
+  customerId?: Types.ObjectId | null;
+  joinedAt: Date;
+  deviceToken?: string;
+}
+
+export type QRSessionStatus = 'ACTIVE' | 'ORDERING' | 'DINING' | 'PAYMENT_PENDING' | 'CLOSED' | 'EXPIRED' | 'OPEN' | 'ORDERED' | 'PAID';
+
 export interface IQRSession extends Document {
   tenantId: Types.ObjectId;
   outletId: Types.ObjectId;
@@ -8,7 +17,12 @@ export interface IQRSession extends Document {
   sessionToken: string;
   customerId?: Types.ObjectId | null;
   seatNumber?: string;
-  status: 'OPEN' | 'ORDERED' | 'PAID' | 'CLOSED';
+  status: QRSessionStatus;
+  joinCode?: string;
+  qrRefreshToken?: string;
+  qrRefreshTimestamp?: Date | null;
+  seats: IQRSessionSeat[];
+  waiterId?: Types.ObjectId | null;
   openedAt: Date;
   closedAt?: Date | null;
   menuViewedAt?: Date | null;
@@ -54,10 +68,35 @@ const qrSessionSchema = new Schema<IQRSession>(
     status: {
       type: String,
       enum: {
-        values: ['OPEN', 'ORDERED', 'PAID', 'CLOSED'],
+        values: ['ACTIVE', 'ORDERING', 'DINING', 'PAYMENT_PENDING', 'CLOSED', 'EXPIRED', 'OPEN', 'ORDERED', 'PAID'],
         message: 'Invalid session status: {VALUE}',
       },
-      default: 'OPEN',
+      default: 'ACTIVE',
+    },
+    joinCode: {
+      type: String,
+      trim: true,
+    },
+    qrRefreshToken: {
+      type: String,
+      trim: true,
+    },
+    qrRefreshTimestamp: {
+      type: Date,
+      default: null,
+    },
+    seats: [
+      {
+        seatNumber: { type: String, required: true },
+        customerId: { type: Schema.Types.ObjectId, ref: 'Customer', default: null },
+        joinedAt: { type: Date, default: Date.now },
+        deviceToken: { type: String, default: null },
+      },
+    ],
+    waiterId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     openedAt: {
       type: Date,

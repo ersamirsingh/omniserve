@@ -1,6 +1,8 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 import crypto from 'crypto';
 
+export type TableOperationalStatus = 'AVAILABLE' | 'RESERVED' | 'OCCUPIED' | 'ORDERING' | 'DINING' | 'BILL_REQUESTED' | 'PAYMENT_PENDING' | 'CLEANING';
+
 export interface ITable extends Document {
   tenantId: Types.ObjectId;
   outletId: Types.ObjectId;
@@ -9,6 +11,21 @@ export interface ITable extends Document {
   seatCount: number;
   qrToken: string;
   status: 'ACTIVE' | 'INACTIVE';
+  operationalStatus: TableOperationalStatus;
+  activeSessionId?: Types.ObjectId | null;
+  lastSessionId?: Types.ObjectId | null;
+  layout?: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    rotation?: number;
+    shape?: 'ROUND' | 'RECTANGLE' | 'SQUARE' | 'round' | 'rectangle' | 'square';
+    zIndex?: number;
+    labelPosition?: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT' | 'CENTER';
+  };
+  isMerged?: boolean;
+  mergedWithTableIds?: Types.ObjectId[];
   metadata?: {
     floor?: string;
     notes?: string;
@@ -58,6 +75,52 @@ const tableSchema = new Schema<ITable>(
       },
       default: 'ACTIVE',
     },
+    operationalStatus: {
+      type: String,
+      enum: {
+        values: ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'ORDERING', 'DINING', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'CLEANING'],
+        message: 'Invalid operational status: {VALUE}',
+      },
+      default: 'AVAILABLE',
+    },
+    activeSessionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'QRSession',
+      default: null,
+    },
+    lastSessionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'QRSession',
+      default: null,
+    },
+    layout: {
+      x: { type: Number, default: 0 },
+      y: { type: Number, default: 0 },
+      width: { type: Number, default: 100 },
+      height: { type: Number, default: 100 },
+      rotation: { type: Number, default: 0 },
+      shape: {
+        type: String,
+        enum: ['ROUND', 'RECTANGLE', 'SQUARE', 'round', 'rectangle', 'square'],
+        default: 'SQUARE',
+      },
+      zIndex: { type: Number, default: 0 },
+      labelPosition: {
+        type: String,
+        enum: ['TOP', 'BOTTOM', 'LEFT', 'RIGHT', 'CENTER'],
+        default: 'CENTER',
+      },
+    },
+    isMerged: {
+      type: Boolean,
+      default: false,
+    },
+    mergedWithTableIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Table',
+      },
+    ],
     metadata: {
       floor: { type: String, trim: true },
       notes: { type: String, trim: true },
