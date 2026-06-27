@@ -24,6 +24,7 @@ import { OrderGatewayService } from "../services/ordergateway.service.js";
 import { EventBusService } from "../services/event-bus.service.js";
 import { IntegrationProvider } from "../types/integration.type.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
+import { RealtimeService } from "../services/realtime.service.js";
 
 export class PublicController {
   /**
@@ -1399,6 +1400,71 @@ export class PublicController {
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to process reorder");
+    }
+  }
+
+  /**
+   * GET /api/public/qr/resolve/:tableToken
+   * Resolves table by QR token, creates/joins active QRSession, sets table to OCCUPIED,
+   * and returns outlet slug & session details.
+   */
+  static async resolveQrCode(req: Request, res: Response): Promise<void> {
+    try {
+      const { tableToken } = req.params;
+
+      const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
+      if (!table || table.status !== "ACTIVE") {
+        ApiResponseHandler.notFound(res, "Table not found or is currently inactive");
+        return;
+      }
+
+      const outlet = await Outlet.findOne({ _id: table.outletId, isDeleted: false });
+      if (!outlet) {
+        ApiResponseHandler.notFound(res, "Outlet not found");
+        return;
+      }
+
+      let session = null;
+      if (table.activeSessionId) {
+        session = await QRSession.findById(table.activeSessionId);
+      }
+
+      if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
+        session = await QRSession.create({
+          tenantId: table.tenantId,
+          outletId: table.outletId,
+          tableId: table._id,
+          status: "ACTIVE",
+          openedAt: new Date(),
+          menuViewedAt: new Date(),
+          seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }]
+        });
+        table.activeSessionId = session._id;
+      }
+
+      table.operationalStatus = "OCCUPIED";
+      await table.save();
+
+      const io = RealtimeService.getIO();
+      if (io) {
+        io.to(table.outletId.toString()).emit("TABLE_STATUS_CHANGED", {
+          tableId: table._id.toString(),
+          operationalStatus: "OCCUPIED"
+        });
+      }
+
+      ApiResponseHandler.success(res, 200, "QR Code resolved successfully", {
+        outletSlug: outlet.slug,
+        tenantId: table.tenantId.toString(),
+        outletId: table.outletId.toString(),
+        tableId: table._id.toString(),
+        tableNumber: table.tableNumber,
+        sessionToken: session.sessionToken,
+        sessionId: session._id.toString()
+      });
+    } catch (error: any) {
+      console.error("[PublicController] resolveQrCode error:", error);
+      ApiResponseHandler.internalError(res, error.message || "Failed to resolve QR Code");
     }
   }
 }

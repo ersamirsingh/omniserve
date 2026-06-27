@@ -14,6 +14,7 @@ export interface ICreateReservationInput {
   customerId?: string;
   specialRequests?: string;
   notes?: string;
+  seatNumber?: string;
   createdBy?: Types.ObjectId;
 }
 
@@ -75,6 +76,7 @@ export class ReservationService {
       ...(input.customerId && { customerId: new Types.ObjectId(input.customerId) }),
       ...(input.specialRequests && { specialRequests: input.specialRequests }),
       ...(input.notes && { notes: input.notes }),
+      ...(input.seatNumber && { seatNumber: input.seatNumber }),
       ...(input.createdBy && { createdBy: input.createdBy })
     });
 

@@ -29,3 +29,12 @@ export const checkoutCartApi = (data) =>
 
 export const trackOrderApi = (orderId) =>
   api.get(`/public/orders/track/${orderId}`);
+
+export const resolveQrCodeApi = (tableToken) =>
+  api.get(`/public/qr/resolve/${tableToken}`);
+
+export const requestQrAssistanceApi = (data) =>
+  api.post("/public/qr/assist", data);
+
+export const placeQrOrderApi = (data) =>
+  api.post("/public/qr/orders", data);

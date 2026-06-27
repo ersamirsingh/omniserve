@@ -178,10 +178,11 @@ export default function WaiterConsole() {
                       {task.taskType}
                     </span>
                     <h4 className="text-[14px] font-bold text-on-background mt-0.5">
-                      Table {task.metadata?.tableNumber || 'N/A'}
+                      Table {task.tableId?.tableNumber || task.metadata?.tableNumber || 'N/A'} 
+                      { (task.tableId?.diningAreaId?.name || task.metadata?.diningAreaName) && ` • ${task.tableId?.diningAreaId?.name || task.metadata?.diningAreaName}` }
                     </h4>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                       task.priority === 'CRITICAL' || task.priority === 'HIGH'
                         ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
@@ -192,13 +193,23 @@ export default function WaiterConsole() {
                   </div>
                 </div>
 
-                <p className="text-[12px] text-on-surface-variant dark:text-zinc-400 line-clamp-2">
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-450 space-y-0.5">
+                  <p className="truncate">Session: <span className="font-mono text-[10px] bg-zinc-50 dark:bg-zinc-900 px-1 py-0.5 rounded border border-border-base/50 dark:border-zinc-800">{task.sessionId || 'N/A'}</span></p>
+                  {task.seatNumber && <p>Seat: <span className="font-semibold text-on-surface">{task.seatNumber}</span></p>}
+                  <p>Waiter: <span className="font-semibold text-on-surface">
+                    {task.assignedWaiterId 
+                      ? `${task.assignedWaiterId.firstName} ${task.assignedWaiterId.lastName || ''}`.trim()
+                      : 'Unassigned'}
+                  </span></p>
+                </div>
+
+                <p className="text-[12px] text-on-surface-variant dark:text-zinc-400 line-clamp-1">
                   {task.metadata?.notes || `Assistance request of type ${task.taskType}.`}
                 </p>
               </div>
 
               {/* Middle Row: Progress and SLA */}
-              <div className="my-3.5">
+              <div className="my-2.5">
                 <SLAProgressBar task={task} />
               </div>
 

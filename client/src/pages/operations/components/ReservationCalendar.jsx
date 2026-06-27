@@ -16,22 +16,29 @@ export default function ReservationCalendar() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('ALL');
 
+  const getLocalDateTimeString = () => {
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    return (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+  };
+
   // New reservation form state
   const [newResModal, setNewResModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [form, setForm] = useState({
     guestName: '',
     guestPhone: '',
     guestEmail: '',
     partySize: 2,
-    scheduledAt: '',
+    scheduledAt: getLocalDateTimeString(),
     tableId: '',
+    seatNumber: '',
     notes: ''
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (targetDate = selectedDate) => {
     try {
       const [resResponse, tablesResponse] = await Promise.all([
-        getReservationsApi({ date: new Date().toISOString().split('T')[0] }),
+        getReservationsApi({ date: targetDate }),
         getTablesApi()
       ]);
       setReservations(resResponse.data?.data?.reservations || []);
@@ -41,11 +48,11 @@ export default function ReservationCalendar() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [selectedDate, addToast]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(selectedDate);
+  }, [selectedDate, fetchData]);
 
   // Handle WebSocket updates
   useEffect(() => {
@@ -55,9 +62,9 @@ export default function ReservationCalendar() {
     // Simple refresh on reservation events
     const reservationEvents = ['TABLE_RESERVED', 'TABLE_AVAILABLE', 'TABLE_OCCUPIED'];
     if (reservationEvents.includes(event)) {
-      fetchData();
+      fetchData(selectedDate);
     }
-  }, [lastMessage, fetchData]);
+  }, [lastMessage, selectedDate, fetchData]);
 
   const handleAction = async (id, action, params = {}) => {
     try {
@@ -90,11 +97,12 @@ export default function ReservationCalendar() {
         guestPhone: '',
         guestEmail: '',
         partySize: 2,
-        scheduledAt: '',
+        scheduledAt: getLocalDateTimeString(),
         tableId: '',
+        seatNumber: '',
         notes: ''
       });
-      fetchData();
+      fetchData(selectedDate);
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to create reservation', 'error');
     }
@@ -112,21 +120,30 @@ export default function ReservationCalendar() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        {/* Status filters */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2">
-          {['ALL', 'PENDING', 'CONFIRMED', 'SEATED', 'COMPLETED', 'NO_SHOW', 'CANCELLED'].map(status => (
-            <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-3.5 py-2 rounded-lg text-[12px] font-bold cursor-pointer transition-all ${
-                filterStatus === status
-                  ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-md'
-                  : 'bg-white text-on-surface-variant border border-border-base hover:bg-surface-container-low dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-900'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+        {/* Status and Date filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex gap-1.5 overflow-x-auto">
+            {['ALL', 'PENDING', 'CONFIRMED', 'SEATED', 'COMPLETED', 'NO_SHOW', 'CANCELLED'].map(status => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-3.5 py-2 rounded-lg text-[12px] font-bold cursor-pointer transition-all ${
+                  filterStatus === status
+                    ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-md'
+                    : 'bg-white text-on-surface-variant border border-border-base hover:bg-surface-container-low dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-900'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
+          <input 
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-3.5 py-1.5 bg-white border border-border-base rounded-lg text-[12px] font-bold dark:bg-zinc-950 dark:border-zinc-900 text-on-surface outline-hidden"
+          />
         </div>
         <Button size="sm" variant="primary" className="flex items-center gap-1" onClick={() => setNewResModal(true)}>
           <HiOutlinePlus /> New Booking
@@ -259,7 +276,7 @@ export default function ReservationCalendar() {
                 <label className="text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide">Assign Table (Optional)</label>
                 <select
                   value={form.tableId}
-                  onChange={(e) => setForm(prev => ({ ...prev, tableId: e.target.value }))}
+                  onChange={(e) => setForm(prev => ({ ...prev, tableId: e.target.value, seatNumber: '' }))}
                   className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2 text-xs text-on-background"
                 >
                   <option value="">Choose Available Table</option>
@@ -268,6 +285,27 @@ export default function ReservationCalendar() {
                   ))}
                 </select>
               </div>
+              {form.tableId && (() => {
+                const selectedTableObj = tables.find(t => t._id === form.tableId);
+                const seatOptions = selectedTableObj
+                  ? Array.from({ length: selectedTableObj.seatCount }, (_, i) => `Seat ${i + 1}`)
+                  : [];
+                return (
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide">Assign Seat (Optional)</label>
+                    <select
+                      value={form.seatNumber}
+                      onChange={(e) => setForm(prev => ({ ...prev, seatNumber: e.target.value }))}
+                      className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2 text-xs text-on-background"
+                    >
+                      <option value="">Choose Seat...</option>
+                      {seatOptions.map(seat => (
+                        <option key={seat} value={seat}>{seat}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border-base dark:border-zinc-900">

@@ -35,6 +35,7 @@ export interface IReservation extends Document {
   notes?: string;
   /** QR session created when guest is seated */
   sessionId?: Types.ObjectId | null;
+  seatNumber?: string | null;
   createdBy?: Types.ObjectId | null;
   updatedBy?: Types.ObjectId | null;
   isDeleted: boolean;
@@ -125,6 +126,11 @@ const reservationSchema = new Schema<IReservation>(
       type: Schema.Types.ObjectId,
       ref: 'QRSession',
       default: null,
+    },
+    seatNumber: {
+      type: String,
+      default: null,
+      trim: true,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

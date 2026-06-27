@@ -9,6 +9,9 @@ publicRouter.get("/o/:outletSlug/menu", PublicController.getPublicMenu);
 // Retrieve table-specific menu and scan details
 publicRouter.get("/o/:outletSlug/t/:tableToken/menu", PublicController.getTableSpecificMenu);
 
+// Resolve QR Code token directly (no outlet slug required)
+publicRouter.get("/qr/resolve/:tableToken", PublicController.resolveQrCode);
+
 // Place a QR order
 publicRouter.post("/qr/orders", PublicController.placeQrOrder);
 

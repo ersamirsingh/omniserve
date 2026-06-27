@@ -16,6 +16,9 @@ export default function FloorDesigner() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [draggingTable, setDraggingTable] = useState(null);
+  const [hasDragged, setHasDragged] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
 
   const fetchData = useCallback(async () => {
     try {
@@ -46,7 +49,10 @@ export default function FloorDesigner() {
   // Mouse handlers for layout dragging
   const handleDragStart = (e, table) => {
     e.preventDefault();
-    setSelectedTable(table);
+    setDraggingTable(table);
+    setHasDragged(false);
+    setDragStartPos({ x: e.clientX, y: e.clientY });
+
     const layout = table.layout || { x: 50, y: 50, width: 80, height: 80, rotation: 0, shape: 'square' };
     setDragOffset({
       x: e.clientX - layout.x,
@@ -55,13 +61,20 @@ export default function FloorDesigner() {
   };
 
   const handleDragMove = (e) => {
-    if (!selectedTable) return;
+    if (!draggingTable) return;
+
+    // Check distance threshold to set hasDragged
+    const dist = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
+    if (dist > 3) {
+      setHasDragged(true);
+    }
+
     const parentBounds = e.currentTarget.getBoundingClientRect();
-    const computedX = Math.max(0, Math.min(e.clientX - dragOffset.x, parentBounds.width - (selectedTable.layout?.width || 80)));
-    const computedY = Math.max(0, Math.min(e.clientY - dragOffset.y, parentBounds.height - (selectedTable.layout?.height || 80)));
+    const computedX = Math.max(0, Math.min(e.clientX - dragOffset.x, parentBounds.width - (draggingTable.layout?.width || 80)));
+    const computedY = Math.max(0, Math.min(e.clientY - dragOffset.y, parentBounds.height - (draggingTable.layout?.height || 80)));
 
     setTables(prev => prev.map(t => {
-      if (t._id === selectedTable._id) {
+      if (t._id === draggingTable._id) {
         return {
           ...t,
           layout: {
@@ -76,7 +89,17 @@ export default function FloorDesigner() {
   };
 
   const handleDragEnd = () => {
-    setSelectedTable(null);
+    if (!draggingTable) return;
+
+    if (!hasDragged) {
+      // Toggle select state on click
+      setSelectedTable(prev => (prev?._id === draggingTable._id ? null : draggingTable));
+    } else {
+      // Retain active selection on drag end
+      setSelectedTable(draggingTable);
+    }
+
+    setDraggingTable(null);
   };
 
   // Edit specific table properties in designer panel

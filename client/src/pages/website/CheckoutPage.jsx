@@ -21,7 +21,9 @@ export default function CheckoutPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   
-  const [fulfillmentType, setFulfillmentType] = useState("DELIVERY");
+  const [fulfillmentType, setFulfillmentType] = useState(
+    localStorage.getItem("sessionToken") ? "DINE_IN" : "DELIVERY"
+  );
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
   const [addressCity, setAddressCity] = useState("");
@@ -138,8 +140,10 @@ export default function CheckoutPage() {
       const res = await checkoutCartApi(payload);
       const orderId = res.data.data.processedOrder.internalOrderId;
       
-      // Clear sessionToken to start a fresh cart next time
-      localStorage.removeItem("sessionToken");
+      // Clear sessionToken only if not a dine-in QR session order
+      if (fulfillmentType !== "DINE_IN") {
+        localStorage.removeItem("sessionToken");
+      }
 
       navigate(`/public/w/${outletSlug}/order-success?orderId=${orderId}`);
     } catch (err) {

@@ -21,6 +21,13 @@ import {
 } from '../../api/models/integration.api';
 import { getTablesApi } from '../../api/models/operations.api';
 import { getPayload } from '../../utils/apiData';
+import { 
+  resolveQrCodeApi, 
+  getPublicMenuApi, 
+  createOrUpdateCartApi, 
+  checkoutCartApi,
+  getCartApi
+} from '../../api/models/public.api';
 import {
   HiOutlineBuildingStorefront,
   HiOutlineMapPin,
@@ -78,6 +85,13 @@ export default function DeveloperCockpit() {
   const [tables, setTables] = useState([]);
   const [selectedDineInTableId, setSelectedDineInTableId] = useState('');
   const [simulatingDineIn, setSimulatingDineIn] = useState(false);
+
+  // Guest QR simulation states
+  const [guestSession, setGuestSession] = useState(null);
+  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [guestMenu, setGuestMenu] = useState(null);
+  const [guestCart, setGuestCart] = useState(null);
+  const [guestLoading, setGuestLoading] = useState(false);
 
   // Fetch simulator sessions
   const fetchSimulatorSessions = useCallback(async () => {
@@ -314,6 +328,124 @@ export default function DeveloperCockpit() {
     } finally {
       setSimulatingDineIn(false);
     }
+  };
+
+  const handleInitializeGuestSession = async () => {
+    if (!selectedDineInTableId) {
+      addToast('Please select a target table to scan QR', 'warning');
+      return;
+    }
+    const tableObj = tables.find(t => t._id === selectedDineInTableId);
+    if (!tableObj) return;
+
+    try {
+      setGuestLoading(true);
+      // 1. Resolve QR token (joins or creates session and occupies table)
+      const resolveRes = await resolveQrCodeApi(tableObj.qrToken);
+      const sessionData = resolveRes.data.data;
+      setGuestSession(sessionData);
+
+      // Temporarily store session token in localStorage so axios interceptor automatically attaches it!
+      localStorage.setItem('sessionToken', sessionData.sessionToken);
+      localStorage.setItem('selectedOutletId', sessionData.outletId);
+
+      // 2. Fetch public menu for the outlet
+      const menuRes = await getPublicMenuApi(sessionData.outletSlug);
+      setGuestMenu(menuRes.data.data);
+
+      // 3. Fetch cart
+      const cartRes = await getCartApi();
+      setGuestCart(cartRes.data.data);
+
+      addToast(`QR Scan resolved! Guest session ${sessionData.sessionToken} opened on Table ${sessionData.tableNumber}.`, 'success');
+      fetchTables(selectedOutletId); // reload tables list to show OCCUPIED status
+    } catch (err) {
+      console.error(err);
+      addToast(err.response?.data?.message || 'Failed to resolve QR scan', 'error');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
+  const handleToggleSeat = (seat) => {
+    setSelectedSeats(prev => 
+      prev.includes(seat) ? prev.filter(s => s !== seat) : [...prev, seat]
+    );
+  };
+
+  const handleGuestAddToCart = async (item) => {
+    try {
+      setGuestLoading(true);
+      const sessionToken = localStorage.getItem('sessionToken');
+      const outletId = localStorage.getItem('selectedOutletId');
+      
+      const payload = {
+        sessionToken,
+        outletId,
+        item: {
+          menuItemId: item._id,
+          quantity: 1,
+          customizations: []
+        }
+      };
+
+      const res = await createOrUpdateCartApi(payload);
+      setGuestCart(res.data.data);
+      addToast(`Added ${item.name} to Guest Cart`, 'success');
+    } catch (err) {
+      console.error(err);
+      addToast(err.response?.data?.message || 'Failed to add item to cart', 'error');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
+  const handleCheckoutGuestOrder = async () => {
+    try {
+      setGuestLoading(true);
+      const payload = {
+        customerName: 'Guest Sim',
+        customerPhone: '9999999999',
+        customerEmail: 'guest@sim.com',
+        fulfillment: {
+          type: 'DINE_IN',
+          dineInDetails: {
+            tableNumber: guestSession.tableNumber,
+            seats: selectedSeats.length > 0 ? selectedSeats : ['Seat 1']
+          }
+        },
+        payment: {
+          method: 'COD',
+          amount: guestCart.subtotal + (guestCart.tax || 0)
+        }
+      };
+
+      const res = await checkoutCartApi(payload);
+      const order = res.data.data.processedOrder;
+      addToast(`Guest order placed! Order ID: ${order.internalOrderId}`, 'success');
+      
+      // Reset guest states
+      setGuestCart(null);
+      setSelectedSeats([]);
+      
+      // Reload admin dashboard
+      fetchLiveLists(selectedOutletId);
+      fetchTables(selectedOutletId);
+    } catch (err) {
+      console.error(err);
+      addToast(err.response?.data?.message || 'Failed to place guest order', 'error');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
+  const handleClearGuestSession = () => {
+    localStorage.removeItem('sessionToken');
+    setGuestSession(null);
+    setGuestMenu(null);
+    setGuestCart(null);
+    setSelectedSeats([]);
+    addToast('Guest simulator session cleared from active sandbox browser memory.', 'info');
   };
 
   const handleRunSmokeTest = () => 
@@ -912,39 +1044,159 @@ export default function DeveloperCockpit() {
               Simulate Dine-In Table Order
             </h3>
             
-            <form onSubmit={handleSimulateDineInOrder} className="space-y-3.5 text-xs font-semibold">
-              <div>
-                <label className="text-[10px] font-bold text-zinc-405 dark:text-zinc-650 block mb-1 uppercase">Target Table</label>
-                <select
-                  value={selectedDineInTableId}
-                  onChange={(e) => setSelectedDineInTableId(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-lg font-semibold text-on-surface dark:text-zinc-200 focus:outline-hidden"
-                >
-                  <option value="">Select Table...</option>
-                  {tables.map((t) => (
-                    <option key={t._id} value={t._id}>
-                      Table {t.tableNumber} (Seats: {t.seatCount}) - [{t.operationalStatus}]
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {!guestSession ? (
+              <div className="space-y-3.5 text-xs font-semibold">
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-405 dark:text-zinc-650 block mb-1 uppercase">Target Table</label>
+                  <select
+                    value={selectedDineInTableId}
+                    onChange={(e) => setSelectedDineInTableId(e.target.value)}
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-lg font-semibold text-on-surface dark:text-zinc-200 focus:outline-hidden"
+                  >
+                    <option value="">Select Table...</option>
+                    {tables.map((t) => (
+                      <option key={t._id} value={t._id}>
+                        Table {t.tableNumber} (Seats: {t.seatCount}) - [{t.operationalStatus}]
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <button
-                type="submit"
-                disabled={simulatingDineIn || !selectedDineInTableId}
-                className="w-full px-4 py-3 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-lg disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                {simulatingDineIn ? (
-                  <span className="animate-spin text-sm">🔄</span>
-                ) : (
-                  <HiOutlinePlay className="text-sm" />
-                )}
-                Place Mock Dine-In Order
-              </button>
-            </form>
-            <p className="text-[10px] text-zinc-400 mt-2 italic leading-relaxed">
-              * Note: If the selected table is not occupied, this will automatically start a QR dining session, seat guest at Seat 1, place a mock order of 2 menu items, and route them to KDS.
-            </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSimulateDineInOrder}
+                    disabled={simulatingDineIn || !selectedDineInTableId}
+                    className="flex-1 px-3 py-2.5 bg-primary hover:bg-primary/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    {simulatingDineIn ? (
+                      <span className="animate-spin text-sm">🔄</span>
+                    ) : (
+                      <HiOutlinePlay className="text-sm" />
+                    )}
+                    Quick Order
+                  </button>
+
+                  <button
+                    onClick={handleInitializeGuestSession}
+                    disabled={guestLoading || !selectedDineInTableId}
+                    className="flex-1 px-3 py-2.5 bg-zinc-900 border border-zinc-850 hover:bg-zinc-850 text-white text-[11px] font-bold rounded-lg disabled:opacity-50 transition cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    {guestLoading ? (
+                      <span className="animate-spin text-sm">🔄</span>
+                    ) : (
+                      <span>📱 QR Scan</span>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-2 italic leading-relaxed font-normal">
+                  * Quick Order runs an instant mock dine-in session. QR Scan initiates a live guest micro-app session to test seat selection, menu browsing, cart updates and checkout using production customer APIs.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {/* Active Session details header */}
+                <div className="bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-850 rounded-lg p-3 flex justify-between items-center">
+                  <div>
+                    <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Active Guest QR Session</span>
+                    <h4 className="text-[13px] font-bold text-on-background mt-0.5">Table {guestSession.tableNumber}</h4>
+                    <p className="text-[9px] text-zinc-400 font-mono mt-0.5">SESS: {guestSession.sessionToken.substring(0, 14)}...</p>
+                  </div>
+                  <button
+                    onClick={handleClearGuestSession}
+                    className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-bold rounded border border-rose-500/20"
+                  >
+                    Clear Sim
+                  </button>
+                </div>
+
+                {/* Seat Selector checklist */}
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-405 dark:text-zinc-650 block mb-1.5 uppercase">Select Seated Guests</label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(() => {
+                      const selectedTableObj = tables.find(t => t._id === selectedDineInTableId);
+                      const totalSeats = selectedTableObj?.seatCount || 4;
+                      return Array.from({ length: totalSeats }, (_, i) => `Seat ${i + 1}`).map(seat => {
+                        const isSelected = selectedSeats.includes(seat);
+                        return (
+                          <button
+                            type="button"
+                            key={seat}
+                            onClick={() => handleToggleSeat(seat)}
+                            className={`px-2.5 py-1 rounded text-[10px] font-bold border transition ${
+                              isSelected 
+                                ? 'bg-primary text-white border-primary shadow-xs' 
+                                : 'bg-white border-border-base text-on-surface hover:bg-zinc-50 dark:bg-zinc-950 dark:border-zinc-800'
+                            }`}
+                          >
+                            {seat}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* Guest Cart details */}
+                <div className="border border-border-base dark:border-zinc-850 rounded-lg p-3 space-y-2 bg-zinc-50/50 dark:bg-zinc-900/30">
+                  <div className="flex justify-between items-center border-b border-border-base/50 dark:border-zinc-850 pb-1.5">
+                    <span className="text-[10px] uppercase font-bold text-zinc-455">Guest Shopping Cart</span>
+                    <span className="text-[10px] font-bold text-on-surface bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                      {guestCart?.items?.length || 0} items
+                    </span>
+                  </div>
+                  {(!guestCart?.items || guestCart.items.length === 0) ? (
+                    <p className="text-[10px] text-zinc-400 italic">Cart is empty. Add menu items below.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                      {guestCart.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[10px]">
+                          <span className="truncate max-w-[140px] text-on-surface-variant">{item.menuItemId?.name || 'Item'}</span>
+                          <span className="font-semibold">{item.quantity} x ₹{item.menuItemId?.price || 0}</span>
+                        </div>
+                      ))}
+                      <div className="pt-1.5 mt-1.5 border-t border-border-base/30 flex justify-between items-center font-bold text-[11px]">
+                        <span>Total (inc. tax):</span>
+                        <span>₹{(guestCart.subtotal * 1.05).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {guestCart?.items?.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleCheckoutGuestOrder}
+                      disabled={guestLoading}
+                      className="w-full mt-2 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[11px] font-bold rounded-lg transition"
+                    >
+                      {guestLoading ? 'Placing Order...' : 'Place Guest Order (Dine-In)'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Browse Menu List */}
+                <div className="space-y-2 border-t border-border-base/50 dark:border-zinc-850 pt-3">
+                  <label className="text-[10px] font-bold text-zinc-455 uppercase tracking-wider block">Browse Outlet Menu</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                    {guestMenu?.menuItems?.slice(0, 12).map((item) => (
+                      <div key={item._id} className="flex justify-between items-center bg-white dark:bg-zinc-950 p-2 rounded-lg border border-border-base/50 dark:border-zinc-800 text-[11px]">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p className="font-bold text-on-surface truncate">{item.name}</p>
+                          <p className="text-[10px] text-zinc-400">₹{item.price}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleGuestAddToCart(item)}
+                          disabled={guestLoading}
+                          className="px-2.5 py-1 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded text-[10px] font-bold border border-primary/25 transition cursor-pointer"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Traffic Simulator Form Card */}

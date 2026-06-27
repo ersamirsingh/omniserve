@@ -60,6 +60,7 @@ export const routeComponents = {
   CheckoutPage: createLazyPage(() => import('../../pages/website/CheckoutPage')),
   OrderSuccessPage: createLazyPage(() => import('../../pages/website/OrderSuccessPage')),
   OrderTrackingPage: createLazyPage(() => import('../../pages/website/OrderTrackingPage')),
+  QRRedirectPage: createLazyPage(() => import('../../pages/website/QRRedirectPage')),
   OperationsCockpitPage: createLazyPage(() => import('../../pages/operations/OperationsCockpit')),
 };
 
@@ -100,6 +101,7 @@ export const publicWebsiteRoutes = [
   { path: '/public/w/:outletSlug/checkout', component: routeComponents.CheckoutPage },
   { path: '/public/w/:outletSlug/order-success', component: routeComponents.OrderSuccessPage },
   { path: '/public/w/:outletSlug/track/:orderId', component: routeComponents.OrderTrackingPage },
+  { path: '/public/qr/:tableToken', component: routeComponents.QRRedirectPage },
 ];
 
 export function getPageTitle(pathname) {

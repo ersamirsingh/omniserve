@@ -19,7 +19,7 @@ export class ReservationController {
       const {
         outletId, guestName, partySize, scheduledAt,
         guestPhone, guestEmail, tableId, diningAreaId,
-        customerId, specialRequests, notes
+        customerId, specialRequests, notes, seatNumber
       } = req.body;
 
       if (!outletId || !guestName || !partySize || !scheduledAt) {
@@ -39,6 +39,7 @@ export class ReservationController {
         ...(customerId && { customerId }),
         ...(specialRequests && { specialRequests }),
         ...(notes && { notes }),
+        ...(seatNumber && { seatNumber }),
         ...(userId && { createdBy: userId })
       });
 

@@ -295,7 +295,18 @@ export class DiningOperationsController {
         tenantId,
         outletId,
         isDeleted: false
-      }).sort({ createdAt: -1 }).lean();
+      })
+      .populate({
+        path: "tableId",
+        select: "tableNumber diningAreaId",
+        populate: {
+          path: "diningAreaId",
+          select: "name"
+        }
+      })
+      .populate("assignedWaiterId", "firstName lastName email")
+      .sort({ createdAt: -1 })
+      .lean();
 
       ApiResponseHandler.success(res, 200, "Waiter tasks retrieved successfully", {
         count: tasks.length,

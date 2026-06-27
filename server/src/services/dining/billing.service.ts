@@ -403,13 +403,63 @@ export class BillingService {
     orders: any[];
     items: any[];
   }> {
-    const billSession = await BillSession.findOne({
+    let billSession = await BillSession.findOne({
       sessionId: new Types.ObjectId(sessionId),
       tenantId,
       isDeleted: false
     }).lean();
 
-    if (!billSession) throw new Error(`No bill session found for session ${sessionId}`);
+    if (!billSession) {
+      // Lazily create BillSession
+      const session = await QRSession.findOne({
+        _id: new Types.ObjectId(sessionId),
+        tenantId,
+        isDeleted: false
+      });
+      if (!session) {
+        throw new Error(`QR Session ${sessionId} not found`);
+      }
+
+      // Fetch all active orders for this session
+      const orders = await Order.find({
+        "diningContext.sessionId": session._id,
+        tenantId,
+        isDeleted: false
+      }).lean();
+
+      const orderIds = orders.map(o => o._id as Types.ObjectId);
+
+      // Compute totals from order items
+      const items = await OrderItem.find({
+        orderId: { $in: orderIds },
+        tenantId,
+        isDeleted: false
+      }).lean();
+
+      const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0);
+      const tax = orders.reduce((sum, o) => sum + (o.tax || 0), 0);
+      const totalAmount = subtotal + tax;
+
+      const newDoc = await BillSession.create({
+        tenantId,
+        outletId: session.outletId,
+        tableId: session.tableId,
+        sessionId: session._id,
+        orderIds,
+        subtotal,
+        tax,
+        discount: 0,
+        tip: 0,
+        totalAmount,
+        outstandingBalance: totalAmount,
+        status: "OPEN",
+        splitType: "NONE",
+        splits: [],
+        requestedAt: new Date()
+      });
+
+      billSession = newDoc.toObject() as any;
+    }
 
     const orders = await Order.find({
       "diningContext.sessionId": new Types.ObjectId(sessionId),

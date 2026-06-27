@@ -1411,6 +1411,8 @@ export class IntegrationController {
       const QRSession = mongoose.model("QRSession");
       const BillSession = mongoose.model("BillSession");
 
+      const OrderItem = mongoose.model("OrderItem");
+
       const [
         ordersDel,
         extOrdersDel,
@@ -1426,8 +1428,7 @@ export class IntegrationController {
         variantsDel,
         addonsDel,
         categoriesDel,
-        diningAreasDel,
-        tablesDel,
+        orderItemsDel,
         shiftsDel,
         reservationsDel,
         waiterTasksDel,
@@ -1449,14 +1450,21 @@ export class IntegrationController {
         Addon.deleteMany({ tenantId: tenantObjectId, menuItemId: { $in: sandboxMenuItemIds }, isSandbox: true }),
         Category.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
 
-        // Clear dining context models for clean sandbox slate
-        DiningArea.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
-        Table.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        // Clear sub-documents and details
+        OrderItem.deleteMany({ tenantId: tenantObjectId, orderId: { $in: sandboxOrderIds } }),
+
+        // Clear dining context transaction models
         Shift.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
         Reservation.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
         WaiterTask.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
         QRSession.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
-        BillSession.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId })
+        BillSession.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+
+        // Reset tables to available and clear active session mappings
+        Table.updateMany(
+          { tenantId: tenantObjectId, outletId: outletObjectId },
+          { $set: { operationalStatus: "AVAILABLE", activeSessionId: null, isMerged: false, mergedWithTableIds: [] } }
+        )
       ]);
 
       ApiResponseHandler.success(res, 200, "Sandbox development environment reset complete", {
@@ -1475,8 +1483,7 @@ export class IntegrationController {
           timelineRecords: timelineDel.deletedCount,
           eventQueue: queueDel.deletedCount,
           syncJobs: syncJobsDel.deletedCount,
-          diningAreas: diningAreasDel.deletedCount,
-          tables: tablesDel.deletedCount,
+          orderItems: orderItemsDel.deletedCount,
           shifts: shiftsDel.deletedCount,
           reservations: reservationsDel.deletedCount,
           waiterTasks: waiterTasksDel.deletedCount,
@@ -1716,7 +1723,7 @@ export class IntegrationController {
         deliveryFee: 0,
         discount: 0,
         totalAmount,
-        orderStatus: "PLACED",
+        orderStatus: "PENDING",
         paymentStatus: "PENDING",
         diningContext: {
           tableId: table._id,
