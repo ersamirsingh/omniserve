@@ -6,6 +6,7 @@ import QRSession from "../models/qrsession.model.js";
 import OrderTimeline from "../models/ordertimeline.model.js";
 import WaiterTask from "../models/waitertask.model.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
+import { resolveDiningContext } from "../utils/dining-helpers.js";
 
 export class DiningOperationsController {
   /**
@@ -15,8 +16,6 @@ export class DiningOperationsController {
   static async executeOperation(req: Request, res: Response): Promise<void> {
     try {
       const { operationType, payload } = req.body;
-      const tenantIdStr = String(req.user?.tenantId || req.body.tenantId || req.headers["x-tenant-id"] || "") as string;
-      const outletIdStr = String(req.user?.outletId || req.body.outletId || req.headers["x-outlet-id"] || "") as string;
       const triggeredById = req.user?.userId || req.body.triggeredById;
 
       if (!operationType || !payload) {
@@ -24,13 +23,7 @@ export class DiningOperationsController {
         return;
       }
 
-      if (!tenantIdStr || !outletIdStr) {
-        ApiResponseHandler.badRequest(res, "Tenant ID and Outlet ID are required context parameters");
-        return;
-      }
-
-      const tenantId = new Types.ObjectId(tenantIdStr);
-      const outletId = new Types.ObjectId(outletIdStr);
+      const { tenantId, outletId } = await resolveDiningContext(req);
 
       const result = await RestaurantOperationsService.executeOperation({
         tenantId,
@@ -54,19 +47,13 @@ export class DiningOperationsController {
   static async updateTablesLayout(req: Request, res: Response): Promise<void> {
     try {
       const { tables } = req.body;
-      const tenantIdStr = String(req.user?.tenantId || req.body.tenantId || req.headers["x-tenant-id"] || "") as string;
 
       if (!tables || !Array.isArray(tables)) {
         ApiResponseHandler.badRequest(res, "Missing or invalid tables array parameter");
         return;
       }
 
-      if (!tenantIdStr) {
-        ApiResponseHandler.badRequest(res, "Tenant ID is required context parameter");
-        return;
-      }
-
-      const tenantId = new Types.ObjectId(tenantIdStr);
+      const { tenantId } = await resolveDiningContext(req);
       const updatedTableIds: string[] = [];
 
       for (const tableData of tables) {
@@ -253,17 +240,11 @@ export class DiningOperationsController {
    */
   static async listTables(req: Request, res: Response): Promise<void> {
     try {
-      const tenantIdStr = String(req.user?.tenantId || req.query.tenantId || req.headers["x-tenant-id"] || "");
-      const outletIdStr = String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || "");
-
-      if (!tenantIdStr || !outletIdStr) {
-        ApiResponseHandler.badRequest(res, "Tenant ID and Outlet ID are required");
-        return;
-      }
+      const { tenantId, outletId } = await resolveDiningContext(req);
 
       const tables = await Table.find({
-        tenantId: new Types.ObjectId(tenantIdStr),
-        outletId: new Types.ObjectId(outletIdStr),
+        tenantId,
+        outletId,
         isDeleted: false
       }).lean();
 
@@ -283,19 +264,12 @@ export class DiningOperationsController {
    */
   static async listDiningAreas(req: Request, res: Response): Promise<void> {
     try {
-      const tenantIdStr = String(req.user?.tenantId || req.query.tenantId || req.headers["x-tenant-id"] || "");
-      const outletIdStr = String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || "");
+      const { tenantId, outletId } = await resolveDiningContext(req);
 
-      if (!tenantIdStr || !outletIdStr) {
-        ApiResponseHandler.badRequest(res, "Tenant ID and Outlet ID are required");
-        return;
-      }
-
-      // Check if DiningArea exists in models
       const DiningArea = mongoose.model("DiningArea");
       const areas = await DiningArea.find({
-        tenantId: new Types.ObjectId(tenantIdStr),
-        outletId: new Types.ObjectId(outletIdStr),
+        tenantId,
+        outletId,
         isDeleted: false
       }).sort({ displayOrder: 1 }).lean();
 
@@ -315,17 +289,11 @@ export class DiningOperationsController {
    */
   static async listWaiterTasks(req: Request, res: Response): Promise<void> {
     try {
-      const tenantIdStr = String(req.user?.tenantId || req.query.tenantId || req.headers["x-tenant-id"] || "");
-      const outletIdStr = String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || "");
-
-      if (!tenantIdStr || !outletIdStr) {
-        ApiResponseHandler.badRequest(res, "Tenant ID and Outlet ID are required");
-        return;
-      }
+      const { tenantId, outletId } = await resolveDiningContext(req);
 
       const tasks = await WaiterTask.find({
-        tenantId: new Types.ObjectId(tenantIdStr),
-        outletId: new Types.ObjectId(outletIdStr),
+        tenantId,
+        outletId,
         isDeleted: false
       }).sort({ createdAt: -1 }).lean();
 

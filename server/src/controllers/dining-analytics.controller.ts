@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { DiningAnalyticsService } from "../services/dining/dining-analytics.service.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
+import { resolveDiningContext } from "../utils/dining-helpers.js";
 
 export class DiningAnalyticsController {
   /**
@@ -11,8 +12,7 @@ export class DiningAnalyticsController {
    */
   static async getSummary(req: Request, res: Response): Promise<void> {
     try {
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || ""));
+      const { tenantId, outletId } = await resolveDiningContext(req);
 
       const rawFrom = req.query.from ? new Date(String(req.query.from)) : (() => {
         const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d;

@@ -15,6 +15,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers['x-session-token'] = token;
     }
+    const outletId = localStorage.getItem('selectedOutletId');
+    if (outletId) {
+      config.headers['x-outlet-id'] = outletId;
+    }
     return config;
   },
   (error) => Promise.reject(error)

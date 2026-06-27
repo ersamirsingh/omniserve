@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { ShiftService } from "../services/dining/shift.service.js";
 import { ShiftName } from "../models/shift.model.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
+import { resolveDiningContext } from "../utils/dining-helpers.js";
 
 export class ShiftController {
   /**
@@ -11,8 +12,7 @@ export class ShiftController {
    */
   static async openShift(req: Request, res: Response): Promise<void> {
     try {
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.body.outletId || req.headers["x-outlet-id"] || ""));
+      const { tenantId, outletId } = await resolveDiningContext(req);
       const userId = new Types.ObjectId(String(req.user?.userId || ""));
       const { shiftName } = req.body as { shiftName: ShiftName };
 
@@ -36,8 +36,7 @@ export class ShiftController {
   static async closeShift(req: Request, res: Response): Promise<void> {
     try {
       const shiftId = String(req.params.shiftId || "");
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.body.outletId || req.headers["x-outlet-id"] || ""));
+      const { tenantId, outletId } = await resolveDiningContext(req);
       const userId = new Types.ObjectId(String(req.user?.userId || ""));
       const { handoverNotes } = req.body as { handoverNotes?: string };
 
@@ -60,8 +59,7 @@ export class ShiftController {
    */
   static async getCurrentShift(req: Request, res: Response): Promise<void> {
     try {
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || ""));
+      const { tenantId, outletId } = await resolveDiningContext(req);
 
       const shift = await ShiftService.getCurrentShift(tenantId, outletId);
       ApiResponseHandler.success(res, 200, "Current shift retrieved", shift ?? null);
@@ -78,8 +76,7 @@ export class ShiftController {
    */
   static async getShiftHistory(req: Request, res: Response): Promise<void> {
     try {
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || ""));
+      const { tenantId, outletId } = await resolveDiningContext(req);
       const limit = Math.min(parseInt(String(req.query.limit || "20"), 10), 100);
 
       const history = await ShiftService.getShiftHistory(tenantId, outletId, limit);

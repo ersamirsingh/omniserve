@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { ReservationService } from "../services/dining/reservation.service.js";
 import { ReservationStatus } from "../models/reservation.model.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
+import { resolveDiningContext } from "../utils/dining-helpers.js";
 
 export class ReservationController {
   /**
@@ -13,7 +14,7 @@ export class ReservationController {
    */
   static async createReservation(req: Request, res: Response): Promise<void> {
     try {
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
+      const { tenantId } = await resolveDiningContext(req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
       const {
         outletId, guestName, partySize, scheduledAt,
@@ -54,8 +55,7 @@ export class ReservationController {
    */
   static async getReservations(req: Request, res: Response): Promise<void> {
     try {
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || ""));
+      const { tenantId, outletId } = await resolveDiningContext(req);
       const status = req.query.status as ReservationStatus | undefined;
       const tableId = req.query.tableId as string | undefined;
       const date = req.query.date ? new Date(String(req.query.date)) : undefined;
@@ -79,7 +79,7 @@ export class ReservationController {
   static async confirmReservation(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
+      const { tenantId } = await resolveDiningContext(req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
 
       if (!reservationId || !Types.ObjectId.isValid(reservationId)) {
@@ -102,7 +102,7 @@ export class ReservationController {
   static async seatReservation(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
+      const { tenantId } = await resolveDiningContext(req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
       const { tableId, sessionId } = req.body as { tableId?: string; sessionId?: string };
 
@@ -129,7 +129,7 @@ export class ReservationController {
   static async markNoShow(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
+      const { tenantId } = await resolveDiningContext(req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
 
       if (!reservationId || !Types.ObjectId.isValid(reservationId)) {
@@ -152,7 +152,7 @@ export class ReservationController {
   static async cancelReservation(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
-      const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
+      const { tenantId } = await resolveDiningContext(req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
       const { reason } = req.body as { reason?: string };
 
