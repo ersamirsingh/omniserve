@@ -108,7 +108,7 @@ export default function OperationsCockpit() {
 
       {/* Primary Subpage Workspace wrapper */}
       <div className="min-h-[500px]">
-        <ActiveComponent />
+        <ActiveComponent onNavigate={setActiveTab} />
       </div>
     </div>
   );

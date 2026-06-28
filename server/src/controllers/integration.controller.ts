@@ -1396,11 +1396,11 @@ export class IntegrationController {
       const outletObjectId = new Types.ObjectId(outletId);
 
       // Query for sandbox menu items to scope variant/addon deletions
-      const sandboxMenuItems = await MenuItem.find({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }).select("_id");
+      const sandboxMenuItems = await MenuItem.find({ tenantId: tenantObjectId, outletId: outletObjectId }).select("_id");
       const sandboxMenuItemIds = sandboxMenuItems.map(item => item._id);
 
       // Query for sandbox orders to scope order timeline deletions
-      const sandboxOrders = await Order.find({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }).select("_id");
+      const sandboxOrders = await Order.find({ tenantId: tenantObjectId, outletId: outletObjectId }).select("_id");
       const sandboxOrderIds = sandboxOrders.map(order => order._id);
 
       const DiningArea = mongoose.model("DiningArea");
@@ -1435,20 +1435,20 @@ export class IntegrationController {
         qrSessionsDel,
         billSessionsDel
       ] = await Promise.all([
-        Order.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        ExternalOrder.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        OrderTimeline.deleteMany({ tenantId: tenantObjectId, orderId: { $in: sandboxOrderIds }, isSandbox: true }),
-        IntegrationEventQueue.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        SyncJob.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        ChannelOutletMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        ChannelMenuItemMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        ChannelVariantMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        ChannelAddonMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        Inventory.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        MenuItem.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
-        Variant.deleteMany({ tenantId: tenantObjectId, menuItemId: { $in: sandboxMenuItemIds }, isSandbox: true }),
-        Addon.deleteMany({ tenantId: tenantObjectId, menuItemId: { $in: sandboxMenuItemIds }, isSandbox: true }),
-        Category.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId, isSandbox: true }),
+        Order.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        ExternalOrder.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        OrderTimeline.deleteMany({ tenantId: tenantObjectId, orderId: { $in: sandboxOrderIds } }),
+        IntegrationEventQueue.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        SyncJob.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        ChannelOutletMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        ChannelMenuItemMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        ChannelVariantMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        ChannelAddonMapping.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        Inventory.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        MenuItem.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
+        Variant.deleteMany({ tenantId: tenantObjectId, menuItemId: { $in: sandboxMenuItemIds } }),
+        Addon.deleteMany({ tenantId: tenantObjectId, menuItemId: { $in: sandboxMenuItemIds } }),
+        Category.deleteMany({ tenantId: tenantObjectId, outletId: outletObjectId }),
 
         // Clear sub-documents and details
         OrderItem.deleteMany({ tenantId: tenantObjectId, orderId: { $in: sandboxOrderIds } }),

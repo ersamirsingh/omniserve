@@ -302,8 +302,8 @@ export class CourseService {
     if (filters.holdStatus) {
       query.holdStatus = filters.holdStatus;
     } else {
-      // Default: show items that haven't been fired yet (pending KDS)
-      query.holdStatus = { $in: ["HELD", "FIRE_REQUESTED"] };
+      // Default: show all items active in KDS queue
+      query.holdStatus = { $in: ["HELD", "FIRE_REQUESTED", "FIRED"] };
     }
 
     if (filters.course) {

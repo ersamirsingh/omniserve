@@ -10,7 +10,7 @@ import {
   HiOutlineCheckCircle
 } from 'react-icons/hi2';
 
-export default function RestaurantOperationsDashboard() {
+export default function RestaurantOperationsDashboard({ onNavigate }) {
   const { lastMessage } = useSocket();
   const [stats, setStats] = useState({
     activeTables: 0,
@@ -117,6 +117,7 @@ export default function RestaurantOperationsDashboard() {
           description={`${stats.availableTables} Tables Available`}
           icon={HiOutlineTableCells}
           color="primary"
+          onClick={() => onNavigate && onNavigate('floor')}
         />
         <StatCard
           title="Pending Waiter Tasks"
@@ -124,6 +125,7 @@ export default function RestaurantOperationsDashboard() {
           description={`Waiter SLA: ${stats.waiterCompliance}%`}
           icon={HiOutlineClipboardDocumentList}
           color="warning"
+          onClick={() => onNavigate && onNavigate('waiters')}
         />
         <StatCard
           title="Orders In Prep / KDS"
@@ -131,6 +133,7 @@ export default function RestaurantOperationsDashboard() {
           description={`Kitchen SLA: ${stats.kdsCompliance}%`}
           icon={HiOutlineClock}
           color="info"
+          onClick={() => onNavigate && onNavigate('floor')}
         />
         <StatCard
           title="Unpaid / Waiting Bills"
@@ -138,6 +141,7 @@ export default function RestaurantOperationsDashboard() {
           description={`Active shift: ${stats.shiftName}`}
           icon={HiOutlineReceiptPercent}
           color="error"
+          onClick={() => onNavigate && onNavigate('billing')}
         />
       </div>
 

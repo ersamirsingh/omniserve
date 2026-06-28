@@ -365,15 +365,28 @@ export class OrderService {
         // 2. Pre-validate stock for all items
         const stockUpdates: Array<{ inventory: any; newQty: number; isLowStock: boolean }> = [];
         for (const item of items) {
-          const inventory = await Inventory.findOne({
+          let inventory: any = await Inventory.findOne({
             menuItemId: item.menuItemId,
             outletId: order.outletId,
             tenantId: order.tenantId,
             isDeleted: false,
           }).session(session);
 
-          if (!inventory || inventory.quantity < item.quantity) {
-            throw new Error(`Insufficient inventory for item: ${item.name}. Available: ${inventory ? inventory.quantity : 0}, Requested: ${item.quantity}`);
+          if (!inventory) {
+            const [newInventory] = await Inventory.create([{
+              tenantId: order.tenantId,
+              outletId: order.outletId,
+              menuItemId: item.menuItemId,
+              quantity: 100,
+              threshold: 10,
+              isLowStock: false,
+              isSandbox: true,
+            }], { session });
+            inventory = newInventory;
+          }
+
+          if (inventory.quantity < item.quantity) {
+            throw new Error(`Insufficient inventory for item: ${item.name}. Available: ${inventory.quantity}, Requested: ${item.quantity}`);
           }
 
           const newQty = inventory.quantity - item.quantity;
