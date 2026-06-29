@@ -183,7 +183,7 @@ export default function DineInBillingPage() {
 
               <div>
                 <h4 className="text-sm font-semibold text-on-surface dark:text-zinc-100">Line Items</h4>
-                <div className="mt-3 space-y-2 max-h-[240px] overflow-y-auto">
+                <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
                   {(selectedBill.lineItems || []).map((item, index) => (
                     <div key={`${item.orderItemId}-${index}`} className="flex items-center justify-between rounded-lg border border-border-base dark:border-zinc-800 px-3 py-2">
                       <div>
