@@ -14,7 +14,7 @@ const connectRedis = async (): Promise<ReturnType<typeof createClient>> => {
     }
 
     redisClient = createClient({
-      username: process.env.REDIS_USERNAME || 'default',
+      username: process.env.REDIS_USERNAME,
       password: process.env.REDIS_PASSWORD,
       socket: {
         host: process.env.REDIS_HOST,
