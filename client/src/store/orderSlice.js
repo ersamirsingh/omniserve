@@ -56,14 +56,36 @@ const orderSlice = createSlice({
         const payloadId = action.payload?.id || action.payload?._id;
         if (payloadId) {
           const idx = state.orders.findIndex((o) => (o.id || o._id) === payloadId);
-          if (idx !== -1) state.orders[idx] = action.payload;
+          if (idx !== -1) {
+            state.orders[idx] = {
+              ...state.orders[idx],
+              ...action.payload
+            };
+            if (state.selectedOrder && (state.selectedOrder.id || state.selectedOrder._id) === payloadId) {
+              state.selectedOrder = {
+                ...state.selectedOrder,
+                ...action.payload
+              };
+            }
+          }
         }
       })
       .addCase(cancelOrder.fulfilled, (state, action) => {
         const payloadId = action.payload?.id || action.payload?._id;
         if (payloadId) {
           const idx = state.orders.findIndex((o) => (o.id || o._id) === payloadId);
-          if (idx !== -1) state.orders[idx] = action.payload;
+          if (idx !== -1) {
+            state.orders[idx] = {
+              ...state.orders[idx],
+              ...action.payload
+            };
+            if (state.selectedOrder && (state.selectedOrder.id || state.selectedOrder._id) === payloadId) {
+              state.selectedOrder = {
+                ...state.selectedOrder,
+                ...action.payload
+              };
+            }
+          }
         }
       });
   },

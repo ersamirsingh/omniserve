@@ -46,8 +46,12 @@ export class ApiResponseHandler {
     return this.error(res, 404, message);
   }
 
-  static badRequest(res: Response, message = 'Bad request'): Response {
-    return this.error(res, 400, message);
+  static badRequest(res: Response, message = 'Bad request', data?: any): Response {
+    return res.status(400).json({
+      success: false,
+      message,
+      ...(data && { data }),
+    });
   }
 
   static internalError(

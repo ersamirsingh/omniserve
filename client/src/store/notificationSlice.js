@@ -4,7 +4,6 @@ import { listNotificationsApi, markReadApi, markAllReadApi } from '../api/models
 export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (params, { rejectWithValue }) => {
   try {
     const res = await listNotificationsApi(params);
-    // console.log(res.data.data)
     return res.data.data.notifications;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch notifications');

@@ -180,7 +180,7 @@ export default function CategoriesPage() {
           <Input id="cat-order" label="Display Order" type="number" min="0" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} required />
           {modal.mode === 'edit' && (
             <label className="flex items-center gap-3 text-sm font-semibold text-on-surface-variant dark:text-zinc-400">
-              <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="h-4 w-4 accent-primary rounded cursor-pointer" />
+              <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="checkbox checkbox-sm checkbox-primary h-4 w-4 cursor-pointer" />
               Active
             </label>
           )}

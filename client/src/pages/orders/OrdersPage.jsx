@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { fetchOrders, updateOrderStatus, cancelOrder } from '../../store/orderSlice';
 import { getOrderByIdApi } from '../../api/models/order.api';
 import Table from '../../components/ui/Table';
@@ -34,15 +35,52 @@ export default function OrdersPage() {
   const { orders, loading } = useSelector((s) => s.orders);
   const { addToast } = useToast();
   const [filter, setFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const orderIdParam = searchParams.get('orderId');
   
   // Details Modal State
   const [detailsModal, setDetailsModal] = useState({ open: false, orderId: null, data: null, loading: false });
   // Cancel Reason State
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: '' });
 
+  const loadOrderDetails = async (id) => {
+    setDetailsModal(prev => ({ ...prev, open: true, orderId: id, loading: true }));
+    try {
+      const response = await getOrderByIdApi(id);
+      setDetailsModal(prev => ({ ...prev, data: response?.data?.data, loading: false }));
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to load order details. The order may have been deleted or does not exist.', 'error');
+      setDetailsModal(prev => ({ ...prev, open: false, orderId: null, loading: false }));
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('orderId');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
+
+  const handleCloseDetails = () => {
+    setDetailsModal({ open: false, orderId: null, data: null, loading: false });
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('orderId');
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleViewDetails = (id) => {
+    setSearchParams({ orderId: id });
+  };
+
   useEffect(() => { 
     dispatch(fetchOrders()); 
   }, [dispatch]);
+
+  useEffect(() => {
+    if (orderIdParam) {
+      if (detailsModal.orderId !== orderIdParam) {
+        loadOrderDetails(orderIdParam);
+      }
+    } else if (detailsModal.open) {
+      setDetailsModal({ open: false, orderId: null, data: null, loading: false });
+    }
+  }, [orderIdParam, detailsModal.orderId, detailsModal.open]);
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -54,17 +92,6 @@ export default function OrdersPage() {
       }
     } catch (err) {
       addToast(err || 'Failed to update status', 'error');
-    }
-  };
-
-  const loadOrderDetails = async (id) => {
-    setDetailsModal(prev => ({ ...prev, open: true, orderId: id, loading: true }));
-    try {
-      const response = await getOrderByIdApi(id);
-      setDetailsModal(prev => ({ ...prev, data: response?.data?.data, loading: false }));
-    } catch (err) {
-      addToast('Failed to load order details', 'error');
-      setDetailsModal(prev => ({ ...prev, open: false, loading: false }));
     }
   };
 
@@ -99,7 +126,7 @@ export default function OrdersPage() {
       label: 'Order ID', 
       render: (r) => (
         <button 
-          onClick={() => loadOrderDetails(r.id)} 
+          onClick={() => handleViewDetails(r.id)} 
           className="font-mono text-xs font-semibold text-primary dark:text-primary-fixed-dim hover:underline focus:outline-none"
         >
           #{r.orderNumber?.slice(-8) || r.id?.slice(-8)}
@@ -158,7 +185,7 @@ export default function OrdersPage() {
         const canCancel = r.orderStatus !== 'CANCELLED' && r.orderStatus !== 'DELIVERED';
         return (
           <div className="flex gap-1.5 justify-end">
-            <Button size="sm" variant="secondary" onClick={() => loadOrderDetails(r.id)} title="View Details" className="!p-2">
+            <Button size="sm" variant="secondary" onClick={() => handleViewDetails(r.id)} title="View Details" className="!p-2">
               <HiOutlineEye className="text-base" />
             </Button>
             {next && (
@@ -201,12 +228,13 @@ export default function OrdersPage() {
         data={filtered} 
         loading={loading === 'pending'} 
         emptyMessage="No orders found" 
+        getRowClassName={(row) => (row.id === detailsModal.orderId || row._id === detailsModal.orderId) ? 'bg-primary/5 dark:bg-primary/5 border-l-2 border-primary font-bold' : ''}
       />
 
       {/* Details Modal */}
       <Modal 
         isOpen={detailsModal.open} 
-        onClose={() => setDetailsModal({ open: false, orderId: null, data: null, loading: false })} 
+        onClose={handleCloseDetails} 
         title={`Order Details #${detailsModal.data?.orderNumber?.slice(-8) || ''}`}
         size="md"
       >

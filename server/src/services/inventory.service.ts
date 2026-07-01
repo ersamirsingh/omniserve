@@ -4,6 +4,7 @@ import MenuItem from '../models/menuitems.model.js';
 import Outlet from '../models/outlet.model.js';
 import { NotificationType } from '../enums/enums.js';
 import { NotificationService } from './notification.service.js';
+import { EventBusService } from './event-bus.service.js';
 
 export class InventoryService {
   /**
@@ -79,6 +80,17 @@ export class InventoryService {
           userId
         ).catch(err => console.error('Failed to dispatch LOW_INVENTORY notification:', err));
       }
+
+      EventBusService.publishInventoryChanged(
+        tenantId,
+        savedInventory.outletId,
+        savedInventory._id,
+        savedInventory,
+        {
+          createdBy: userId,
+          sourceSystem: "SYSTEM",
+        }
+      ).catch(err => console.error('Failed to publish INVENTORY_CHANGED event:', err));
 
       return savedInventory;
     } catch (error: any) {
@@ -173,7 +185,7 @@ export class InventoryService {
     }
 
     // 4. Update quantity, isLowStock and updatedBy fields
-    return await Inventory.findOneAndUpdate(
+    const updatedInventory = await Inventory.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -188,6 +200,21 @@ export class InventoryService {
     )
       .populate('menuItemId', 'name price sku')
       .populate('outletId', 'name status');
+
+    if (updatedInventory) {
+      EventBusService.publishInventoryChanged(
+        tenantId,
+        updatedInventory.outletId,
+        updatedInventory._id,
+        updatedInventory,
+        {
+          createdBy: userId,
+          sourceSystem: "SYSTEM",
+        }
+      ).catch(err => console.error('Failed to publish INVENTORY_CHANGED event:', err));
+    }
+
+    return updatedInventory;
   }
 
   /**

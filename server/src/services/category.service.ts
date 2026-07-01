@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import Category, { ICategory } from '../models/category.model.js';
 import { OutletService } from './outlet.service.js';
+import { EventBusService } from './event-bus.service.js';
 
 export class CategoryService {
   /**
@@ -38,7 +39,18 @@ export class CategoryService {
       updatedBy: userId ? new Types.ObjectId(userId) : null,
     });
 
-    return await category.save();
+    const saved = await category.save();
+
+    EventBusService.publishMenuChanged(
+      tenantId,
+      saved.outletId,
+      saved._id,
+      "MENU_ITEM",
+      saved,
+      { createdBy: userId }
+    ).catch(err => console.error('Failed to publish MENU_CHANGED event for category create:', err));
+
+    return saved;
   }
 
   /**
@@ -106,7 +118,7 @@ export class CategoryService {
       updatePayload.outletId = new Types.ObjectId(data.outletId);
     }
 
-    return await Category.findOneAndUpdate(
+    const updated = await Category.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -115,6 +127,19 @@ export class CategoryService {
       updatePayload,
       { new: true }
     );
+
+    if (updated) {
+      EventBusService.publishMenuChanged(
+        tenantId,
+        updated.outletId,
+        updated._id,
+        "MENU_ITEM",
+        updated,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event for category update:', err));
+    }
+
+    return updated;
   }
 
   /**
@@ -126,7 +151,7 @@ export class CategoryService {
     displayOrder: number,
     userId?: string
   ): Promise<ICategory | null> {
-    return await Category.findOneAndUpdate(
+    const updated = await Category.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -138,6 +163,19 @@ export class CategoryService {
       },
       { new: true }
     );
+
+    if (updated) {
+      EventBusService.publishMenuChanged(
+        tenantId,
+        updated.outletId,
+        updated._id,
+        "MENU_ITEM",
+        updated,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event for category order update:', err));
+    }
+
+    return updated;
   }
 
   /**
@@ -148,7 +186,7 @@ export class CategoryService {
     tenantId: string,
     userId?: string
   ): Promise<ICategory | null> {
-    return await Category.findOneAndUpdate(
+    const deleted = await Category.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -161,5 +199,18 @@ export class CategoryService {
       },
       { new: true }
     );
+
+    if (deleted) {
+      EventBusService.publishMenuChanged(
+        tenantId,
+        deleted.outletId,
+        deleted._id,
+        "MENU_ITEM",
+        deleted,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event for category delete:', err));
+    }
+
+    return deleted;
   }
 }

@@ -6,6 +6,8 @@ export interface ICategory extends Document {
   name: string;
   displayOrder: number;
   isActive: boolean;
+  isSandbox?: boolean;
+  sandboxVersion?: string;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -39,6 +41,14 @@ const categorySchema = new Schema<ICategory>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    isSandbox: {
+      type: Boolean,
+      default: false,
+    },
+    sandboxVersion: {
+      type: String,
+      default: "v1",
     },
     createdBy: {
       type: Schema.Types.ObjectId,

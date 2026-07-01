@@ -32,9 +32,13 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div className="fixed top-6 right-6 z-[2000] flex flex-col gap-2 max-w-sm">
+      <div className="toast toast-top toast-end fixed top-6 right-6 z-[2000] flex flex-col gap-2 max-w-sm p-0">
         {toasts.map((t) => (
-          <div key={t.id} className={`flex items-center gap-2 px-4 py-3.5 rounded-lg text-sm font-medium shadow-2xl border cursor-pointer animate-slide-in-right ${toastStyles[t.type] || toastStyles.info}`} onClick={() => removeToast(t.id)}>
+          <div 
+            key={t.id} 
+            className={`alert flex items-center gap-2 px-4 py-3.5 rounded-lg text-sm font-medium shadow-2xl border cursor-pointer animate-slide-in-right ${toastStyles[t.type] || toastStyles.info}`} 
+            onClick={() => removeToast(t.id)}
+          >
             {icons[t.type]}
             <span className="flex-1">{t.message}</span>
           </div>

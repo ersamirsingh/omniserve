@@ -6,6 +6,8 @@ export interface IVariant extends Document {
   name: string;
   price: number;
   isAvailable: boolean;
+  isSandbox?: boolean;
+  sandboxVersion?: string;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -39,6 +41,14 @@ const variantSchema = new Schema<IVariant>(
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+    isSandbox: {
+      type: Boolean,
+      default: false,
+    },
+    sandboxVersion: {
+      type: String,
+      default: "v1",
     },
     createdBy: {
       type: Schema.Types.ObjectId,

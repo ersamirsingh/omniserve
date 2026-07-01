@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import Addon, { IAddon } from '../models/addon.model.js';
 import MenuItem from '../models/menuitems.model.js';
+import { EventBusService } from './event-bus.service.js';
 
 export class AddonService {
   /**
@@ -42,7 +43,22 @@ export class AddonService {
       updatedBy: userId ? new Types.ObjectId(userId) : null,
     });
 
-    return await addon.save();
+    const saved = await addon.save();
+    
+    // Fetch parent menu item to get outletId
+    const menuItem = await MenuItem.findById(saved.menuItemId);
+    if (menuItem) {
+      EventBusService.publishMenuChanged(
+        tenantId,
+        menuItem.outletId,
+        saved.menuItemId,
+        "MENU_ITEM",
+        saved,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event for addon create:', err));
+    }
+
+    return saved;
   }
 
   /**
@@ -95,7 +111,7 @@ export class AddonService {
       updatePayload.menuItemId = new Types.ObjectId(data.menuItemId);
     }
 
-    return await Addon.findOneAndUpdate(
+    const updated = await Addon.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -104,6 +120,22 @@ export class AddonService {
       updatePayload,
       { new: true }
     );
+
+    if (updated) {
+      const menuItem = await MenuItem.findById(updated.menuItemId);
+      if (menuItem) {
+        EventBusService.publishMenuChanged(
+          tenantId,
+          menuItem.outletId,
+          updated.menuItemId,
+          "MENU_ITEM",
+          updated,
+          { createdBy: userId }
+        ).catch(err => console.error('Failed to publish MENU_CHANGED event for addon update:', err));
+      }
+    }
+
+    return updated;
   }
 
   /**
@@ -114,7 +146,7 @@ export class AddonService {
     tenantId: string,
     userId?: string
   ): Promise<IAddon | null> {
-    return await Addon.findOneAndUpdate(
+    const deleted = await Addon.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -127,5 +159,21 @@ export class AddonService {
       },
       { new: true }
     );
+
+    if (deleted) {
+      const menuItem = await MenuItem.findById(deleted.menuItemId);
+      if (menuItem) {
+        EventBusService.publishMenuChanged(
+          tenantId,
+          menuItem.outletId,
+          deleted.menuItemId,
+          "MENU_ITEM",
+          deleted,
+          { createdBy: userId }
+        ).catch(err => console.error('Failed to publish MENU_CHANGED event for addon delete:', err));
+      }
+    }
+
+    return deleted;
   }
 }

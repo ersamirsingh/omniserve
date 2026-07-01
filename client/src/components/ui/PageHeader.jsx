@@ -43,16 +43,16 @@ export default function PageHeader({
       </div>
 
       {tabs && tabs.length > 0 && (
-        <div className="flex gap-6 mt-6 border-b border-border-base/40 dark:border-zinc-900/40">
+        <div className="tabs tabs-bordered mt-6 border-b border-border-base/40 dark:border-zinc-900/40">
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.to;
             return (
               <button
                 key={tab.to}
                 onClick={() => navigate(tab.to)}
-                className={`pb-3 text-xs font-bold transition-all border-b-2 cursor-pointer select-none ${
+                className={`tab pb-3 text-xs font-bold transition-all border-b-2 cursor-pointer select-none h-auto ${
                   isActive
-                    ? 'border-primary text-primary dark:text-primary-fixed-dim'
+                    ? 'tab-active border-primary text-primary dark:text-primary-fixed-dim'
                     : 'border-transparent text-on-surface-variant dark:text-zinc-450 hover:text-on-surface dark:hover:text-zinc-200'
                 }`}
               >

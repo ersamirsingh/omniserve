@@ -357,7 +357,7 @@ export default function ProfilePage() {
                   value={form.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   placeholder="Enter house details, street name, city, state, pincode..."
-                  className="w-full p-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl text-xs font-semibold text-on-surface dark:text-zinc-200 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 resize-y min-h-24 placeholder-on-surface-variant/40"
+                  className="textarea textarea-bordered w-full p-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl text-xs font-semibold text-on-surface dark:text-zinc-200 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 resize-y min-h-24 placeholder-on-surface-variant/40"
                 />
               </div>
 

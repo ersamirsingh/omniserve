@@ -205,4 +205,43 @@ export class NotificationService {
       { new: true }
     );
   }
+
+  /**
+   * Notify staff, managers, and admins of an operational alert for an outlet
+   */
+  static async notifyOutletOperationalAlert(
+    tenantId: string,
+    outletId: string,
+    title: string,
+    message: string,
+    entityId?: string,
+    entityType?: string
+  ): Promise<INotification[]> {
+    try {
+      const activeUsers = await User.find({
+        tenantId: new Types.ObjectId(tenantId),
+        status: UserStatus.ACTIVE,
+        isDeleted: false,
+        $or: [
+          { outletId: new Types.ObjectId(outletId) },
+          { outletIds: new Types.ObjectId(outletId) },
+          { role: { $in: ['SUPER_ADMIN', 'RESTAURANT_OWNER'] } }
+        ]
+      });
+
+      const userIds = activeUsers.map(u => u._id.toString());
+      return await this.createBulkNotifications(
+        tenantId,
+        userIds,
+        title,
+        message,
+        NotificationType.OPERATIONAL_ALERT,
+        entityId,
+        entityType
+      );
+    } catch (error) {
+      console.error('Failed to notify outlet operational alert:', error);
+      return [];
+    }
+  }
 }

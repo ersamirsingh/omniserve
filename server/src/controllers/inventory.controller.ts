@@ -140,7 +140,10 @@ export class InventoryController {
       );
       const scopedInventory = allowedOutletIds === null || outletId
         ? inventory
-        : inventory.filter(item => allowedOutletIds.includes(item.outletId.toString()));
+        : inventory.filter(item => {
+            const oid = (item.outletId as any)?._id?.toString() || item.outletId.toString();
+            return allowedOutletIds.includes(oid);
+          });
 
       ApiResponseHandler.success(res, 200, 'Inventory retrieved successfully', {
         inventory: scopedInventory.map(item => ({

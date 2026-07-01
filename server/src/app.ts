@@ -2,6 +2,9 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import router from './routes/api.v1.js';
+import './integrations/adapters/adapter-registry.js';
+import { initWorkerRegistry } from './workers/register-workers.js';
+initWorkerRegistry();
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import { rateLimiter } from './middleware/rateLimiter.middleware.js';
 
@@ -33,11 +36,12 @@ app.get("/", (req, res) => {
 })
 
 // Apply global rate limiter to all api routes: 100 requests per 15 minutes
-app.use('/api', rateLimiter({
-   windowMs: 15 * 60 * 1000,
-   max: 100,
-   message: 'Too many requests from this IP, please try again after 15 minutes'
-}));
+// TEMPORARILY DISABLED: Comment out the rateLimiter below to disable rate-limiting, and uncomment to restore.
+// app.use('/api', rateLimiter({
+//    windowMs: 15 * 60 * 1000,
+//    max: 100,
+//    message: 'Too many requests from this IP, please try again after 15 minutes'
+// }));
 
 app.use('/api', router);
 

@@ -7,6 +7,8 @@ export interface IInventory extends Document {
   quantity: number;
   threshold: number;
   isLowStock: boolean;
+  isSandbox?: boolean;
+  sandboxVersion?: string;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -46,6 +48,14 @@ const inventorySchema = new Schema<IInventory>(
     isLowStock: {
       type: Boolean,
       default: false,
+    },
+    isSandbox: {
+      type: Boolean,
+      default: false,
+    },
+    sandboxVersion: {
+      type: String,
+      default: "v1",
     },
     createdBy: {
       type: Schema.Types.ObjectId,

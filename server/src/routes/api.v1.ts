@@ -17,6 +17,14 @@ import analyticsRouter from "./analytics.route.js";
 import webhookRouter from "./webhook.route.js";
 import auditLogRouter from "./auditlog.route.js";
 import userRoutes from "./user.route.js";
+import integrationRouter from "./integration.route.js";
+import publicRouter from "./public.route.js";
+import diningRouter from "./dining.route.js";
+import kdsRouter from "./kds.route.js";
+import billingRouter from "./billing.route.js";
+import shiftRouter from "./shift.route.js";
+import reservationRouter from "./reservation.route.js";
+import diningAnalyticsRouter from "./dining-analytics.route.js";
 
 
 const router = Router();
@@ -38,6 +46,15 @@ router.use("/analytics", analyticsRouter);
 router.use("/webhooks", webhookRouter);
 router.use("/audit-logs", auditLogRouter);
 router.use("/users", userRoutes);
+router.use("/integrations", integrationRouter);
+router.use("/v1/integrations", integrationRouter);
+router.use("/public", publicRouter);
+router.use("/dining", diningRouter);
+router.use("/kds", kdsRouter);
+router.use("/billing", billingRouter);
+router.use("/shifts", shiftRouter);
+router.use("/reservations", reservationRouter);
+router.use("/dining-analytics", diningAnalyticsRouter);
 
 
 export default router;

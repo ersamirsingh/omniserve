@@ -12,6 +12,7 @@ export interface IOutlet extends Document {
   restaurantId: Types.ObjectId;
   tenantId: Types.ObjectId;
   name: string;
+  slug?: string;
   phone?: string;
   email?: string;
   address: string;
@@ -23,6 +24,7 @@ export interface IOutlet extends Document {
     coordinates: [number, number]; // [longitude, latitude]
   };
   operatingHours: IOperatingHours[];
+  waiterTaskSlas?: Map<string, number>;
   status: UserStatus;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
@@ -73,6 +75,13 @@ const outletSchema = new Schema<IOutlet>(
       required: [true, 'Outlet name is required'],
       trim: true,
       maxlength: [100, 'Outlet name cannot exceed 100 characters'],
+    },
+    slug: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      unique: true,
+      sparse: true,
     },
     phone: {
       type: String,
@@ -138,6 +147,19 @@ const outletSchema = new Schema<IOutlet>(
       type: [operatingHoursSchema],
       default: [],
     },
+    waiterTaskSlas: {
+      type: Map,
+      of: Number,
+      default: {
+        SERVE_FOOD: 180000,
+        WATER: 300000,
+        TISSUE: 300000,
+        SPOON: 300000,
+        BILL: 180000,
+        CLEANING: 600000,
+        CUSTOM: 300000
+      }
+    },
     status: {
       type: String,
       enum: {
@@ -173,6 +195,27 @@ outletSchema.index({ restaurantId: 1 });
 outletSchema.index({ tenantId: 1, status: 1 });
 outletSchema.index({ city: 1, state: 1 });
 outletSchema.index({ isDeleted: 1 });
+
+outletSchema.pre('save', async function (this: IOutlet) {
+  if (this.isModified('name') || !this.slug) {
+    let baseSlug = this.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+    
+    const OutletModel = this.constructor as Model<IOutlet>;
+    let slug = baseSlug;
+    let counter = 1;
+    while (true) {
+      const existing = await OutletModel.findOne({ slug, _id: { $ne: this._id } });
+      if (!existing) {
+        break;
+      }
+      slug = `${baseSlug}-${counter++}`;
+    }
+    this.slug = slug;
+  }
+});
 
 outletSchema.pre('find', function () {
   this.where({ isDeleted: false });

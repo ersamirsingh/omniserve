@@ -46,6 +46,7 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOutletFilter, setSelectedOutletFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
+  const [showPassword, setShowPassword] = useState(false);
 
   const myRole = currentUser?.role;
   const allowedRoles = ASSIGNABLE_ROLES[myRole] || [];
@@ -107,6 +108,7 @@ export default function UsersPage() {
     const restaurantId = restaurantScopedRoles.includes(role) || outletScopedRoles.includes(role) ? defaultRestaurantId() : '';
     const outletId = outletScopedRoles.includes(role) ? defaultOutletId(restaurantId) : '';
     setForm({ ...emptyForm, role, restaurantId, outletId, outletIds: outletId ? [outletId] : [] });
+    setShowPassword(false);
     setModal({ open: true, mode: 'create', item: null });
   };
 
@@ -124,10 +126,14 @@ export default function UsersPage() {
       outletId: getRefId(item.pendingOutletId || item.outletId) || outletIds[0] || '',
       outletIds: outletIds,
     });
+    setShowPassword(false);
     setModal({ open: true, mode: 'edit', item });
   };
 
-  const closeModal = () => setModal({ open: false, mode: 'create', item: null });
+  const closeModal = () => {
+    setShowPassword(false);
+    setModal({ open: false, mode: 'create', item: null });
+  };
 
   const updateRole = (role) => {
     const restaurantId = restaurantScopedRoles.includes(role) || outletScopedRoles.includes(role) ? (form.restaurantId || defaultRestaurantId()) : '';
@@ -252,6 +258,18 @@ export default function UsersPage() {
       ) 
     },
   ];
+
+  const togglePasswordButton = (
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="text-on-surface-variant/50 hover:text-on-surface dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors flex items-center justify-center p-1 cursor-pointer"
+    >
+      <span className="material-symbols-outlined text-[20px]">
+        {showPassword ? 'visibility_off' : 'visibility'}
+      </span>
+    </button>
+  );
 
   return (
     <div className="space-y-6">
@@ -492,11 +510,13 @@ export default function UsersPage() {
             <Input 
               id="u-pass" 
               label="Temporary Password" 
-              type="password" 
+              type={showPassword ? 'text' : 'password'} 
               value={form.password} 
               onChange={(e) => setForm({ ...form, password: e.target.value })} 
               required 
               placeholder="••••••••"
+              icon="lock"
+              rightElement={togglePasswordButton}
             />
           )}
 
@@ -558,7 +578,7 @@ export default function UsersPage() {
                             outletId: nextIds[0] || '',
                           });
                         }}
-                        className="rounded border-border-base text-primary focus:ring-primary/20 accent-primary"
+                        className="checkbox checkbox-xs checkbox-primary rounded border-border-base text-primary focus:ring-primary/20 accent-primary"
                       />
                       <span>{outlet.name}</span>
                     </label>

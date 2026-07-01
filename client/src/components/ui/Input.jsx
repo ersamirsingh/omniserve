@@ -22,7 +22,7 @@ export default function Input({ label, error, type = 'text', id, className = '',
         <input
           id={id}
           type={type}
-          className={`block w-full py-2.5 bg-surface-subtle dark:bg-zinc-900 border rounded-lg font-body-md text-body-md text-on-surface dark:text-zinc-150 placeholder-on-surface-variant/40 dark:placeholder-zinc-600 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 text-[14px] ${
+          className={`input block w-full py-2.5 bg-surface-subtle dark:bg-zinc-900 border rounded-lg font-body-md text-body-md text-on-surface dark:text-zinc-150 placeholder-on-surface-variant/40 dark:placeholder-zinc-600 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 text-[14px] h-auto min-h-0 ${
             icon ? 'pl-10' : 'pl-3'
           } ${
             rightElement ? 'pr-10' : 'pr-3'

@@ -3,6 +3,7 @@ import { HiShoppingCart, HiCurrencyDollar, HiMapPin, HiCreditCard } from 'react-
 import StatCard from '../../components/StatCard';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
+import Spinner from '../../components/ui/Spinner';
 import { getSummaryStatsApi } from '../../api/models/analytics.api';
 import { getCurrentSubscriptionApi } from '../../api/models/subscription.api';
 import { listOutletsApi } from '../../api/models/outlet.api';
@@ -78,7 +79,7 @@ export default function OwnerDashboard() {
           </h3>
           {loading ? (
             <div className="flex justify-center py-6">
-              <span className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin-custom" />
+              <Spinner size="sm" />
             </div>
           ) : outlets.length === 0 ? (
             <p className="text-on-surface-variant dark:text-zinc-550 text-sm py-4">No outlets created yet.</p>
@@ -111,7 +112,7 @@ export default function OwnerDashboard() {
           </h3>
           {loading ? (
             <div className="flex justify-center py-6">
-              <span className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin-custom" />
+              <Spinner size="sm" />
             </div>
           ) : sub ? (
             <div className="flex flex-col gap-4 mt-2">

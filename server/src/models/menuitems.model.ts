@@ -12,6 +12,8 @@ export interface IMenuItem extends Document {
   isVeg: boolean;
   isAvailable: boolean;
   displayOrder: number;
+  isSandbox?: boolean;
+  sandboxVersion?: string;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -73,6 +75,14 @@ const menuItemSchema = new Schema<IMenuItem>(
     displayOrder: {
       type: Number,
       default: 0,
+    },
+    isSandbox: {
+      type: Boolean,
+      default: false,
+    },
+    sandboxVersion: {
+      type: String,
+      default: "v1",
     },
     createdBy: {
       type: Schema.Types.ObjectId,

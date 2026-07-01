@@ -327,11 +327,11 @@ export default function MenuItemsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex items-center gap-3 text-sm font-semibold text-on-surface-variant dark:text-zinc-400">
-              <input type="checkbox" checked={form.isVeg} onChange={(e) => setForm({ ...form, isVeg: e.target.checked })} className="h-4 w-4 accent-primary rounded cursor-pointer" />
+              <input type="checkbox" checked={form.isVeg} onChange={(e) => setForm({ ...form, isVeg: e.target.checked })} className="checkbox checkbox-sm checkbox-primary h-4 w-4 cursor-pointer" />
               Vegetarian
             </label>
             <label className="flex items-center gap-3 text-sm font-semibold text-on-surface-variant dark:text-zinc-400">
-              <input type="checkbox" checked={form.isAvailable} onChange={(e) => setForm({ ...form, isAvailable: e.target.checked })} className="h-4 w-4 accent-primary rounded cursor-pointer" />
+              <input type="checkbox" checked={form.isAvailable} onChange={(e) => setForm({ ...form, isAvailable: e.target.checked })} className="checkbox checkbox-sm checkbox-primary h-4 w-4 cursor-pointer" />
               Available
             </label>
           </div>

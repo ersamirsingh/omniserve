@@ -135,7 +135,7 @@ export default function LoginPage() {
             type="checkbox"
             checked={rememberMe}
             onChange={handleRememberMeChange}
-            className="h-4 w-4 text-primary focus:ring-primary/20 border-border-base dark:border-zinc-800 rounded bg-surface-subtle dark:bg-zinc-900 transition-colors cursor-pointer"
+            className="checkbox checkbox-primary h-4 w-4 text-primary focus:ring-primary/20 border-border-base dark:border-zinc-800 rounded bg-surface-subtle dark:bg-zinc-900 transition-colors cursor-pointer"
           />
           <label className="ml-2 block font-body-sm text-body-sm text-on-surface-variant dark:text-zinc-400 cursor-pointer text-[12px]" htmlFor="remember-me">
             Remember me for 30 days

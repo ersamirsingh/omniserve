@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { fetchNotifications, markAsRead, markAllAsRead } from '../../store/notificationSlice';
 import { fetchCurrentUser } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
@@ -14,6 +15,7 @@ import { HiBellAlert, HiCheck } from 'react-icons/hi2';
 
 export default function NotificationsPage() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const { notifications, loading, unreadCount } = useSelector((s) => s.notifications);
   const { user } = useSelector((s) => s.auth);
@@ -22,17 +24,28 @@ export default function NotificationsPage() {
     dispatch(fetchNotifications()); 
   }, [dispatch]);
 
-  const handleAcceptInvitation = async (notification) => {
+  const handleAcceptInvitation = async (e, notification) => {
+    e.stopPropagation();
     try {
       await acceptMyInvitationApi();
       addToast('Invitation accepted successfully', 'success');
       if (!notification.isRead) {
-        dispatch(markAsRead(notification.id || notification._id));
+        await dispatch(markAsRead(notification.id || notification._id)).unwrap();
       }
       dispatch(fetchCurrentUser(true));
       dispatch(fetchNotifications());
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to accept invitation', 'error');
+    }
+  };
+
+  const handleNotificationClick = (n) => {
+    const notificationId = n.id || n._id;
+    if (!n.isRead) {
+      dispatch(markAsRead(notificationId));
+    }
+    if (n.entityType === 'Order' && n.entityId) {
+      navigate(`/orders?orderId=${n.entityId}`);
     }
   };
 
@@ -78,7 +91,7 @@ export default function NotificationsPage() {
               className={`flex items-start gap-4 transition-all duration-200 border border-border-base dark:border-zinc-800 hover:border-primary dark:hover:border-zinc-700 hover:shadow-md cursor-pointer !p-5 ${
                 n.isRead ? 'opacity-55 dark:opacity-40' : 'bg-surface-subtle/20 dark:bg-zinc-900/10'
               }`}
-              onClick={() => !n.isRead && !isInvitation && dispatch(markAsRead(notificationId))}
+              onClick={() => handleNotificationClick(n)}
             >
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -104,11 +117,19 @@ export default function NotificationsPage() {
                   <div className="mt-3 flex gap-2 items-center flex-wrap">
                     {!user?.invitationAccepted ? (
                       <>
-                        <Button size="sm" onClick={() => handleAcceptInvitation(n)} className="font-bold">
+                        <Button size="sm" onClick={(e) => handleAcceptInvitation(e, n)} className="font-bold">
                           Accept Invitation
                         </Button>
                         {!n.isRead && (
-                          <Button size="sm" variant="secondary" onClick={() => dispatch(markAsRead(notificationId))} className="font-bold">
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dispatch(markAsRead(notificationId));
+                            }} 
+                            className="font-bold"
+                          >
                             Mark Read
                           </Button>
                         )}

@@ -210,7 +210,7 @@ export default function VariantsPage() {
           <Input id="var-name" label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input id="var-price" label="Price (INR)" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
           <label className="flex items-center gap-3 text-sm font-semibold text-on-surface-variant dark:text-zinc-400">
-            <input type="checkbox" checked={form.isAvailable} onChange={(e) => setForm({ ...form, isAvailable: e.target.checked })} className="h-4 w-4 accent-primary rounded cursor-pointer" />
+            <input type="checkbox" checked={form.isAvailable} onChange={(e) => setForm({ ...form, isAvailable: e.target.checked })} className="checkbox checkbox-sm checkbox-primary h-4 w-4 cursor-pointer" />
             Available
           </label>
           <div className="flex justify-end gap-2 pt-4 border-t border-border-base dark:border-zinc-850">

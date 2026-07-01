@@ -5,6 +5,7 @@ import Outlet from '../models/outlet.model.js';
 import Variant from '../models/variant.model.js';
 import Addon from '../models/addon.model.js';
 import { escapeRegex } from '../utils/sanitize.utils.js';
+import { EventBusService } from './event-bus.service.js';
 
 export class MenuItemService {
   /**
@@ -64,7 +65,18 @@ export class MenuItemService {
       updatedBy: userId ? new Types.ObjectId(userId) : null,
     });
 
-    return await menuItem.save();
+    const saved = await menuItem.save();
+    
+    await EventBusService.publishMenuChanged(
+      tenantId,
+      saved.outletId,
+      saved._id,
+      "MENU_ITEM",
+      saved,
+      { createdBy: userId }
+    ).catch(err => console.error('Failed to publish MENU_CHANGED event:', err));
+
+    return saved;
   }
 
   /**
@@ -191,7 +203,7 @@ export class MenuItemService {
     if (data.categoryId) updatePayload.categoryId = new Types.ObjectId(data.categoryId);
     if (data.outletId) updatePayload.outletId = new Types.ObjectId(data.outletId);
 
-    return await MenuItem.findOneAndUpdate(
+    const updated = await MenuItem.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -200,6 +212,19 @@ export class MenuItemService {
       updatePayload,
       { new: true }
     );
+
+    if (updated) {
+      await EventBusService.publishMenuChanged(
+        tenantId,
+        updated.outletId,
+        updated._id,
+        "MENU_ITEM",
+        updated,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event (update):', err));
+    }
+
+    return updated;
   }
 
   /**
@@ -211,7 +236,7 @@ export class MenuItemService {
     isAvailable: boolean,
     userId?: string
   ): Promise<IMenuItem | null> {
-    return await MenuItem.findOneAndUpdate(
+    const updated = await MenuItem.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -223,6 +248,19 @@ export class MenuItemService {
       },
       { new: true }
     );
+
+    if (updated) {
+      await EventBusService.publishMenuChanged(
+        tenantId,
+        updated.outletId,
+        updated._id,
+        "MENU_ITEM",
+        updated,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event (toggle):', err));
+    }
+
+    return updated;
   }
 
   /**
@@ -279,6 +317,17 @@ export class MenuItemService {
         }
       ),
     ]);
+
+    if (deletedMenuItem) {
+      await EventBusService.publishMenuChanged(
+        tenantId,
+        deletedMenuItem.outletId,
+        deletedMenuItem._id,
+        "MENU_ITEM",
+        deletedMenuItem,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event (delete):', err));
+    }
 
     return deletedMenuItem;
   }

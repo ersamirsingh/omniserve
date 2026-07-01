@@ -10,6 +10,9 @@ export interface RateLimitOptions {
 
 export const rateLimiter = (options: RateLimitOptions) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    if (process.env.NODE_ENV === 'test') {
+      return next();
+    }
     try {
       const redisClient = await connectRedis();
       

@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import Variant, { IVariant } from '../models/variant.model.js';
 import MenuItem from '../models/menuitems.model.js';
+import { EventBusService } from './event-bus.service.js';
 
 export class VariantService {
   /**
@@ -42,7 +43,22 @@ export class VariantService {
       updatedBy: userId ? new Types.ObjectId(userId) : null,
     });
 
-    return await variant.save();
+    const saved = await variant.save();
+    
+    // Fetch parent menu item to get outletId
+    const menuItem = await MenuItem.findById(saved.menuItemId);
+    if (menuItem) {
+      EventBusService.publishMenuChanged(
+        tenantId,
+        menuItem.outletId,
+        saved.menuItemId,
+        "MENU_ITEM",
+        saved,
+        { createdBy: userId }
+      ).catch(err => console.error('Failed to publish MENU_CHANGED event for variant create:', err));
+    }
+
+    return saved;
   }
 
   /**
@@ -95,7 +111,7 @@ export class VariantService {
       updatePayload.menuItemId = new Types.ObjectId(data.menuItemId);
     }
 
-    return await Variant.findOneAndUpdate(
+    const updated = await Variant.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -104,6 +120,22 @@ export class VariantService {
       updatePayload,
       { new: true }
     );
+
+    if (updated) {
+      const menuItem = await MenuItem.findById(updated.menuItemId);
+      if (menuItem) {
+        EventBusService.publishMenuChanged(
+          tenantId,
+          menuItem.outletId,
+          updated.menuItemId,
+          "MENU_ITEM",
+          updated,
+          { createdBy: userId }
+        ).catch(err => console.error('Failed to publish MENU_CHANGED event for variant update:', err));
+      }
+    }
+
+    return updated;
   }
 
   /**
@@ -114,7 +146,7 @@ export class VariantService {
     tenantId: string,
     userId?: string
   ): Promise<IVariant | null> {
-    return await Variant.findOneAndUpdate(
+    const deleted = await Variant.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
@@ -127,5 +159,21 @@ export class VariantService {
       },
       { new: true }
     );
+
+    if (deleted) {
+      const menuItem = await MenuItem.findById(deleted.menuItemId);
+      if (menuItem) {
+        EventBusService.publishMenuChanged(
+          tenantId,
+          menuItem.outletId,
+          deleted.menuItemId,
+          "MENU_ITEM",
+          deleted,
+          { createdBy: userId }
+        ).catch(err => console.error('Failed to publish MENU_CHANGED event for variant delete:', err));
+      }
+    }
+
+    return deleted;
   }
 }

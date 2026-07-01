@@ -10,7 +10,17 @@ const api = axios.create({
 
 /* ---------- request interceptor ---------- */
 api.interceptors.request.use(
-  (config) => config,
+  (config) => {
+    const token = localStorage.getItem('sessionToken');
+    if (token) {
+      config.headers['x-session-token'] = token;
+    }
+    const outletId = localStorage.getItem('selectedOutletId');
+    if (outletId) {
+      config.headers['x-outlet-id'] = outletId;
+    }
+    return config;
+  },
   (error) => Promise.reject(error)
 );
 

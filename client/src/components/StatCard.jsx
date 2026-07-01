@@ -8,9 +8,14 @@ const iconColors = {
   blue: 'bg-blue-500/10 text-blue-650 dark:text-blue-400',
 };
 
-export default function StatCard({ title, value, icon, trend, trendUp, color = 'indigo' }) {
+export default function StatCard({ title, value, icon, trend, trendUp, color = 'indigo', onClick }) {
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-xl shadow-sm p-6 flex flex-col gap-3 hover:-translate-y-1 transition-transform duration-200 animate-fade-in">
+    <div 
+      onClick={onClick}
+      className={`bg-white dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-xl shadow-sm p-6 flex flex-col gap-3 hover:-translate-y-1 transition-transform duration-200 animate-fade-in ${
+        onClick ? 'cursor-pointer hover:border-primary/50' : ''
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 ${iconColors[color] || iconColors.indigo}`}>
           {icon}

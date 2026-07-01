@@ -1,62 +1,8 @@
 import { NavLink, Link } from 'react-router-dom';
-import {
-  HiOutlineHome, HiOutlineBuildingStorefront, HiOutlineMapPin,
-  HiOutlineRectangleStack, HiOutlineClipboardDocumentList, HiOutlineShoppingCart,
-  HiOutlineUsers, HiOutlineCube, HiOutlineCreditCard, HiOutlineBell,
-  HiOutlineChartBarSquare, HiOutlineDocumentText, HiOutlineCog6Tooth,
-  HiOutlineTag, HiOutlineSquares2X2, HiOutlineEnvelope,
-} from 'react-icons/hi2';
-import { USER_ROLES } from '../utils/constants';
-
-const allNav = [
-  { 
-    section: 'Main', 
-    items: [
-      { to: '/dashboard', label: 'Dashboard', icon: <HiOutlineHome />, roles: 'all' },
-    ]
-  },
-  { 
-    section: 'Management', 
-    items: [
-      { to: '/restaurants', label: 'Restaurants', icon: <HiOutlineBuildingStorefront />, roles: [USER_ROLES.SUPER_ADMIN] },
-      { to: '/outlets', label: 'Outlets', icon: <HiOutlineMapPin />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER] },
-      { to: '/categories', label: 'Categories', icon: <HiOutlineSquares2X2 />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER] },
-      { to: '/menu-items', label: 'Menu Items', icon: <HiOutlineRectangleStack />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER] },
-      { to: '/variants', label: 'Variants', icon: <HiOutlineTag />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER] },
-      { to: '/addons', label: 'Addons', icon: <HiOutlineTag />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER] },
-    ]
-  },
-  { 
-    section: 'Operations', 
-    items: [
-      { to: '/orders', label: 'Orders', icon: <HiOutlineShoppingCart />, roles: 'all' },
-      { to: '/customers', label: 'Customers', icon: <HiOutlineUsers />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER] },
-      { to: '/inventory', label: 'Inventory', icon: <HiOutlineCube />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER, USER_ROLES.STAFF] },
-    ]
-  },
-  { 
-    section: 'Finance', 
-    items: [
-      { to: '/subscriptions', label: 'Subscriptions', icon: <HiOutlineCreditCard />, roles: [USER_ROLES.SUPER_ADMIN] },
-      { to: '/payments', label: 'Payments', icon: <HiOutlineCreditCard />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER] },
-    ]
-  },
-  { 
-    section: 'Insights', 
-    items: [
-      { to: '/analytics', label: 'Analytics', icon: <HiOutlineChartBarSquare />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER] },
-      { to: '/notifications', label: 'Notifications', icon: <HiOutlineBell />, roles: 'all' },
-      { to: '/audit-logs', label: 'Audit Logs', icon: <HiOutlineDocumentText />, roles: [USER_ROLES.SUPER_ADMIN] },
-      { to: '/webhook-logs', label: 'Webhook Logs', icon: <HiOutlineDocumentText />, roles: [USER_ROLES.SUPER_ADMIN] },
-      { to: '/users', label: 'Team', icon: <HiOutlineCog6Tooth />, roles: [USER_ROLES.SUPER_ADMIN, USER_ROLES.RESTAURANT_OWNER] },
-    ]
-  },
-];
+import { getSidebarSections } from '../app/router/routeRegistry';
 
 export default function Sidebar({ isOpen, onClose, userRole }) {
-  const filtered = allNav
-    .map((s) => ({ ...s, items: s.items.filter((i) => i.roles === 'all' || i.roles.includes(userRole)) }))
-    .filter((s) => s.items.length > 0);
+  const sections = getSidebarSections(userRole);
 
   return (
     <>
@@ -90,7 +36,7 @@ export default function Sidebar({ isOpen, onClose, userRole }) {
 
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {filtered.map((section) => (
+          {sections.map((section) => (
             <div className="mb-4" key={section.section}>
               <div className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-600 uppercase tracking-widest px-3 py-2">
                 {section.section}
@@ -100,6 +46,8 @@ export default function Sidebar({ isOpen, onClose, userRole }) {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onMouseEnter={() => item.preload?.()}
+                    onFocus={() => item.preload?.()}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-150 no-underline whitespace-nowrap ${
                         isActive 
@@ -109,7 +57,7 @@ export default function Sidebar({ isOpen, onClose, userRole }) {
                     }
                     onClick={onClose}
                   >
-                    <span className="text-lg shrink-0">{item.icon}</span>
+                    <span className="text-lg shrink-0"><item.icon /></span>
                     <span>{item.label}</span>
                   </NavLink>
                 ))}

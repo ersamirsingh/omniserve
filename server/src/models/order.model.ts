@@ -1,6 +1,13 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 import { OrderSource, OrderStatus, PaymentStatus } from '../enums/enums.js';
 
+export interface IDiningContext {
+  tableId?: Types.ObjectId | null;
+  tableNumber?: string | null;
+  seatNumber?: string | null;
+  sessionId?: Types.ObjectId | null;
+}
+
 export interface IOrder extends Document {
   tenantId: Types.ObjectId;
   outletId: Types.ObjectId;
@@ -22,6 +29,12 @@ export interface IOrder extends Document {
   cancelledAt: Date | null;
   cancellationReason?: string;
   notes?: string;
+  waiterId?: Types.ObjectId | null;
+  kitchenPriority?: 'NEW' | 'RUSH' | 'DELAYED' | 'CRITICAL' | 'VIP' | 'LARGE_PARTY' | 'HIGH_VALUE';
+  diningContext?: IDiningContext | null;
+  isSandbox?: boolean;
+  sandboxVersion?: string;
+  sessionId?: Types.ObjectId | null;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -116,6 +129,19 @@ const orderSchema = new Schema<IOrder>(
       trim: true,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
     },
+    waiterId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    kitchenPriority: {
+      type: String,
+      enum: {
+        values: ['NEW', 'RUSH', 'DELAYED', 'CRITICAL', 'VIP', 'LARGE_PARTY', 'HIGH_VALUE'],
+        message: 'Invalid kitchen priority: {VALUE}',
+      },
+      default: 'NEW',
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -126,9 +152,27 @@ const orderSchema = new Schema<IOrder>(
       ref: 'User',
       default: null,
     },
+    diningContext: {
+      tableId: { type: Schema.Types.ObjectId, ref: 'Table', default: null },
+      tableNumber: { type: String, default: null },
+      seatNumber: { type: String, default: null },
+      sessionId: { type: Schema.Types.ObjectId, ref: 'QRSession', default: null }
+    },
     isDeleted: {
       type: Boolean,
       default: false,
+    },
+    isSandbox: {
+      type: Boolean,
+      default: false,
+    },
+    sandboxVersion: {
+      type: String,
+      default: "v1",
+    },
+    sessionId: {
+      type: Schema.Types.ObjectId,
+      default: null,
     },
   },
   {

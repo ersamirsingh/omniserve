@@ -13,7 +13,7 @@ export default function Select({ label, error, id, className = '', children, ...
       )}
       <select
         id={id}
-        className={`block w-full py-2.5 px-3 bg-surface-subtle dark:bg-zinc-900 border rounded-lg font-body-md text-body-md text-on-surface dark:text-zinc-150 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 text-[14px] cursor-pointer ${
+        className={`select block w-full py-2.5 px-3 bg-surface-subtle dark:bg-zinc-900 border rounded-lg font-body-md text-body-md text-on-surface dark:text-zinc-150 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 text-[14px] cursor-pointer h-auto min-h-0 ${
           error
             ? 'border-error focus:border-error focus:ring-error/20'
             : 'border-border-base dark:border-zinc-800'

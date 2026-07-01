@@ -4,6 +4,7 @@ import StatCard from '../../components/StatCard';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Table from '../../components/ui/Table';
+import Spinner from '../../components/ui/Spinner';
 import { listOrdersApi } from '../../api/models/order.api';
 import { listInventoryApi } from '../../api/models/inventory.api';
 import { ORDER_STATUS_VARIANT } from '../../utils/constants';
@@ -88,7 +89,7 @@ export default function ManagerDashboard() {
           </h3>
           {loadingInventory ? (
             <div className="flex justify-center py-6">
-              <span className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin-custom" />
+              <Spinner size="sm" />
             </div>
           ) : lowStock.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">

@@ -59,6 +59,7 @@ export enum NotificationType {
   LOW_INVENTORY = "LOW_INVENTORY",
   SYSTEM = "SYSTEM",
   GENERAL = "GENERAL",
+  OPERATIONAL_ALERT = "OPERATIONAL_ALERT",
 }
 
 export enum WebhookStatus {
@@ -88,6 +89,14 @@ export enum OrderSource {
   TAKEAWAY = "TAKEAWAY",
   DELIVERY = "DELIVERY",
   ONLINE = "ONLINE",
+  QR_DINE_IN = "QR_DINE_IN",
+  SWIGGY = "SWIGGY",
+  ZOMATO = "ZOMATO",
+  POS = "POS",
+  WEBSITE = "WEBSITE",
+  ONDC = "ONDC",
+  WHATSAPP = "WHATSAPP",
+  WAITER = "WAITER",
 }
 
 export enum ReviewSource {

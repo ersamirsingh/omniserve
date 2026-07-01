@@ -17,6 +17,10 @@ export interface IOrderItem extends Document {
   unitPrice: number;
   totalPrice: number;
   notes?: string;
+  course: 'IMMEDIATE' | 'STARTERS' | 'MAINS' | 'DESSERTS';
+  holdStatus: 'HELD' | 'FIRE_REQUESTED' | 'FIRED';
+  firedAt?: Date | null;
+  kdsStation?: string | null;  // e.g. "HOT", "COLD", "BAR", "GRILL"
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -77,6 +81,35 @@ const orderItemSchema = new Schema<IOrderItem>(
       type: String,
       trim: true,
       maxlength: [255, "Notes cannot exceed 255 characters"],
+    },
+    course: {
+      type: String,
+      enum: {
+        values: ['IMMEDIATE', 'STARTERS', 'MAINS', 'DESSERTS'],
+        message: 'Invalid course: {VALUE}',
+      },
+      default: 'IMMEDIATE',
+    },
+    holdStatus: {
+      type: String,
+      enum: {
+        values: ['HELD', 'FIRE_REQUESTED', 'FIRED'],
+        message: 'Invalid hold status: {VALUE}',
+      },
+      default: 'FIRED',
+    },
+    firedAt: {
+      type: Date,
+      default: null,
+    },
+    kdsStation: {
+      type: String,
+      trim: true,
+      enum: {
+        values: ['HOT', 'COLD', 'BAR', 'GRILL', 'SALAD', 'PASTRY', 'GENERAL'],
+        message: 'Invalid KDS station: {VALUE}',
+      },
+      default: null,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

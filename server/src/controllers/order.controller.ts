@@ -4,6 +4,7 @@ import { OrderService } from '../services/order.service.js';
 import { ApiResponseHandler } from '../utils/response.handler.js';
 import { OrderSource, OrderStatus } from '../enums/enums.js';
 import { AccessScope } from '../utils/accessScope.utils.js';
+import OrderItem from '../models/orderitems.model.js';
 
 export class OrderController {
   /**
@@ -167,7 +168,34 @@ export class OrderController {
       const { orders, total } = await OrderService.getOrders(req.user.tenantId, filters);
       const scopedOrders = allowedOutletIds === null || outletId
         ? orders
-        : orders.filter(order => allowedOutletIds.includes(order.outletId.toString()));
+        : orders.filter(order => {
+            const oid = (order.outletId as any)?._id?.toString() || order.outletId.toString();
+            return allowedOutletIds.includes(oid);
+          });
+
+      // Bulk fetch OrderItems for all retrieved orders
+      const orderIds = scopedOrders.map(o => o._id);
+      const allOrderItems = await OrderItem.find({ orderId: { $in: orderIds }, isDeleted: false });
+
+      // Group items by orderId
+      const itemsMap = new Map<string, any[]>();
+      allOrderItems.forEach(item => {
+        const oid = item.orderId.toString();
+        if (!itemsMap.has(oid)) {
+          itemsMap.set(oid, []);
+        }
+        itemsMap.get(oid)!.push({
+          id: item._id,
+          menuItemId: item.menuItemId,
+          variantId: item.variantId,
+          addons: item.addons,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          notes: item.notes,
+        });
+      });
 
       ApiResponseHandler.success(res, 200, 'Orders retrieved successfully', {
         orders: scopedOrders.map(o => ({
@@ -184,6 +212,8 @@ export class OrderController {
           orderStatus: o.orderStatus,
           paymentStatus: o.paymentStatus,
           createdAt: o.createdAt,
+          diningContext: o.diningContext,
+          items: itemsMap.get(o._id.toString()) || [],
         })),
         pagination: {
           total: scopedOrders.length,
@@ -219,7 +249,8 @@ export class OrderController {
         ApiResponseHandler.notFound(res, 'Order not found');
         return;
       }
-      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+      const outletIdStr = (details.order.outletId as any)?._id?.toString() || (details.order.outletId as any)?.toString();
+      if (!(await AccessScope.canAccessOutlet(req.user, outletIdStr))) {
         ApiResponseHandler.forbidden(res, 'You cannot access this order');
         return;
       }
@@ -306,7 +337,8 @@ export class OrderController {
         ApiResponseHandler.notFound(res, 'Order not found');
         return;
       }
-      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+      const outletIdStr = (details.order.outletId as any)?._id?.toString() || (details.order.outletId as any)?.toString();
+      if (!(await AccessScope.canAccessOutlet(req.user, outletIdStr))) {
         ApiResponseHandler.forbidden(res, 'You cannot update this order');
         return;
       }
@@ -373,7 +405,8 @@ export class OrderController {
         ApiResponseHandler.notFound(res, 'Order not found');
         return;
       }
-      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+      const outletIdStr = (details.order.outletId as any)?._id?.toString() || (details.order.outletId as any)?.toString();
+      if (!(await AccessScope.canAccessOutlet(req.user, outletIdStr))) {
         ApiResponseHandler.forbidden(res, 'You cannot cancel this order');
         return;
       }
@@ -422,7 +455,8 @@ export class OrderController {
         ApiResponseHandler.notFound(res, 'Order not found');
         return;
       }
-      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+      const outletIdStr = (details.order.outletId as any)?._id?.toString() || (details.order.outletId as any)?.toString();
+      if (!(await AccessScope.canAccessOutlet(req.user, outletIdStr))) {
         ApiResponseHandler.forbidden(res, 'You cannot access this order');
         return;
       }
@@ -496,7 +530,8 @@ export class OrderController {
         ApiResponseHandler.notFound(res, 'Order not found');
         return;
       }
-      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+      const outletIdStr = (details.order.outletId as any)?._id?.toString() || (details.order.outletId as any)?.toString();
+      if (!(await AccessScope.canAccessOutlet(req.user, outletIdStr))) {
         ApiResponseHandler.forbidden(res, 'You cannot update this order');
         return;
       }
@@ -560,7 +595,8 @@ export class OrderController {
         ApiResponseHandler.notFound(res, 'Order not found');
         return;
       }
-      if (!(await AccessScope.canAccessOutlet(req.user, details.order.outletId.toString()))) {
+      const outletIdStr = (details.order.outletId as any)?._id?.toString() || (details.order.outletId as any)?.toString();
+      if (!(await AccessScope.canAccessOutlet(req.user, outletIdStr))) {
         ApiResponseHandler.forbidden(res, 'You cannot delete this order');
         return;
       }

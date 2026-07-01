@@ -1,0 +1,90 @@
+import mongoose, { Document, Model, Schema, Types } from "mongoose";
+import { IntegrationProvider } from "../types/integration.type.js";
+
+export interface IProviderSyncState extends Document {
+  tenantId: Types.ObjectId;
+  outletId: Types.ObjectId;
+  provider: IntegrationProvider;
+  lastMenuSyncAt: Date | null;
+  lastInventorySyncAt: Date | null;
+  lastStatusSyncAt: Date | null;
+  lastSuccessAt: Date | null;
+  lastFailureAt: Date | null;
+  syncHealth: string;
+  failureCount: number;
+  consecutiveFailures: number;
+  circuitOpenUntil: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const providerSyncStateSchema = new Schema<IProviderSyncState>(
+  {
+    tenantId: {
+      type: Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: [true, "Tenant is required"],
+    },
+    outletId: {
+      type: Schema.Types.ObjectId,
+      ref: "Outlet",
+      required: [true, "Outlet is required"],
+    },
+    provider: {
+      type: String,
+      required: [true, "Provider is required"],
+      enum: Object.values(IntegrationProvider),
+      trim: true,
+      uppercase: true,
+    },
+    lastMenuSyncAt: {
+      type: Date,
+      default: null,
+    },
+    lastInventorySyncAt: {
+      type: Date,
+      default: null,
+    },
+    lastStatusSyncAt: {
+      type: Date,
+      default: null,
+    },
+    lastSuccessAt: {
+      type: Date,
+      default: null,
+    },
+    lastFailureAt: {
+      type: Date,
+      default: null,
+    },
+    syncHealth: {
+      type: String,
+      enum: ["HEALTHY", "DEGRADED", "FAILED"],
+      default: "HEALTHY",
+    },
+    failureCount: {
+      type: Number,
+      default: 0,
+    },
+    consecutiveFailures: {
+      type: Number,
+      default: 0,
+    },
+    circuitOpenUntil: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+  }
+);
+
+// Indexes
+providerSyncStateSchema.index({ tenantId: 1, outletId: 1, provider: 1 }, { unique: true });
+
+const ProviderSyncState: Model<IProviderSyncState> =
+  mongoose.model<IProviderSyncState>("ProviderSyncState", providerSyncStateSchema);
+
+export default ProviderSyncState;
