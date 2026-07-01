@@ -53,7 +53,7 @@ This report provides a comprehensive audit of the complete API surface for the *
 
 ## 3. Public API Audit (No Authentication Required)
 
-The following 23 endpoints are verified as public (accessible without the `Authorization: Bearer <token>` header):
+The following 23 endpoints aare verified as public (accessible without the `Authorization: Bearer <token>` header):
 
 1. **Authentication**
    - `POST /api/v1/auth/register` (Registration rate-limited)
