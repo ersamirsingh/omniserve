@@ -1,0 +1,151 @@
+import { SubscriptionService } from '../services/subscription.service.js';
+import { SubscriptionPlan } from '../enums/enums.js';
+import { ApiResponseHandler } from '../utils/response.handler.js';
+import { Types } from 'mongoose';
+export class SubscriptionController {
+    /**
+     * Create a new subscription
+     * POST /subscriptions
+     * Resolves tenantId from req.user.tenantId
+     */
+    static async createSubscription(req, res) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                ApiResponseHandler.unauthorized(res, 'User not authenticated or tenant ID not found');
+                return;
+            }
+            const { plan, amount, startDate, endDate } = req.body;
+            // Validate required fields
+            if (!plan || amount === undefined || !startDate || !endDate) {
+                ApiResponseHandler.badRequest(res, 'plan, amount, startDate, and endDate are required');
+                return;
+            }
+            // Validate plan is valid
+            if (!Object.values(SubscriptionPlan).includes(plan)) {
+                ApiResponseHandler.badRequest(res, `Invalid plan. Must be one of: ${Object.values(SubscriptionPlan).join(', ')}`);
+                return;
+            }
+            // Validate dates
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (start >= end) {
+                ApiResponseHandler.badRequest(res, 'startDate must be before endDate');
+                return;
+            }
+            if (Number(amount) < 0) {
+                ApiResponseHandler.badRequest(res, 'amount cannot be negative');
+                return;
+            }
+            const subscription = await SubscriptionService.createSubscription(tenantId, plan, Number(amount), start, end, req.user?.userId);
+            ApiResponseHandler.success(res, 201, 'Subscription created successfully', subscription);
+        }
+        catch (error) {
+            ApiResponseHandler.internalError(res, error.message || 'Failed to create subscription');
+        }
+    }
+    /**
+     * Get current active subscription for current tenant
+     * GET /subscriptions/current
+     */
+    static async getCurrentSubscription(req, res) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                ApiResponseHandler.unauthorized(res, 'User not authenticated or tenant ID not found');
+                return;
+            }
+            const subscription = await SubscriptionService.getCurrentSubscription(tenantId);
+            if (!subscription) {
+                ApiResponseHandler.notFound(res, 'No active subscription found');
+                return;
+            }
+            ApiResponseHandler.success(res, 200, 'Current active subscription retrieved successfully', subscription);
+        }
+        catch (error) {
+            ApiResponseHandler.internalError(res, error.message || 'Failed to retrieve current subscription');
+        }
+    }
+    /**
+     * Cancel subscription (updates status to CANCELLED, does not soft delete)
+     * PATCH /subscriptions/:id/cancel
+     */
+    static async cancelSubscription(req, res) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                ApiResponseHandler.unauthorized(res, 'User not authenticated or tenant ID not found');
+                return;
+            }
+            const id = req.params.id;
+            if (!id || !Types.ObjectId.isValid(id)) {
+                ApiResponseHandler.badRequest(res, 'Invalid subscription ID format');
+                return;
+            }
+            const cancelledSubscription = await SubscriptionService.cancelSubscription(id, tenantId, req.user?.userId);
+            if (!cancelledSubscription) {
+                ApiResponseHandler.notFound(res, 'Subscription not found or access denied');
+                return;
+            }
+            ApiResponseHandler.success(res, 200, 'Subscription cancelled successfully', cancelledSubscription);
+        }
+        catch (error) {
+            ApiResponseHandler.internalError(res, error.message || 'Failed to cancel subscription');
+        }
+    }
+    /**
+     * Retrieve list of subscriptions for current tenant
+     * GET /subscriptions
+     */
+    static async getSubscriptionsByTenantId(req, res) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                ApiResponseHandler.unauthorized(res, 'User not authenticated or tenant ID not found');
+                return;
+            }
+            const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+            const skip = parseInt(req.query.skip) || 0;
+            const { subscriptions, total } = await SubscriptionService.getSubscriptionsByTenantId(tenantId, limit, skip);
+            ApiResponseHandler.success(res, 200, 'Subscriptions retrieved successfully', {
+                subscriptions,
+                pagination: {
+                    total,
+                    limit,
+                    skip,
+                    hasMore: skip + limit < total,
+                },
+            });
+        }
+        catch (error) {
+            ApiResponseHandler.internalError(res, error.message || 'Failed to retrieve subscriptions');
+        }
+    }
+    /**
+     * Retrieve details of a single subscription
+     * GET /subscriptions/:id
+     */
+    static async getSubscriptionById(req, res) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                ApiResponseHandler.unauthorized(res, 'User not authenticated or tenant ID not found');
+                return;
+            }
+            const id = req.params.id;
+            if (!id || !Types.ObjectId.isValid(id)) {
+                ApiResponseHandler.badRequest(res, 'Invalid subscription ID format');
+                return;
+            }
+            const subscription = await SubscriptionService.getSubscriptionById(id, tenantId);
+            if (!subscription) {
+                ApiResponseHandler.notFound(res, 'Subscription not found or access denied');
+                return;
+            }
+            ApiResponseHandler.success(res, 200, 'Subscription retrieved successfully', subscription);
+        }
+        catch (error) {
+            ApiResponseHandler.internalError(res, error.message || 'Failed to retrieve subscription');
+        }
+    }
+}

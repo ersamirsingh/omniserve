@@ -59,10 +59,10 @@ async function runSimulatorTest() {
 
   console.log("\n--- PRE-TEST: Seeding Sandbox Catalog & Mappings ---");
   await IntegrationController.loadDemoCatalog(mockReq, mockRes);
-  console.log("Demo Catalog Seeding status:", mockRes.statusCode === 200 ? "SUCCESS" : "ERROR");
+  console.log("Demo Catalog Seeding status:", (mockRes.statusCode === 200 || mockRes.statusCode === 201) ? "SUCCESS" : "ERROR", "Code:", mockRes.statusCode, "Body:", JSON.stringify(mockRes.body));
 
   await IntegrationController.generateMappings(mockReq, mockRes);
-  console.log("Mappings Generation status:", mockRes.statusCode === 200 ? "SUCCESS" : "ERROR");
+  console.log("Mappings Generation status:", (mockRes.statusCode === 200 || mockRes.statusCode === 201) ? "SUCCESS" : "ERROR", "Code:", mockRes.statusCode, "Body:", JSON.stringify(mockRes.body));
 
   // Force seed 3 Swiggy sandbox items and mappings to guarantee resolution
   console.log("Enforcing sandbox mapping records for Swiggy simulator...");
