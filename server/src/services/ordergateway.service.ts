@@ -551,6 +551,12 @@ export class OrderGatewayService {
     };
   }
 
+  /**
+   * TECHNICAL DEBT NOTE:
+   * Order.source currently carries both provider-origin values (e.g. SWIGGY, ZOMATO, WEBSITE)
+   * and fallback fulfillment-derived values (e.g. DINE_IN, TAKEAWAY, DELIVERY).
+   * Persisted orders do not separate provider channel vs fulfillment type natively.
+   */
   private static mapCanonicalSourceToInternal(canonicalOrder: CanonicalOrder): OrderSource {
     const provStr = String(canonicalOrder.provider || "").toUpperCase();
     if (provStr === "QR" || provStr === "QR_DINE_IN") return OrderSource.QR_DINE_IN;

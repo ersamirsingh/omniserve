@@ -6,7 +6,6 @@ import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
 import Badge from '../../../components/ui/Badge';
 import { HiOutlineReceiptPercent, HiOutlineCheckCircle, HiOutlineUserGroup, HiOutlineCreditCard } from 'react-icons/hi2';
-import Badge from '../../../components/ui/Badge';
 
 export default function BillingWorkspace() {
   const { lastMessage } = useSocket();

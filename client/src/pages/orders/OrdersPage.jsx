@@ -11,6 +11,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
 import { ORDER_STATUS_VARIANT, ORDER_STATUS_LABELS, PAYMENT_STATUS_VARIANT } from '../../utils/constants';
 import { HiOutlineShoppingCart, HiOutlineEye, HiOutlineXMark, HiOutlineClock } from 'react-icons/hi2';
+import { useSocket } from '../../context/SocketContext';
 
 const statusFlow = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'DELIVERED'];
 
@@ -30,10 +31,11 @@ const getStatusActionButtonLabel = (nextStatus) => {
   }
 };
 
-export default function OrdersPage() {
+export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
   const dispatch = useDispatch();
   const { orders, loading } = useSelector((s) => s.orders);
   const { addToast } = useToast();
+  const { lastMessage } = useSocket();
   const [filter, setFilter] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const orderIdParam = searchParams.get('orderId');
@@ -69,8 +71,24 @@ export default function OrdersPage() {
   };
 
   useEffect(() => { 
-    dispatch(fetchOrders()); 
-  }, [dispatch]);
+    const params = {};
+    if (mode !== 'ALL') {
+      params.operationalMode = mode;
+    }
+    dispatch(fetchOrders(params)); 
+  }, [dispatch, mode]);
+
+  useEffect(() => {
+    if (!lastMessage) return;
+    const { event } = lastMessage;
+    if (event === 'ORDER_CREATED' || event === 'ORDER_STATUS_CHANGED') {
+      const params = {};
+      if (mode !== 'ALL') {
+        params.operationalMode = mode;
+      }
+      dispatch(fetchOrders(params));
+    }
+  }, [lastMessage, dispatch, mode]);
 
   useEffect(() => {
     if (orderIdParam) {
@@ -142,7 +160,7 @@ export default function OrdersPage() {
         return (
           <div className="flex flex-col">
             <span className="font-semibold text-on-surface dark:text-zinc-200">{name || '—'}</span>
-            <span className="text-[11px] text-on-surface-variant dark:text-zinc-500">{r.customerId.phone || ''}</span>
+            <span className="text-[11px] text-on-surface-variant dark:text-zinc-550">{r.customerId.phone || ''}</span>
           </div>
         );
       } 
@@ -200,17 +218,19 @@ export default function OrdersPage() {
             )}
           </div>
         );
-      }
+      } 
     },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        section="Operations"
-        title="Orders" 
-        description="Track live customer orders, update kitchen preparation stages, and manage delivery handoffs."
-      />
+      {!hideHeader && (
+        <PageHeader 
+          section="Operations"
+          title="Orders" 
+          description="Track live customer orders, update kitchen preparation stages, and manage delivery handoffs."
+        />
+      )}
 
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <select 

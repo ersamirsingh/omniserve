@@ -138,6 +138,7 @@ export class OrderController {
       let outletId = req.query.outletId as string | undefined;
       const orderStatus = req.query.orderStatus as string | undefined;
       const date = req.query.date as string | undefined; // YYYY-MM-DD
+      const operationalMode = req.query.operationalMode as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
@@ -156,7 +157,7 @@ export class OrderController {
         return;
       }
 
-      const filters: { outletId?: string; orderStatus?: string; date?: string; limit: number; skip: number } = { limit, skip };
+      const filters: { outletId?: string; orderStatus?: string; date?: string; limit: number; skip: number; operationalMode?: string } = { limit, skip };
       const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
       if (!outletId && allowedOutletIds && allowedOutletIds.length === 1) {
         outletId = allowedOutletIds[0];
@@ -164,6 +165,7 @@ export class OrderController {
       if (outletId) filters.outletId = outletId;
       if (orderStatus) filters.orderStatus = orderStatus;
       if (date) filters.date = date;
+      if (operationalMode) filters.operationalMode = operationalMode;
 
       const { orders, total } = await OrderService.getOrders(req.user.tenantId, filters);
       const scopedOrders = allowedOutletIds === null || outletId

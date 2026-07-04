@@ -14,6 +14,7 @@ import ReservationCalendar from './components/ReservationCalendar';
 import ShiftDashboard from './components/ShiftDashboard';
 import DiningAnalyticsDashboard from './components/DiningAnalyticsDashboard';
 import OperationsTimeline from './components/OperationsTimeline';
+import OrdersPage from '../orders/OrdersPage';
 
 import {
   HiOutlinePresentationChartLine,
@@ -54,6 +55,7 @@ export default function OperationsCockpit() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: HiOutlinePresentationChartLine, component: RestaurantOperationsDashboard },
     { id: 'floor', label: 'Live Floor', icon: HiOutlineMap, component: FloorView },
+    { id: 'dine-in-orders', label: 'Dine-In Orders', icon: HiOutlineListBullet, component: null },
     { id: 'designer', label: 'Floor Designer', icon: HiOutlinePencilSquare, component: FloorDesigner },
     { id: 'kds', label: 'Kitchen (KDS)', icon: HiOutlineQueueList, component: KitchenDisplay },
     { id: 'waiters', label: 'Waiter Console', icon: HiOutlineUserGroup, component: WaiterConsole },
@@ -108,7 +110,11 @@ export default function OperationsCockpit() {
 
       {/* Primary Subpage Workspace wrapper */}
       <div className="min-h-[500px]">
-        <ActiveComponent onNavigate={setActiveTab} />
+        {activeTab === 'dine-in-orders' ? (
+          <OrdersPage mode="DINE_IN" hideHeader={true} onNavigate={setActiveTab} />
+        ) : (
+          <ActiveComponent onNavigate={setActiveTab} />
+        )}
       </div>
     </div>
   );

@@ -235,7 +235,7 @@ export class OrderService {
    */
   static async getOrders(
     tenantId: string,
-    filters: { outletId?: string; orderStatus?: string; date?: string; limit: number; skip: number }
+    filters: { outletId?: string; orderStatus?: string; date?: string; limit: number; skip: number; operationalMode?: string }
   ): Promise<{ orders: IOrder[]; total: number }> {
     const query: any = {
       tenantId: new Types.ObjectId(tenantId),
@@ -248,6 +248,12 @@ export class OrderService {
 
     if (filters.orderStatus) {
       query.orderStatus = filters.orderStatus;
+    }
+
+    if (filters.operationalMode === 'ONLINE') {
+      query.source = { $in: ["SWIGGY", "ZOMATO", "WEBSITE", "ONLINE", "DELIVERY", "TAKEAWAY", "ONDC", "WHATSAPP"] };
+    } else if (filters.operationalMode === 'DINE_IN') {
+      query.source = { $in: ["DINE_IN", "QR_DINE_IN", "WAITER", "POS"] };
     }
 
     if (filters.date) {
