@@ -12,24 +12,7 @@ import { useToast } from '../../components/ui/Toast';
 import { ORDER_STATUS_VARIANT, ORDER_STATUS_LABELS, PAYMENT_STATUS_VARIANT } from '../../utils/constants';
 import { HiOutlineShoppingCart, HiOutlineEye, HiOutlineXMark, HiOutlineClock } from 'react-icons/hi2';
 import { useSocket } from '../../context/SocketContext';
-
-const statusFlow = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'DELIVERED'];
-
-const getNextStatus = (currentStatus) => {
-  const idx = statusFlow.indexOf(currentStatus);
-  return idx >= 0 && idx < statusFlow.length - 1 ? statusFlow[idx + 1] : null;
-};
-
-const getStatusActionButtonLabel = (nextStatus) => {
-  switch (nextStatus) {
-    case 'ACCEPTED': return 'Accept Order';
-    case 'PREPARING': return 'Start Preparing';
-    case 'READY': return 'Mark as Ready';
-    case 'PICKED_UP': return 'Dispatch Order';
-    case 'DELIVERED': return 'Complete Delivery';
-    default: return 'Advance Status';
-  }
-};
+import OrderLifecycleActions from '../../components/shared/OrderLifecycleActions';
 
 export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
   const dispatch = useDispatch();
@@ -199,18 +182,22 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
       key: 'actions', 
       label: 'Actions', 
       render: (r) => {
-        const next = getNextStatus(r.orderStatus);
-        const canCancel = r.orderStatus !== 'CANCELLED' && r.orderStatus !== 'DELIVERED';
+        const canCancel = r.orderStatus !== 'CANCELLED' && r.orderStatus !== 'DELIVERED' && r.orderStatus !== 'COMPLETED';
         return (
           <div className="flex gap-1.5 justify-end">
             <Button size="sm" variant="secondary" onClick={() => handleViewDetails(r.id)} title="View Details" className="!p-2">
               <HiOutlineEye className="text-base" />
             </Button>
-            {next && (
-              <Button size="sm" variant="primary" onClick={() => handleStatusChange(r.id, next)} className="whitespace-nowrap font-bold">
-                {getStatusActionButtonLabel(next)}
-              </Button>
-            )}
+            <div className="w-[120px]">
+              <OrderLifecycleActions 
+                order={r} 
+                onStatusChanged={(newStatus) => {
+                  if (detailsModal.open && detailsModal.orderId === r.id) {
+                    loadOrderDetails(r.id);
+                  }
+                }}
+              />
+            </div>
             {canCancel && (
               <Button size="sm" variant="danger" onClick={() => handleCancelClick(r.id)} className="font-bold">
                 Cancel

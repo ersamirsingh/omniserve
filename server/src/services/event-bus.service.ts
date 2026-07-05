@@ -254,6 +254,60 @@ export class EventBusService {
     );
   }
 
+  static async publishReservationConfirmed(
+    tenantId: string | Types.ObjectId,
+    outletId: string | Types.ObjectId | null,
+    reservationId: string | Types.ObjectId,
+    payload: unknown,
+    options?: PublishOptions
+  ): Promise<IIntegrationEventQueue | null> {
+    return this.createEvent(
+      tenantId,
+      outletId,
+      RealtimeEvent.RESERVATION_CONFIRMED,
+      "RESERVATION",
+      reservationId,
+      payload,
+      options
+    );
+  }
+
+  static async publishReservationSeated(
+    tenantId: string | Types.ObjectId,
+    outletId: string | Types.ObjectId | null,
+    reservationId: string | Types.ObjectId,
+    payload: unknown,
+    options?: PublishOptions
+  ): Promise<IIntegrationEventQueue | null> {
+    return this.createEvent(
+      tenantId,
+      outletId,
+      RealtimeEvent.RESERVATION_SEATED,
+      "RESERVATION",
+      reservationId,
+      payload,
+      options
+    );
+  }
+
+  static async publishReservationCancelled(
+    tenantId: string | Types.ObjectId,
+    outletId: string | Types.ObjectId | null,
+    reservationId: string | Types.ObjectId,
+    payload: unknown,
+    options?: PublishOptions
+  ): Promise<IIntegrationEventQueue | null> {
+    return this.createEvent(
+      tenantId,
+      outletId,
+      RealtimeEvent.RESERVATION_CANCELLED,
+      "RESERVATION",
+      reservationId,
+      payload,
+      options
+    );
+  }
+
   static async publishTableTransferred(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId | null,

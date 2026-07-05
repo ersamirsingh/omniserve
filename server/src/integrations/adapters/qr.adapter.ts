@@ -45,12 +45,14 @@ export class QrAdapter extends BaseAdapter {
         totalAmount: Number(payload.pricing?.totalAmount || 0)
       },
       items: (payload.items || []).map((item: any) => ({
+        menuItemId: item.menuItemId ? String(item.menuItemId) : undefined,
         externalItemId: String(item.itemId),
         name: item.name,
         quantity: Number(item.quantity || 1),
         unitPrice: Number(item.price || 0),
-        ...(item.variantId ? { externalVariantId: String(item.variantId) } : {}),
+        ...(item.variantId ? { externalVariantId: String(item.variantId), variantId: String(item.variantId) } : {}),
         addons: (item.addons || []).map((addon: any) => ({
+          addonId: addon.addonId ? String(addon.addonId) : undefined,
           externalAddonId: String(addon.addonId),
           name: addon.name,
           price: Number(addon.price || 0)

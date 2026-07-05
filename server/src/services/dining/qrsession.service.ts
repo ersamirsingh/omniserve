@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import crypto from "crypto";
 import QRSession, { IQRSession, QRSessionStatus } from "../../models/qrsession.model.js";
 import Table from "../../models/table.model.js";
+import Reservation from "../../models/reservation.model.js";
 import { TableService } from "./table.service.js";
 
 export class QRSessionService {
@@ -12,15 +13,27 @@ export class QRSessionService {
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
     tableId: string | Types.ObjectId,
-    options: { customerId?: string; seatNumber?: string; waiterId?: string } = {}
+    options: { customerId?: string; seatNumber?: string; waiterId?: string; reservationId?: string } = {}
   ): Promise<IQRSession> {
     const table = await Table.findOne({ _id: new Types.ObjectId(tableId), isDeleted: false });
     if (!table) {
       throw new Error(`Table not found: ${tableId}`);
     }
+    
+    if (table.activeSessionId || (table.operationalStatus !== 'AVAILABLE' && table.operationalStatus !== 'RESERVED')) {
+      throw new Error(`Table ${tableId} is currently ${table.operationalStatus} and cannot be seated with a new session.`);
+    }
 
     // Generate a clean 6-digit numeric join code for group sessions
     const joinCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    let finalWaiterId = options.waiterId ? new Types.ObjectId(options.waiterId) : null;
+    if (!finalWaiterId && options.reservationId) {
+      const reservation = await Reservation.findOne({ _id: new Types.ObjectId(options.reservationId), isDeleted: false });
+      if (reservation && reservation.assignedWaiterId) {
+        finalWaiterId = reservation.assignedWaiterId;
+      }
+    }
 
     // Create session
     const session = new QRSession({
@@ -36,7 +49,7 @@ export class QRSessionService {
       }] : [],
       customerId: options.customerId ? new Types.ObjectId(options.customerId) : null,
       seatNumber: options.seatNumber || null,
-      waiterId: options.waiterId ? new Types.ObjectId(options.waiterId) : null,
+      waiterId: finalWaiterId,
       openedAt: new Date()
     });
 

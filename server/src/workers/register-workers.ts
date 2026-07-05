@@ -4,6 +4,7 @@ import { inventorySyncWorker } from "./inventory-sync.worker.js";
 import { menuSyncWorker } from "./menu-sync.worker.js";
 import { realtimeSyncWorker } from "./realtime-sync.worker.js";
 import { operationsWorkflowWorker } from "./operations-workflow.worker.js";
+import { reservationWorkflowWorker } from "./reservation-workflow.worker.js";
 
 // Composite Order Created Worker
 async function compositeOrderCreatedWorker(event: any): Promise<void> {
@@ -21,6 +22,12 @@ async function compositeOrderStatusChangedWorker(event: any): Promise<void> {
 // Composite worker for QR Assistance Requests (processes task spawning then broadcasts socket payload)
 async function compositeQRAssistanceRequestedWorker(event: any): Promise<void> {
   await operationsWorkflowWorker(event);
+  await realtimeSyncWorker(event);
+}
+
+// Composite worker for Reservations (processes workflow then broadcasts)
+async function compositeReservationWorker(event: any): Promise<void> {
+  await reservationWorkflowWorker(event);
   await realtimeSyncWorker(event);
 }
 
@@ -49,6 +56,11 @@ export function initWorkerRegistry(): void {
   workerRegistry.register("QR_ASSISTANCE_REQUESTED", compositeQRAssistanceRequestedWorker);
   workerRegistry.register("TABLE_STATUS_CHANGED", compositeTableStatusChangedWorker);
   workerRegistry.register("TABLE_CLEANING_STARTED", compositeTableCleaningStartedWorker);
+
+  // Reservation Events
+  workerRegistry.register("RESERVATION_CONFIRMED", compositeReservationWorker);
+  workerRegistry.register("RESERVATION_SEATED", compositeReservationWorker);
+  workerRegistry.register("RESERVATION_CANCELLED", compositeReservationWorker);
 
   // Simple Realtime Broadcast Events
   workerRegistry.register("TABLE_OCCUPIED", realtimeSyncWorker);

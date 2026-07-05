@@ -26,6 +26,8 @@ export interface IOrder extends Document {
   readyAt: Date | null;
   pickedUpAt: Date | null;
   deliveredAt: Date | null;
+  servedAt: Date | null;
+  completedAt: Date | null;
   cancelledAt: Date | null;
   cancellationReason?: string;
   notes?: string;
@@ -118,6 +120,8 @@ const orderSchema = new Schema<IOrder>(
     readyAt: { type: Date, default: null },
     pickedUpAt: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },
+    servedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
     cancellationReason: {
       type: String,

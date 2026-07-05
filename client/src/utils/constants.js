@@ -28,6 +28,8 @@ export const ORDER_STATUS = {
   READY: 'READY',
   PICKED_UP: 'PICKED_UP',
   DELIVERED: 'DELIVERED',
+  SERVED: 'SERVED',
+  COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
 };
 
@@ -38,6 +40,8 @@ export const ORDER_STATUS_VARIANT = {
   READY: 'success',
   PICKED_UP: 'success',
   DELIVERED: 'success',
+  SERVED: 'success',
+  COMPLETED: 'success',
   CANCELLED: 'danger',
 };
 
@@ -48,6 +52,8 @@ export const ORDER_STATUS_LABELS = {
   READY: 'Ready',
   PICKED_UP: 'Picked Up',
   DELIVERED: 'Delivered',
+  SERVED: 'Served',
+  COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
 

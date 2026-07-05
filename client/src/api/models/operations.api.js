@@ -5,9 +5,16 @@ export const executeDiningOperationApi = (data) => api.post('/dining/operations'
 export const updateTablesLayoutApi = (data) => api.put('/dining/tables/layout', data);
 export const getUnifiedTimelineApi = (sessionId) => api.get(`/dining/timeline/${sessionId}`);
 
-// --- Tables & Dining Areas (General queries) ---
+// --- Tables & Dining Areas (General queries & CRUD) ---
 export const getTablesApi = (params) => api.get('/dining/tables', { params });
+export const createTableApi = (data) => api.post('/dining/tables', data);
+export const updateTableApi = (id, data) => api.patch(`/dining/tables/${id}`, data);
+export const archiveTableApi = (id) => api.delete(`/dining/tables/${id}`);
+
 export const getDiningAreasApi = (params) => api.get('/dining/areas', { params });
+export const createDiningAreaApi = (data) => api.post('/dining/areas', data);
+export const updateDiningAreaApi = (id, data) => api.patch(`/dining/areas/${id}`, data);
+export const archiveDiningAreaApi = (id) => api.delete(`/dining/areas/${id}`);
 
 // --- KDS (Kitchen Display System) ---
 export const getKdsQueueApi = (params) => api.get('/kds/queue', { params });

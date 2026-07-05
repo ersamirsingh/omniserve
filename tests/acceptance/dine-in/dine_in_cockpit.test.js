@@ -192,7 +192,7 @@ async function runDineInAcceptance() {
       // ─── STEP 5: Full lifecycle ───
       console.log('\n[5] Running full lifecycle transitions...');
       // Status update route is at /api/orders/:id/status
-      const statuses = ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'DELIVERED'];
+      const statuses = ['ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED'];
       for (const s of statuses) {
         console.log(`  Advancing status to: ${s}`);
         const transitionRes = await fetch(`http://localhost:${PORT}/api/orders/${internalOrderId}/status`, {
@@ -209,8 +209,8 @@ async function runDineInAcceptance() {
       // Verify final order status
       const finalOrder = await Order.findById(internalOrderId);
       console.log(`  Final order status in DB: ${finalOrder.orderStatus}`);
-      if (finalOrder.orderStatus !== 'DELIVERED') {
-        throw new Error(`Expected DELIVERED, got ${finalOrder.orderStatus}`);
+      if (finalOrder.orderStatus !== 'COMPLETED') {
+        throw new Error(`Expected COMPLETED, got ${finalOrder.orderStatus}`);
       }
       console.log('  ✓ PASS: Full Dine-In Lifecycle transitions verified.');
 

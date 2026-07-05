@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import WaiterTask, { IWaiterTask, WaiterTaskType, WaiterTaskStatus } from "../../models/waitertask.model.js";
 import Outlet from "../../models/outlet.model.js";
 import { EventBusService } from "../event-bus.service.js";
@@ -52,6 +52,14 @@ export class WaiterTaskService {
     } = {}
   ): Promise<IWaiterTask> {
     const slaLimitMs = await this.getSlaLimitForTask(outletId, taskType);
+    
+    // Fetch session to inherit waiter assignment if exists
+    const QRSessionModel = mongoose.model('QRSession');
+    const session = await QRSessionModel.findById(sessionId);
+    let assignedTo = null;
+    if (session && session.waiterId) {
+        assignedTo = session.waiterId;
+    }
 
     const task = new WaiterTask({
       tenantId: new Types.ObjectId(tenantId),
@@ -59,6 +67,7 @@ export class WaiterTaskService {
       tableId: new Types.ObjectId(tableId),
       sessionId: new Types.ObjectId(sessionId),
       taskType,
+      assignedTo,
       source,
       status: "CREATED",
       priority: options.priority || "MEDIUM",

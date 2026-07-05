@@ -1,6 +1,8 @@
 import { Types } from "mongoose";
 import Reservation, { ReservationStatus } from "../../models/reservation.model.js";
 import Table from "../../models/table.model.js";
+import { EventBusService } from "../event-bus.service.js";
+import { QRSessionService } from "./qrsession.service.js";
 
 export interface ICreateReservationInput {
   outletId: Types.ObjectId;
@@ -114,6 +116,13 @@ export class ReservationService {
     if (updatedBy) reservation.updatedBy = updatedBy;
     await reservation.save();
 
+    await EventBusService.publishReservationConfirmed(
+      tenantId,
+      reservation.outletId,
+      reservation._id,
+      { reservationId, tableId: reservation.tableId?.toString() }
+    ).catch(err => console.error("Failed to publish reservation confirmed event", err));
+
     return {
       reservationId: reservation._id.toString(),
       guestName: reservation.guestName,
@@ -144,10 +153,36 @@ export class ReservationService {
 
     reservation.status = "SEATED";
     reservation.seatedAt = new Date();
+    
+    let activeSessionId = options.sessionId;
+    const finalTableId = options.tableId || reservation.tableId?.toString();
+    
+    if (finalTableId && !activeSessionId) {
+      // Create a new QR session for this table
+      const session = await QRSessionService.createSession(
+        tenantId.toString(),
+        reservation.outletId.toString(),
+        finalTableId,
+        {
+          customerId: reservation.customerId?.toString(),
+          seatNumber: reservation.seatNumber || undefined,
+          reservationId: reservation._id.toString()
+        }
+      );
+      activeSessionId = session._id.toString();
+    }
+
     if (options.tableId) reservation.tableId = new Types.ObjectId(options.tableId);
-    if (options.sessionId) reservation.sessionId = new Types.ObjectId(options.sessionId);
+    if (activeSessionId) reservation.sessionId = new Types.ObjectId(activeSessionId);
     if (options.updatedBy) reservation.updatedBy = options.updatedBy;
     await reservation.save();
+
+    await EventBusService.publishReservationSeated(
+      tenantId,
+      reservation.outletId,
+      reservation._id,
+      { reservationId, tableId: reservation.tableId?.toString(), sessionId: reservation.sessionId?.toString() }
+    ).catch(err => console.error("Failed to publish reservation seated event", err));
 
     return {
       reservationId: reservation._id.toString(),
@@ -155,6 +190,36 @@ export class ReservationService {
       partySize: reservation.partySize,
       scheduledAt: reservation.scheduledAt,
       status: "SEATED",
+      tableId: reservation.tableId?.toString() ?? null
+    };
+  }
+
+  /**
+   * Pre-assign a waiter to a reservation.
+   */
+  static async assignWaiterToReservation(
+    tenantId: Types.ObjectId,
+    reservationId: string,
+    waiterId: string,
+    updatedBy?: Types.ObjectId
+  ): Promise<IReservationResult> {
+    const reservation = await Reservation.findOne({
+      _id: new Types.ObjectId(reservationId),
+      tenantId,
+      isDeleted: false
+    });
+    if (!reservation) throw new Error(`Reservation ${reservationId} not found`);
+
+    reservation.assignedWaiterId = new Types.ObjectId(waiterId);
+    if (updatedBy) reservation.updatedBy = updatedBy;
+    await reservation.save();
+
+    return {
+      reservationId: reservation._id.toString(),
+      guestName: reservation.guestName,
+      partySize: reservation.partySize,
+      scheduledAt: reservation.scheduledAt,
+      status: reservation.status,
       tableId: reservation.tableId?.toString() ?? null
     };
   }
@@ -215,6 +280,13 @@ export class ReservationService {
     if (options.reason) reservation.cancellationReason = options.reason;
     if (options.updatedBy) reservation.updatedBy = options.updatedBy;
     await reservation.save();
+
+    await EventBusService.publishReservationCancelled(
+      tenantId,
+      reservation.outletId,
+      reservation._id,
+      { reservationId, tableId: reservation.tableId?.toString(), reason: options.reason }
+    ).catch(err => console.error("Failed to publish reservation cancelled event", err));
 
     return {
       reservationId: reservation._id.toString(),

@@ -12,6 +12,7 @@ import Payment from '../models/payment.model.js';
 import { OrderStatus, PaymentStatus, NotificationType } from '../enums/enums.js';
 import { NotificationService } from './notification.service.js';
 import { EventBusService } from './event-bus.service.js';
+import { WaiterTaskService } from './dining/waiter-task.service.js';
 
 export class OrderService {
   /**
@@ -338,17 +339,30 @@ export class OrderService {
 
     const currentStatus = order.orderStatus;
 
-    // Workflow transition rules
-    const validTransitions: Record<string, string> = {
-      [OrderStatus.PENDING]: OrderStatus.ACCEPTED,
-      [OrderStatus.ACCEPTED]: OrderStatus.PREPARING,
-      [OrderStatus.PREPARING]: OrderStatus.READY,
-      [OrderStatus.READY]: OrderStatus.PICKED_UP,
-      [OrderStatus.PICKED_UP]: OrderStatus.DELIVERED,
-    };
+    // Source-aware Workflow transition rules
+    const isDineIn = ["DINE_IN", "QR_DINE_IN", "WAITER", "POS"].includes(order.source);
+
+    let validTransitions: Record<string, string>;
+    if (isDineIn) {
+      validTransitions = {
+        [OrderStatus.PENDING]: OrderStatus.ACCEPTED,
+        [OrderStatus.ACCEPTED]: OrderStatus.PREPARING,
+        [OrderStatus.PREPARING]: OrderStatus.READY,
+        [OrderStatus.READY]: OrderStatus.SERVED,
+        [OrderStatus.SERVED]: OrderStatus.COMPLETED,
+      };
+    } else {
+      validTransitions = {
+        [OrderStatus.PENDING]: OrderStatus.ACCEPTED,
+        [OrderStatus.ACCEPTED]: OrderStatus.PREPARING,
+        [OrderStatus.PREPARING]: OrderStatus.READY,
+        [OrderStatus.READY]: OrderStatus.PICKED_UP,
+        [OrderStatus.PICKED_UP]: OrderStatus.DELIVERED,
+      };
+    }
 
     if (validTransitions[currentStatus] !== newStatus) {
-      throw new Error(`Invalid status transition: cannot change status from ${currentStatus} to ${newStatus}`);
+      throw new Error(`Invalid status transition for source ${order.source}: cannot change status from ${currentStatus} to ${newStatus}`);
     }
 
     const session = await mongoose.startSession();
@@ -415,13 +429,39 @@ export class OrderService {
         updateFields.preparedAt = new Date();
       } else if (newStatus === OrderStatus.READY) {
         updateFields.readyAt = new Date();
+
+        // Phase 4D: KDS READY integration with SERVE_FOOD workflow
+        if (isDineIn && (order.sessionId || order.diningContext?.sessionId) && order.diningContext?.tableId) {
+          const sessionId = order.sessionId || order.diningContext?.sessionId;
+          if (sessionId) {
+            await WaiterTaskService.createTask(
+              order.tenantId,
+              order.outletId,
+              order.diningContext.tableId,
+              sessionId,
+              'SERVE_FOOD',
+              'KDS_AUTO',
+              {
+                priority: 'HIGH',
+                associatedOrderId: order._id.toString(),
+                metadata: { orderNumber: order.orderNumber }
+              }
+            ).catch(err => console.error('Failed to create SERVE_FOOD WaiterTask:', err));
+          }
+        }
+      } else if (newStatus === OrderStatus.SERVED) {
+        updateFields.servedAt = new Date();
       } else if (newStatus === OrderStatus.PICKED_UP) {
         updateFields.pickedUpAt = new Date();
-      } else if (newStatus === OrderStatus.DELIVERED) {
-        updateFields.deliveredAt = new Date();
+      } else if (newStatus === OrderStatus.DELIVERED || newStatus === OrderStatus.COMPLETED) {
+        if (newStatus === OrderStatus.DELIVERED) {
+          updateFields.deliveredAt = new Date();
+        } else {
+          updateFields.completedAt = new Date();
+        }
 
         // CUSTOMER STATISTICS updates (prevent double counting)
-        if (currentStatus !== OrderStatus.DELIVERED) {
+        if (currentStatus !== OrderStatus.DELIVERED && currentStatus !== OrderStatus.COMPLETED) {
           await Customer.updateOne(
             { _id: order.customerId, tenantId: order.tenantId },
             { $inc: { totalOrders: 1, totalSpent: order.totalAmount } },

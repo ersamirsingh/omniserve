@@ -13,7 +13,9 @@ export interface ITable extends Document {
   status: 'ACTIVE' | 'INACTIVE';
   operationalStatus: TableOperationalStatus;
   activeSessionId?: Types.ObjectId | null;
+  reservedSessionId?: Types.ObjectId | null;
   lastSessionId?: Types.ObjectId | null;
+  defaultWaiterId?: Types.ObjectId | null;
   layout?: {
     x?: number;
     y?: number;
@@ -88,9 +90,19 @@ const tableSchema = new Schema<ITable>(
       ref: 'QRSession',
       default: null,
     },
+    reservedSessionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Reservation',
+      default: null,
+    },
     lastSessionId: {
       type: Schema.Types.ObjectId,
       ref: 'QRSession',
+      default: null,
+    },
+    defaultWaiterId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       default: null,
     },
     layout: {

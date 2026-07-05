@@ -22,6 +22,7 @@ import {
   HiOutlineArrowsUpDown,
   HiUserMinus
 } from 'react-icons/hi2';
+import OrderLifecycleActions from '../../../components/shared/OrderLifecycleActions';
 
 export default function FloorView() {
   const { lastMessage, joinSession, leaveSession } = useSocket();
@@ -371,7 +372,16 @@ export default function FloorView() {
                         <span className="text-[11px] text-on-surface-variant dark:text-zinc-550 mb-2 truncate">
                           Order: #{order.orderNumber || ''}
                         </span>
-                        <div className="flex justify-between items-center gap-1.5">
+                        
+                        {/* Status action button */}
+                        <div className="mb-2">
+                          <OrderLifecycleActions 
+                            order={order} 
+                            onStatusChanged={() => loadDrawerDetails(selectedTable)} 
+                          />
+                        </div>
+
+                        <div className="flex justify-between items-center gap-1.5 border-t border-border-base dark:border-zinc-800 pt-2">
                           <span className="text-[11px] font-bold">${order.totalAmount?.toFixed(2)}</span>
                           <div className="flex gap-1">
                             <button
