@@ -72,7 +72,6 @@ const orderTimelineSchema = new Schema<IOrderTimeline>(
     },
     sessionId: {
       type: Schema.Types.ObjectId,
-      ref: "SimulationSession",
       default: null,
     },
     audit: {

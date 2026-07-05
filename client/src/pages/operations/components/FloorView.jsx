@@ -22,8 +22,9 @@ import {
   HiOutlineArrowsUpDown,
   HiUserMinus
 } from 'react-icons/hi2';
+import OrderLifecycleActions from '../../../components/shared/OrderLifecycleActions';
 
-export default function FloorView() {
+export default function FloorView({ onNavigate }) {
   const { lastMessage, joinSession, leaveSession } = useSocket();
   const { addToast } = useToast();
   
@@ -186,8 +187,8 @@ export default function FloorView() {
       </div>
 
       {/* Grid Floor workspace */}
-      <div className="relative w-full h-[600px] bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-xl overflow-hidden shadow-inner">
-        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-70" />
+      <div className="relative w-full h-150 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-xl overflow-hidden shadow-inner">
+        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [bg-size:20px_20px] opacity-70" />
 
         {currentAreaTables.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center flex-col text-on-surface-variant dark:text-zinc-550">
@@ -230,7 +231,7 @@ export default function FloorView() {
 
       {/* Table Side Detail Drawer */}
       {drawerOpen && selectedTable && (
-        <div className="fixed inset-y-0 right-0 w-[450px] bg-white dark:bg-zinc-950 border-l border-border-base dark:border-zinc-900 shadow-2xl z-[150] flex flex-col animate-slide-in-right">
+        <div className="fixed inset-y-0 right-0 w-112.5 bg-white dark:bg-zinc-950 border-l border-border-base dark:border-zinc-900 shadow-2xl z-150 flex flex-col animate-slide-in-right">
           {/* Header */}
           <div className="flex justify-between items-center px-6 py-4 border-b border-border-base dark:border-zinc-900">
             <div>
@@ -246,6 +247,35 @@ export default function FloorView() {
 
           {/* Drawer Body Scroll */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Navigation Actions */}
+            <div className="space-y-2 pb-4 border-b border-border-base dark:border-zinc-900">
+              <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider">Navigation</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    sessionStorage.setItem('selectedTableNumber', selectedTable.tableNumber);
+                    if (onNavigate) onNavigate('waiters');
+                  }}
+                  className="font-bold text-xs"
+                >
+                  Go to Waiter Tasks
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    sessionStorage.setItem('selectedTableId', selectedTable._id || selectedTable.id);
+                    if (onNavigate) onNavigate('billing');
+                  }}
+                  className="font-bold text-xs"
+                >
+                  Go to Billing Splits
+                </Button>
+              </div>
+            </div>
+
             {/* Quick Actions Panel */}
             <div className="space-y-2">
               <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider">Operational Actions</h3>
@@ -371,7 +401,16 @@ export default function FloorView() {
                         <span className="text-[11px] text-on-surface-variant dark:text-zinc-550 mb-2 truncate">
                           Order: #{order.orderNumber || ''}
                         </span>
-                        <div className="flex justify-between items-center gap-1.5">
+                        
+                        {/* Status action button */}
+                        <div className="mb-2">
+                          <OrderLifecycleActions 
+                            order={order} 
+                            onStatusChanged={() => loadDrawerDetails(selectedTable)} 
+                          />
+                        </div>
+
+                        <div className="flex justify-between items-center gap-1.5 border-t border-border-base dark:border-zinc-800 pt-2">
                           <span className="text-[11px] font-bold">${order.totalAmount?.toFixed(2)}</span>
                           <div className="flex gap-1">
                             <button
@@ -400,7 +439,7 @@ export default function FloorView() {
                   <div className="relative border-l border-border-base dark:border-zinc-800 pl-4 space-y-4 ml-1">
                     {tableTimeline.slice(-5).reverse().map((event, idx) => (
                       <div key={idx} className="relative text-[12px]">
-                        <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-primary dark:bg-primary-fixed-dim" />
+                        <span className="absolute -left-5.25 top-1.5 w-2.5 h-2.5 rounded-full bg-primary dark:bg-primary-fixed-dim" />
                         <span className="text-on-surface-variant dark:text-zinc-500 text-[10px] block">
                           {new Date(event.timestamp).toLocaleTimeString()}
                         </span>
@@ -423,8 +462,8 @@ export default function FloorView() {
 
       {/* Unified Operations Modal Dialog */}
       {opModal.open && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-border-base dark:border-zinc-900 w-[380px] space-y-4 shadow-2xl animate-scale-in">
+        <div className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-border-base dark:border-zinc-900 w-95 space-y-4 shadow-2xl animate-scale-in">
             <h3 className="text-[15px] font-bold text-on-background capitalize">
               {opModal.type.replace('_', ' ')}
             </h3>
@@ -462,7 +501,7 @@ export default function FloorView() {
               {/* Merge Table */}
               {opModal.type === 'MERGE_TABLE' && (
                 <div className="space-y-2">
-                  <label className="font-bold text-on-surface-variant dark:text-zinc-400 font-semibold mb-1 block">Choose Table to Merge</label>
+                  <label className="font-bold text-on-surface-variant dark:text-zinc-400 mb-1 block">Choose Table to Merge</label>
                   <select
                     id="secondaryTableIdInput"
                     className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-850 rounded-lg p-2 text-xs text-on-background"

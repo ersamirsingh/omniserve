@@ -20,18 +20,5 @@ router.get("/events", verifyToken, IntegrationController.getIntegrationEvents);
 router.get("/sync-jobs", verifyToken, IntegrationController.getSyncJobs);
 router.post("/events/:id/replay", verifyToken, IntegrationController.replayEvent);
 
-// Phase 7.5 Developer Sandbox endpoints (requires authentication)
-router.get("/dev/config", verifyToken, IntegrationController.getDevConfig);
-router.post("/dev/load-demo-catalog", verifyToken, IntegrationController.loadDemoCatalog);
-router.post("/dev/generate-mappings", verifyToken, IntegrationController.generateMappings);
-router.post("/dev/validate-mappings", verifyToken, IntegrationController.validateMappings);
-router.post("/dev/reset", verifyToken, IntegrationController.resetDevSandbox);
-router.post("/dev/simulate-order", verifyToken, IntegrationController.simulateOrder);
-router.get("/dev/simulator/sessions", verifyToken, IntegrationController.getSimulatorSessions);
-router.get("/dev/simulator/:sessionId/metrics", verifyToken, IntegrationController.getSimulatorMetrics);
-router.get("/dev/simulator/:sessionId/events", verifyToken, IntegrationController.getSimulatorEvents);
-router.post("/dev/simulator/:sessionId/stop", verifyToken, IntegrationController.stopSimulatorSession);
-router.post("/dev/run-smoke-test", verifyToken, IntegrationController.runSmokeTest);
-router.post("/dev/simulate-dinein", verifyToken, IntegrationController.simulateDineInOrder);
 
 export default router;

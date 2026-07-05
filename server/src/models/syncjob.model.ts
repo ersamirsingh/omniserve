@@ -133,7 +133,6 @@ const syncJobSchema = new Schema<ISyncJob>(
     },
     sessionId: {
       type: Schema.Types.ObjectId,
-      ref: "SimulationSession",
       default: null,
     },
     createdBy: {

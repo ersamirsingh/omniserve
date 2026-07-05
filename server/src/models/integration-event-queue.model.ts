@@ -83,14 +83,17 @@ const integrationEventQueueSchema = new Schema<IIntegrationEventQueue>(
         "COURSE_FIRED",
         "BILL_REQUESTED",
         "BILL_SPLIT_CREATED",
-        "BILL_SETTLED"
+        "BILL_SETTLED",
+        "RESERVATION_CONFIRMED",
+        "RESERVATION_SEATED",
+        "RESERVATION_CANCELLED"
       ],
       trim: true,
     },
     aggregateType: {
       type: String,
       required: [true, "Aggregate type is required"],
-      enum: ["ORDER", "MENU_ITEM", "INVENTORY", "CART", "TABLE", "WAITER_TASK", "ORDER_ITEM", "BILL_SESSION"],
+      enum: ["ORDER", "MENU_ITEM", "INVENTORY", "CART", "TABLE", "WAITER_TASK", "ORDER_ITEM", "BILL_SESSION", "RESERVATION"],
       trim: true,
     },
     aggregateId: {
@@ -185,7 +188,6 @@ const integrationEventQueueSchema = new Schema<IIntegrationEventQueue>(
     },
     sessionId: {
       type: Schema.Types.ObjectId,
-      ref: "SimulationSession",
       default: null,
     },
   },

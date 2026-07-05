@@ -4,6 +4,7 @@ import { useSocket } from '../../../context/SocketContext';
 import { useToast } from '../../../components/ui/Toast';
 import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
+import Badge from '../../../components/ui/Badge';
 import { HiOutlineReceiptPercent, HiOutlineCheckCircle, HiOutlineUserGroup, HiOutlineCreditCard } from 'react-icons/hi2';
 
 export default function BillingWorkspace() {
@@ -31,6 +32,17 @@ export default function BillingWorkspace() {
       // Table statuses matching billing pending: occupied or explicitly BILL_REQUESTED
       const billingTables = tables.filter(t => t.activeSessionId);
       setActiveTables(billingTables);
+
+      const targetTableId = sessionStorage.getItem('selectedTableId');
+      if (targetTableId) {
+        sessionStorage.removeItem('selectedTableId'); // Clear it immediately
+        const matched = billingTables.find(t => t._id === targetTableId || t.id === targetTableId);
+        if (matched) {
+          setSelectedTable(matched);
+          loadBillDetails(matched.activeSessionId);
+          return;
+        }
+      }
 
       if (billingTables.length > 0 && !selectedTable) {
         setSelectedTable(billingTables[0]);

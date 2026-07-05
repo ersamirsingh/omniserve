@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTablesApi, getDiningAreasApi, updateTablesLayoutApi } from '../../../api/models/operations.api';
+import { getTablesApi, getDiningAreasApi, updateTablesLayoutApi, createDiningAreaApi, createTableApi, archiveDiningAreaApi, archiveTableApi } from '../../../api/models/operations.api';
 import { useToast } from '../../../components/ui/Toast';
 import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
-import { HiOutlineSquares2X2, HiOutlineDevicePhoneMobile, HiArrowPath } from 'react-icons/hi2';
+import Modal from '../../../components/ui/Modal';
+import { HiOutlineSquares2X2, HiOutlineDevicePhoneMobile, HiArrowPath, HiPlus, HiTrash, HiOutlineQrCode, HiOutlineClipboardDocument } from 'react-icons/hi2';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function FloorDesigner() {
   const { addToast } = useToast();
@@ -19,6 +21,75 @@ export default function FloorDesigner() {
   const [draggingTable, setDraggingTable] = useState(null);
   const [hasDragged, setHasDragged] = useState(false);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+
+  // CRUD Modals state
+  const [showAreaModal, setShowAreaModal] = useState(false);
+  const [newAreaName, setNewAreaName] = useState('');
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [newTableData, setNewTableData] = useState({ tableNumber: '', seatCount: 4 });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAddArea = async () => {
+    if (!newAreaName.trim()) return addToast('Name is required', 'error');
+    setIsSubmitting(true);
+    try {
+      const res = await createDiningAreaApi({ name: newAreaName.trim() });
+      addToast('Floor created successfully', 'success');
+      setShowAreaModal(false);
+      setNewAreaName('');
+      await fetchData();
+      if (res.data?.data?._id) setSelectedAreaId(res.data.data._id);
+    } catch (e) {
+      addToast(e.response?.data?.message || 'Failed to create floor', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddTable = async () => {
+    if (!newTableData.tableNumber) return addToast('Table number is required', 'error');
+    setIsSubmitting(true);
+    try {
+      await createTableApi({
+        tableNumber: newTableData.tableNumber.trim(),
+        seatCount: Number(newTableData.seatCount),
+        diningAreaId: selectedAreaId,
+        layout: { x: 50, y: 50, width: 80, height: 80, rotation: 0, shape: 'square', zIndex: 10, labelPosition: 'CENTER' }
+      });
+      addToast('Table created successfully', 'success');
+      setShowTableModal(false);
+      setNewTableData({ tableNumber: '', seatCount: 4 });
+      fetchData();
+    } catch (e) {
+      addToast(e.response?.data?.message || 'Failed to create table', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteArea = async () => {
+    if (!window.confirm('Are you sure you want to archive this floor?')) return;
+    try {
+      await archiveDiningAreaApi(selectedAreaId);
+      addToast('Floor archived', 'success');
+      setSelectedAreaId('');
+      fetchData();
+    } catch (e) {
+      addToast(e.response?.data?.message || 'Failed to archive floor', 'error');
+    }
+  };
+
+  const handleDeleteTable = async () => {
+    if (!selectedTable || !window.confirm('Are you sure you want to archive this table?')) return;
+    try {
+      await archiveTableApi(selectedTable._id);
+      addToast('Table archived', 'success');
+      setSelectedTable(null);
+      fetchData();
+    } catch (e) {
+      addToast(e.response?.data?.message || 'Failed to archive table', 'error');
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -147,12 +218,12 @@ export default function FloorDesigner() {
       {/* Designer Workspace controls */}
       <div className="lg:col-span-3 space-y-4">
         <div className="flex justify-between items-center gap-4 flex-wrap">
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="flex gap-2 overflow-x-auto items-center">
             {diningAreas.map(area => (
               <button
                 key={area._id || area.id}
                 onClick={() => setSelectedAreaId(area._id || area.id)}
-                className={`px-4 py-2 rounded-lg text-[13px] font-bold cursor-pointer transition-all ${
+                className={`px-4 py-2 rounded-lg text-[13px] font-bold cursor-pointer transition-all whitespace-nowrap ${
                   selectedAreaId === (area._id || area.id)
                     ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-md'
                     : 'bg-white text-on-surface-variant border border-border-base hover:bg-surface-container-low dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-900'
@@ -161,10 +232,29 @@ export default function FloorDesigner() {
                 {area.name}
               </button>
             ))}
+            <button
+              onClick={() => setShowAreaModal(true)}
+              className="p-2 border border-dashed border-primary/50 text-primary hover:bg-primary/5 rounded-lg flex items-center justify-center transition-colors"
+              title="Add Floor"
+            >
+              <HiPlus className="w-4 h-4" />
+            </button>
           </div>
-          <Button size="sm" variant="primary" onClick={saveLayouts} isLoading={isSaving}>
-            Save Layout
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedAreaId && (
+              <Button size="sm" variant="danger" onClick={handleDeleteArea} className="!bg-red-500/10 !text-red-500 border-none hover:!bg-red-500/20">
+                <HiTrash className="w-4 h-4" />
+              </Button>
+            )}
+            {selectedAreaId && (
+              <Button size="sm" variant="outline" onClick={() => setShowTableModal(true)}>
+                <HiPlus className="w-4 h-4 mr-1" /> Add Table
+              </Button>
+            )}
+            <Button size="sm" variant="primary" onClick={saveLayouts} isLoading={isSaving}>
+              Save Layout
+            </Button>
+          </div>
         </div>
 
         {/* Drag-and-drop board */}
@@ -313,6 +403,70 @@ export default function FloorDesigner() {
                 className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2 text-xs"
               />
             </div>
+
+            {/* QR Code Section */}
+            {activeEditTable.qrToken && (
+              <div className="pt-4 border-t border-border-base dark:border-zinc-800 space-y-3">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide">
+                  <HiOutlineQrCode className="w-4 h-4" />
+                  <span>Table QR Code</span>
+                </div>
+                <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-border-base dark:border-zinc-800">
+                  <QRCodeSVG 
+                    value={`${window.location.origin}/qr/${activeEditTable.qrToken}`} 
+                    size={128} 
+                    level="H" 
+                    includeMargin={true}
+                  />
+                  <div className="mt-3 flex gap-2 w-full">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1 text-[10px]"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/qr/${activeEditTable.qrToken}`);
+                        addToast('URL copied to clipboard', 'success');
+                      }}
+                    >
+                      <HiOutlineClipboardDocument className="w-3 h-3 mr-1" /> Copy URL
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="primary" 
+                      className="flex-1 text-[10px]"
+                      onClick={() => {
+                        const svg = document.querySelector('.bg-white svg');
+                        if (svg) {
+                          const svgData = new XMLSerializer().serializeToString(svg);
+                          const canvas = document.createElement("canvas");
+                          const ctx = canvas.getContext("2d");
+                          const img = new Image();
+                          img.onload = () => {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            const pngFile = canvas.toDataURL("image/png");
+                            const downloadLink = document.createElement("a");
+                            downloadLink.download = `Table-${activeEditTable.tableNumber}-QR.png`;
+                            downloadLink.href = `${pngFile}`;
+                            downloadLink.click();
+                          };
+                          img.src = "data:image/svg+xml;base64," + btoa(svgData);
+                        }
+                      }}
+                    >
+                      Print/Save
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-border-base dark:border-zinc-800">
+              <Button size="sm" variant="danger" className="w-full" onClick={handleDeleteTable}>
+                <HiTrash className="w-4 h-4 mr-2" /> Archive Table
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant dark:text-zinc-550 border border-dashed border-border-base dark:border-zinc-800 rounded-xl text-xs text-center">
@@ -321,6 +475,56 @@ export default function FloorDesigner() {
           </div>
         )}
       </div>
+
+      {/* Add Floor Modal */}
+      <Modal isOpen={showAreaModal} onClose={() => setShowAreaModal(false)} title="Add New Floor">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Floor Name</label>
+            <input 
+              type="text" 
+              value={newAreaName} 
+              onChange={e => setNewAreaName(e.target.value)} 
+              className="w-full border rounded-lg p-2 bg-surface-container dark:bg-zinc-900 border-border-base dark:border-zinc-800"
+              placeholder="e.g. Ground Floor, Patio"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowAreaModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={handleAddArea} isLoading={isSubmitting}>Create Floor</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Table Modal */}
+      <Modal isOpen={showTableModal} onClose={() => setShowTableModal(false)} title="Add New Table">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Table Number</label>
+            <input 
+              type="text" 
+              value={newTableData.tableNumber} 
+              onChange={e => setNewTableData({...newTableData, tableNumber: e.target.value})} 
+              className="w-full border rounded-lg p-2 bg-surface-container dark:bg-zinc-900 border-border-base dark:border-zinc-800"
+              placeholder="e.g. T1, Bar-1"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Seat Count</label>
+            <input 
+              type="number" 
+              value={newTableData.seatCount} 
+              onChange={e => setNewTableData({...newTableData, seatCount: e.target.value})} 
+              className="w-full border rounded-lg p-2 bg-surface-container dark:bg-zinc-900 border-border-base dark:border-zinc-800"
+              min="1"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowTableModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={handleAddTable} isLoading={isSubmitting}>Create Table</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

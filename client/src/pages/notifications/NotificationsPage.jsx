@@ -113,6 +113,52 @@ export default function NotificationsPage() {
                   <span>•</span>
                   <span>{new Date(n.createdAt).toLocaleTimeString()}</span>
                 </div>
+
+                <div className="mt-2.5 flex gap-2 flex-wrap">
+                  {n.entityType === 'Order' && n.entityId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!n.isRead) dispatch(markAsRead(notificationId));
+                        navigate(`/orders?orderId=${n.entityId}`);
+                      }}
+                      className="text-xs font-bold"
+                    >
+                      View Order Details
+                    </Button>
+                  )}
+                  {(n.entityType === 'Table' || n.type === 'QR_ASSISTANCE_REQUESTED' || n.type === 'BILL_REQUESTED') && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!n.isRead) dispatch(markAsRead(notificationId));
+                        navigate(`/operations/dine-in`);
+                      }}
+                      className="text-xs font-bold"
+                    >
+                      View Table Operations
+                    </Button>
+                  )}
+                  {(n.entityType === 'Inventory' || n.type === 'LOW_INVENTORY' || n.type?.includes('STOCK') || n.message?.toLowerCase().includes('stock')) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!n.isRead) dispatch(markAsRead(notificationId));
+                        navigate(`/inventory`);
+                      }}
+                      className="text-xs font-bold"
+                    >
+                      Check Inventory
+                    </Button>
+                  )}
+                </div>
+
                 {isInvitation && (
                   <div className="mt-3 flex gap-2 items-center flex-wrap">
                     {!user?.invitationAccepted ? (

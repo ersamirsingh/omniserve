@@ -123,7 +123,6 @@ const externalOrderSchema = new Schema<IExternalOrder>(
     },
     sessionId: {
       type: Schema.Types.ObjectId,
-      ref: "SimulationSession",
       default: null,
     },
     createdBy: {

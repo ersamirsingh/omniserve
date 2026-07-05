@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HiBuildingStorefront, HiShoppingCart, HiCurrencyDollar, HiCreditCard } from 'react-icons/hi2';
 import StatCard from '../../components/StatCard';
 import Card from '../../components/ui/Card';
@@ -10,6 +11,7 @@ import { ORDER_STATUS_VARIANT } from '../../utils/constants';
 import { getList } from '../../utils/apiData';
 
 export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -32,6 +34,18 @@ export default function SuperAdminDashboard() {
     { key: 'status', label: 'Status', render: (r) => <Badge variant={ORDER_STATUS_VARIANT[r.orderStatus || r.status] || 'neutral'}>{r.orderStatus || r.status}</Badge> },
     { key: 'totalAmount', label: 'Amount', render: (r) => <span className="font-semibold">₹{(r.totalAmount || 0).toLocaleString()}</span> },
     { key: 'createdAt', label: 'Date', render: (r) => new Date(r.createdAt).toLocaleDateString() },
+    { 
+      key: 'actions', 
+      label: 'Info', 
+      render: (r) => (
+        <button 
+          onClick={() => navigate(`/orders?orderId=${r.id || r._id}`)} 
+          className="text-xs text-primary font-bold hover:underline cursor-pointer"
+        >
+          View Info
+        </button>
+      ) 
+    }
   ];
 
   return (

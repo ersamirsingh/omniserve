@@ -3,6 +3,7 @@ import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 export type ReservationStatus =
   | 'PENDING'
   | 'CONFIRMED'
+  | 'HOLD'
   | 'SEATED'
   | 'COMPLETED'
   | 'NO_SHOW'
@@ -36,6 +37,8 @@ export interface IReservation extends Document {
   /** QR session created when guest is seated */
   sessionId?: Types.ObjectId | null;
   seatNumber?: string | null;
+  /** Waiter pre-assigned to this reservation */
+  assignedWaiterId?: Types.ObjectId | null;
   createdBy?: Types.ObjectId | null;
   updatedBy?: Types.ObjectId | null;
   isDeleted: boolean;
@@ -97,7 +100,7 @@ const reservationSchema = new Schema<IReservation>(
     status: {
       type: String,
       enum: {
-        values: ['PENDING', 'CONFIRMED', 'SEATED', 'COMPLETED', 'NO_SHOW', 'CANCELLED'],
+        values: ['PENDING', 'CONFIRMED', 'HOLD', 'SEATED', 'COMPLETED', 'NO_SHOW', 'CANCELLED'],
         message: 'Invalid reservation status: {VALUE}',
       },
       default: 'PENDING',
@@ -131,6 +134,11 @@ const reservationSchema = new Schema<IReservation>(
       type: String,
       default: null,
       trim: true,
+    },
+    assignedWaiterId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

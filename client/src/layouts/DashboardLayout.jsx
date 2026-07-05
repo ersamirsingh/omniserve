@@ -16,11 +16,13 @@ export default function DashboardLayout() {
   useEffect(() => { dispatch(fetchNotifications()); }, [dispatch]);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} userRole={user?.role} />
       <Topbar onMenuClick={() => setSidebarOpen(true)} title={getPageTitle(location.pathname)} />
-      <main className="flex-1 ml-[260px] max-md:ml-0 mt-16 p-6 transition-[margin-left] duration-300 min-h-[calc(100vh-64px)]">
-        <Outlet />
+      <main className="flex-1 ml-[260px] max-md:ml-0 mt-16 p-6 transition-[margin-left] duration-300 h-[calc(100vh-64px)] overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

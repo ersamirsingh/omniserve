@@ -2,8 +2,21 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { CourseService, CourseType, KdsStation } from "../services/dining/course.service.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
+import Outlet from "../models/outlet.model.js";
 
 export class KdsController {
+  private static async resolveOutletId(tenantId: Types.ObjectId, req: Request): Promise<Types.ObjectId> {
+    const rawId = req.user?.outletId || req.query.outletId || req.body?.outletId || req.headers["x-outlet-id"];
+    if (rawId && Types.ObjectId.isValid(String(rawId))) {
+      return new Types.ObjectId(String(rawId));
+    }
+    const firstOutlet = await Outlet.findOne({ tenantId, isDeleted: false }).select("_id");
+    if (!firstOutlet) {
+      throw new Error("No active outlets found for this tenant. Please create an outlet first.");
+    }
+    return firstOutlet._id as Types.ObjectId;
+  }
+
   /**
    * GET /api/v1/kds/queue
    * Returns all items in the KDS queue for an outlet.
@@ -12,7 +25,7 @@ export class KdsController {
   static async getKdsQueue(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.query.outletId || req.headers["x-outlet-id"] || ""));
+      const outletId = await KdsController.resolveOutletId(tenantId, req);
 
       const course = req.query.course as CourseType | undefined;
       const kdsStation = req.query.kdsStation as KdsStation | undefined;
@@ -42,7 +55,7 @@ export class KdsController {
     try {
       const itemId = String(req.params.itemId || "");
       const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.body.outletId || req.headers["x-outlet-id"] || ""));
+      const outletId = await KdsController.resolveOutletId(tenantId, req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
 
       if (!itemId || !Types.ObjectId.isValid(itemId)) {
@@ -68,7 +81,7 @@ export class KdsController {
     try {
       const itemId = String(req.params.itemId || "");
       const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.body.outletId || req.headers["x-outlet-id"] || ""));
+      const outletId = await KdsController.resolveOutletId(tenantId, req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
       const kdsStation = req.body.kdsStation as KdsStation | undefined;
 
@@ -95,7 +108,7 @@ export class KdsController {
     try {
       const orderId = String(req.params.orderId || "");
       const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
-      const outletId = new Types.ObjectId(String(req.user?.outletId || req.body.outletId || req.headers["x-outlet-id"] || ""));
+      const outletId = await KdsController.resolveOutletId(tenantId, req);
       const userId = req.user?.userId ? new Types.ObjectId(String(req.user.userId)) : undefined;
       const { course, kdsStation } = req.body as { course: CourseType; kdsStation?: KdsStation };
 

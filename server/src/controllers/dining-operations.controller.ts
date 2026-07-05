@@ -7,6 +7,8 @@ import OrderTimeline from "../models/ordertimeline.model.js";
 import WaiterTask from "../models/waitertask.model.js";
 import { ApiResponseHandler } from "../utils/response.handler.js";
 import { resolveDiningContext } from "../utils/dining-helpers.js";
+import { DiningAreaService } from "../services/dining/dining-area.service.js";
+import { TableService } from "../services/dining/table.service.js";
 
 export class DiningOperationsController {
   /**
@@ -62,7 +64,7 @@ export class DiningOperationsController {
 
         const table = await Table.findOneAndUpdate(
           { _id: new Types.ObjectId(tableId), tenantId, isDeleted: false },
-          { $set: { layout } },
+          { $set: { layout, sourceSystem: 'QR' } },
           { new: true }
         );
 
@@ -77,6 +79,28 @@ export class DiningOperationsController {
     } catch (error: any) {
       console.error("[DiningOperationsController] updateTablesLayout error:", error);
       ApiResponseHandler.badRequest(res, error.message || "Failed to update layouts");
+    }
+  }
+
+  /**
+   * POST /api/v1/dining/tables/:tableId/rotate-qr
+   * Rotates the QR code token for a table and isolates any active session.
+   */
+  static async rotateTableQrToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { tableId } = req.params;
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const triggeredById = req.user?.userId;
+
+      const table = await TableService.rotateQrToken(tenantId, outletId, tableId, triggeredById);
+
+      ApiResponseHandler.success(res, 200, "Table QR token rotated successfully", {
+        tableId: table._id,
+        qrToken: table.qrToken,
+      });
+    } catch (error: any) {
+      console.error("[DiningOperationsController] rotateTableQrToken error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to rotate QR token");
     }
   }
 
@@ -259,6 +283,71 @@ export class DiningOperationsController {
   }
 
   /**
+   * POST /api/v1/dining/tables
+   * Create a new table
+   */
+  static async createTable(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const triggeredById = req.user?.userId;
+      const payload = req.body;
+
+      const table = await TableService.createTable(tenantId, outletId, payload, triggeredById);
+      ApiResponseHandler.success(res, 201, "Table created successfully", table);
+    } catch (error: any) {
+      console.error("[DiningOperationsController] createTable error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to create table");
+    }
+  }
+
+  /**
+   * PATCH /api/v1/dining/tables/:id
+   * Update a table
+   */
+  static async updateTable(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const tableId = req.params.id;
+      const triggeredById = req.user?.userId;
+      const payload = req.body;
+
+      if (!tableId || !Types.ObjectId.isValid(tableId)) {
+        ApiResponseHandler.badRequest(res, "Valid table ID is required");
+        return;
+      }
+
+      const table = await TableService.updateTable(tenantId, outletId, tableId, payload, triggeredById);
+      ApiResponseHandler.success(res, 200, "Table updated successfully", table);
+    } catch (error: any) {
+      console.error("[DiningOperationsController] updateTable error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to update table");
+    }
+  }
+
+  /**
+   * DELETE /api/v1/dining/tables/:id
+   * Archive a table
+   */
+  static async archiveTable(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const tableId = req.params.id;
+      const triggeredById = req.user?.userId;
+
+      if (!tableId || !Types.ObjectId.isValid(tableId)) {
+        ApiResponseHandler.badRequest(res, "Valid table ID is required");
+        return;
+      }
+
+      const table = await TableService.archiveTable(tenantId, outletId, tableId, triggeredById);
+      ApiResponseHandler.success(res, 200, "Table archived successfully", table);
+    } catch (error: any) {
+      console.error("[DiningOperationsController] archiveTable error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to archive table");
+    }
+  }
+
+  /**
    * GET /api/v1/dining/areas
    * Retrieves all dining areas for a given tenant + outlet
    */
@@ -266,8 +355,8 @@ export class DiningOperationsController {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);
 
-      const DiningArea = mongoose.model("DiningArea");
-      const areas = await DiningArea.find({
+      const DiningAreaModel = mongoose.model("DiningArea");
+      const areas = await DiningAreaModel.find({
         tenantId,
         outletId,
         isDeleted: false
@@ -280,6 +369,79 @@ export class DiningOperationsController {
     } catch (error: any) {
       console.error("[DiningOperationsController] listDiningAreas error:", error);
       ApiResponseHandler.badRequest(res, error.message || "Failed to retrieve dining areas");
+    }
+  }
+
+  /**
+   * POST /api/v1/dining/areas
+   * Create a new dining area
+   */
+  static async createDiningArea(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const triggeredById = req.user?.userId;
+      const payload = req.body;
+
+      if (!payload.name) {
+        ApiResponseHandler.badRequest(res, "Dining area name is required");
+        return;
+      }
+
+      const area = await DiningAreaService.createDiningArea(tenantId, outletId, payload, triggeredById);
+
+      ApiResponseHandler.success(res, 201, "Dining area created successfully", area);
+    } catch (error: any) {
+      console.error("[DiningOperationsController] createDiningArea error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to create dining area");
+    }
+  }
+
+  /**
+   * PATCH /api/v1/dining/areas/:id
+   * Update a dining area
+   */
+  static async updateDiningArea(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const areaId = req.params.id;
+      const triggeredById = req.user?.userId;
+      const payload = req.body;
+
+      if (!areaId || !Types.ObjectId.isValid(areaId)) {
+        ApiResponseHandler.badRequest(res, "Valid dining area ID is required");
+        return;
+      }
+
+      const area = await DiningAreaService.updateDiningArea(tenantId, outletId, areaId, payload, triggeredById);
+
+      ApiResponseHandler.success(res, 200, "Dining area updated successfully", area);
+    } catch (error: any) {
+      console.error("[DiningOperationsController] updateDiningArea error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to update dining area");
+    }
+  }
+
+  /**
+   * DELETE /api/v1/dining/areas/:id
+   * Archive a dining area
+   */
+  static async archiveDiningArea(req: Request, res: Response): Promise<void> {
+    try {
+      const { tenantId, outletId } = await resolveDiningContext(req);
+      const areaId = req.params.id;
+      const triggeredById = req.user?.userId;
+
+      if (!areaId || !Types.ObjectId.isValid(areaId)) {
+        ApiResponseHandler.badRequest(res, "Valid dining area ID is required");
+        return;
+      }
+
+      const area = await DiningAreaService.archiveDiningArea(tenantId, outletId, areaId, triggeredById);
+
+      ApiResponseHandler.success(res, 200, "Dining area archived successfully", area);
+    } catch (error: any) {
+      console.error("[DiningOperationsController] archiveDiningArea error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to archive dining area");
     }
   }
 

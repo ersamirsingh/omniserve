@@ -13,6 +13,16 @@ export default function WaiterConsole() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('ALL');
+  const [filterTableNumber, setFilterTableNumber] = useState('');
+
+  useEffect(() => {
+    const targetTableNum = sessionStorage.getItem('selectedTableNumber');
+    if (targetTableNum) {
+      sessionStorage.removeItem('selectedTableNumber');
+      setFilterTableNumber(targetTableNum);
+      setFilterType('ALL');
+    }
+  }, []);
 
   // Load active task list
   const fetchTasks = useCallback(async () => {
@@ -132,12 +142,23 @@ export default function WaiterConsole() {
   const taskCategories = ['ALL', 'FOOD', 'CLEANING', 'WATER', 'BILL', 'CUSTOM'];
 
   const filteredTasks = tasks.filter(task => {
-    if (filterType === 'ALL') return true;
-    return task.taskType === filterType;
+    const matchesType = filterType === 'ALL' || task.taskType === filterType;
+    const matchesTable = !filterTableNumber || 
+      task.tableId?.tableNumber === filterTableNumber || 
+      task.metadata?.tableNumber === filterTableNumber;
+    return matchesType && matchesTable;
   });
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {filterTableNumber && (
+        <div className="bg-primary/10 dark:bg-zinc-900 border border-primary/20 p-3 rounded-lg flex justify-between items-center text-xs">
+          <span>Showing active waiter tasks for <strong>Table {filterTableNumber}</strong></span>
+          <button onClick={() => setFilterTableNumber('')} className="text-primary hover:underline font-bold cursor-pointer">
+            Show All Tasks
+          </button>
+        </div>
+      )}
       {/* Category filter pills */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         {taskCategories.map(cat => (

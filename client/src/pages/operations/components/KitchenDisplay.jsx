@@ -124,7 +124,7 @@ export default function KitchenDisplay() {
       </div>
 
       {/* Grid lanes by KDS Station */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 overflow-x-auto pb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 max-w-full overflow-x-auto pb-4">
         {kdsStations.map(station => {
           const stationItems = kdsItems.filter(item => item.kdsStation === station || (!item.kdsStation && station === 'GENERAL'));
 

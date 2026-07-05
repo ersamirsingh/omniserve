@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HiShoppingCart, HiCube, HiClipboardDocumentList, HiExclamationTriangle } from 'react-icons/hi2';
 import StatCard from '../../components/StatCard';
 import Card from '../../components/ui/Card';
@@ -11,6 +12,7 @@ import { ORDER_STATUS_VARIANT } from '../../utils/constants';
 import { getList } from '../../utils/apiData';
 
 export default function ManagerDashboard() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -35,6 +37,18 @@ export default function ManagerDashboard() {
     { key: 'id', label: 'Order ID', render: (r) => <span className="font-mono text-xs text-on-surface dark:text-zinc-300">#{(r.id || r._id || '').slice(-8)}</span> },
     { key: 'status', label: 'Status', render: (r) => <Badge variant={ORDER_STATUS_VARIANT[r.orderStatus || r.status] || 'neutral'}>{r.orderStatus || r.status}</Badge> },
     { key: 'totalAmount', label: 'Amount', render: (r) => <span className="font-semibold">₹{(r.totalAmount || 0).toLocaleString()}</span> },
+    { 
+      key: 'actions', 
+      label: 'Info', 
+      render: (r) => (
+        <button 
+          onClick={() => navigate(`/orders?orderId=${r.id || r._id}`)} 
+          className="text-xs text-primary font-bold hover:underline cursor-pointer"
+        >
+          View Info
+        </button>
+      ) 
+    }
   ];
 
   return (

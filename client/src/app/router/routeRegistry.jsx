@@ -15,6 +15,7 @@ import {
   HiOutlineCog6Tooth,
   HiOutlineTag,
   HiOutlineSquares2X2,
+  HiOutlineQueueList,
 } from 'react-icons/hi2';
 import { USER_ROLES } from '../../utils/constants';
 
@@ -54,7 +55,6 @@ export const routeComponents = {
   ProfilePage: createLazyPage(() => import('../../pages/profile/ProfilePage')),
   IntegrationsDashboardPage: createLazyPage(() => import('../../pages/integrations/IntegrationsDashboard')),
   MappingReviewPage: createLazyPage(() => import('../../pages/integrations/MappingReview')),
-  DeveloperCockpitPage: createLazyPage(() => import('../../pages/integrations/DeveloperCockpit')),
   MenuPage: createLazyPage(() => import('../../pages/website/MenuPage')),
   CartPage: createLazyPage(() => import('../../pages/website/CartPage')),
   CheckoutPage: createLazyPage(() => import('../../pages/website/CheckoutPage')),
@@ -62,6 +62,8 @@ export const routeComponents = {
   OrderTrackingPage: createLazyPage(() => import('../../pages/website/OrderTrackingPage')),
   QRRedirectPage: createLazyPage(() => import('../../pages/website/QRRedirectPage')),
   OperationsCockpitPage: createLazyPage(() => import('../../pages/operations/OperationsCockpit')),
+  OnlineOrdersPage: createLazyPage(() => import('../../pages/orders/OrdersPage').then(module => ({ default: (props) => <module.default mode="ONLINE" {...props} /> }))),
+  OrderPreparationPage: createLazyPage(() => import('../../pages/operations/OrderPreparationPage')),
 };
 
 export const authRoutes = [
@@ -89,9 +91,11 @@ export const dashboardRoutes = [
   { path: '/customers', title: 'Customers', component: routeComponents.CustomersPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Operations', label: 'Customers', icon: HiOutlineUsers } },
   { path: '/integrations', title: 'Integrations', component: routeComponents.IntegrationsDashboardPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Integrations', icon: HiOutlineClipboardDocumentList } },
   { path: '/integrations/mappings', title: 'Integrations', component: routeComponents.MappingReviewPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
-  { path: '/integrations/dev', title: 'Integrations', component: routeComponents.DeveloperCockpitPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Developer Sandbox', icon: HiOutlineCog6Tooth } },
   { path: '/inventory', title: 'Inventory', component: routeComponents.InventoryPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER, STAFF], nav: { section: 'Operations', label: 'Inventory', icon: HiOutlineCube } },
-  { path: '/operations', title: 'Operations Cockpit', component: routeComponents.OperationsCockpitPage, roles: 'all', nav: { section: 'Operations', label: 'Operations Cockpit', icon: HiOutlineSquares2X2 } },
+  { path: '/operations/online', title: 'Online Orders', component: routeComponents.OnlineOrdersPage, roles: 'all' },
+  { path: '/operations/preparation', title: 'Order Preparation', component: routeComponents.OrderPreparationPage, roles: 'all', nav: { section: 'Operations', label: 'Order Preparation', icon: HiOutlineQueueList } },
+  { path: '/operations/dine-in', title: 'Restaurant Operations', component: routeComponents.OperationsCockpitPage, roles: 'all', nav: { section: 'Operations', label: 'Restaurant Operations', icon: HiOutlineSquares2X2 } },
+  { path: '/operations', title: 'Restaurant Operations', component: routeComponents.OperationsCockpitPage, roles: 'all' },
 ];
 
 export const publicWebsiteRoutes = [

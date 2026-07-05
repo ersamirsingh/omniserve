@@ -18,6 +18,8 @@ export enum OrderStatus {
   READY = "READY",
   PICKED_UP = "PICKED_UP",
   DELIVERED = "DELIVERED",
+  SERVED = "SERVED",
+  COMPLETED = "COMPLETED",
   CANCELLED = "CANCELLED",
 }
 
@@ -92,7 +94,7 @@ export enum OrderSource {
   QR_DINE_IN = "QR_DINE_IN",
   SWIGGY = "SWIGGY",
   ZOMATO = "ZOMATO",
-  POS = "POS",
+  POS = "POS", // DEPRECATED: Retained for historical schema compatibility. New orders use DINE_IN.
   WEBSITE = "WEBSITE",
   ONDC = "ONDC",
   WHATSAPP = "WHATSAPP",

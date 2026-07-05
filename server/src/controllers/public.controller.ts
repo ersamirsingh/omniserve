@@ -308,10 +308,11 @@ export class PublicController {
         subtotal += itemTotal * Number(item.quantity || 1);
 
         return {
-          itemId: item.itemId,
+          menuItemId: item.menuItemId || item.itemId,
           variantId: item.variantId || undefined,
           name: item.name || "Item",
           quantity: Number(item.quantity || 1),
+          unitPrice: itemPrice,
           price: itemPrice,
           addons,
         };
@@ -377,6 +378,14 @@ export class PublicController {
       if (customerObjectId) session.customerId = customerObjectId;
       if (seatNumber) session.seatNumber = seatNumber;
       await session.save();
+
+      // Link Internal Order to Session and Waiter
+      const internalOrder = await QRSession.db.model("Order").findById(orderId);
+      if (internalOrder) {
+        internalOrder.sessionId = session._id;
+        if (session.waiterId) internalOrder.waiterId = session.waiterId;
+        await internalOrder.save();
+      }
 
       // Resolve or create OrderGroup
       let group = await OrderGroup.findOne({
@@ -1437,7 +1446,8 @@ export class PublicController {
           status: "ACTIVE",
           openedAt: new Date(),
           menuViewedAt: new Date(),
-          seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }]
+          seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }],
+          waiterId: table.defaultWaiterId || null
         });
         table.activeSessionId = session._id;
       }
@@ -1445,13 +1455,18 @@ export class PublicController {
       table.operationalStatus = "OCCUPIED";
       await table.save();
 
-      const io = RealtimeService.getIO();
-      if (io) {
-        io.to(table.outletId.toString()).emit("TABLE_STATUS_CHANGED", {
+      await EventBusService.publishTableOccupied(
+        table.tenantId,
+        table.outletId,
+        table._id,
+        {
           tableId: table._id.toString(),
-          operationalStatus: "OCCUPIED"
-        });
-      }
+          tableNumber: table.tableNumber,
+          status: table.operationalStatus,
+          updatedAt: new Date()
+        },
+        { sourceSystem: "QR" }
+      );
 
       ApiResponseHandler.success(res, 200, "QR Code resolved successfully", {
         outletSlug: outlet.slug,
