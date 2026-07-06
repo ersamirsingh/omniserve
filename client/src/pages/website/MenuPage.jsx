@@ -420,6 +420,17 @@ export default function MenuPage() {
           </div>
         </Modal>
       )}
+
+      {localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-") && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Link to={`/public/w/${outletSlug}/table-session`}>
+            <button className="bg-gradient-to-r from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 text-white font-extrabold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 text-xs uppercase tracking-wider border border-indigo-400/20 transition-all cursor-pointer">
+              <span>🍽️</span>
+              <span>Table Bill & Pay</span>
+            </button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

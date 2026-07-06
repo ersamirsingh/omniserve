@@ -38,3 +38,9 @@ export const requestQrAssistanceApi = (data) =>
 
 export const placeQrOrderApi = (data) =>
   api.post("/public/qr/orders", data);
+
+export const getQrSessionBillApi = (sessionToken) =>
+  api.get(`/public/qr/session/${sessionToken}/bill`);
+
+export const payQrSessionBillApi = (sessionToken, data) =>
+  api.post(`/public/qr/session/${sessionToken}/pay`, data);

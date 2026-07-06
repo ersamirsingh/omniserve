@@ -14,6 +14,7 @@ import ShiftDashboard from './components/ShiftDashboard';
 import DiningAnalyticsDashboard from './components/DiningAnalyticsDashboard';
 import OperationsTimeline from './components/OperationsTimeline';
 import OrdersPage from '../orders/OrdersPage';
+import QRCodesCenter from './components/QRCodesCenter';
 
 import {
   HiOutlinePresentationChartLine,
@@ -26,7 +27,8 @@ import {
   HiOutlineClock,
   HiOutlineChartPie,
   HiOutlineListBullet,
-  HiOutlineBellAlert
+  HiOutlineBellAlert,
+  HiOutlineQrCode
 } from 'react-icons/hi2';
 
 export default function OperationsCockpit() {
@@ -55,6 +57,7 @@ export default function OperationsCockpit() {
     { id: 'dashboard', label: 'Dashboard', icon: HiOutlinePresentationChartLine, component: RestaurantOperationsDashboard },
     { id: 'floor', label: 'Live Floor', icon: HiOutlineMap, component: FloorView },
     { id: 'dine-in-orders', label: 'Dine-In Orders', icon: HiOutlineListBullet, component: null },
+    { id: 'qr-codes', label: 'QR Codes', icon: HiOutlineQrCode, component: QRCodesCenter },
     { id: 'designer', label: 'Floor Designer', icon: HiOutlinePencilSquare, component: FloorDesigner },
     { id: 'waiters', label: 'Waiter Console', icon: HiOutlineUserGroup, component: WaiterConsole },
     { id: 'billing', label: 'Billing Splits', icon: HiOutlineReceiptPercent, component: BillingWorkspace },
