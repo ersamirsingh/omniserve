@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { UserRole } from '../enums/enums.js';
+import { UserRole } from "../models/enums.js";
 import Outlet from '../models/outlet.model.js';
 
 interface ScopeUser {

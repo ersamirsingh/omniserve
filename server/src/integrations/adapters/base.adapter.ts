@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { OrderStatus } from "../../enums/enums.js";
+import { OrderStatus } from "../../models/enums.js";
 import {
   IntegrationAdapter,
   AdapterVerifySignatureArgs,

@@ -57,9 +57,9 @@ const FALLBACK_PLANS = [
   },
   {
     _id: "6a3c17666bb70afe757e2222",
-    name: "Starter Plan",
-    slug: "starter",
-    description: "2 Outlets, 15 Employees, Unlimited QR Orders, CRM, Analytics, Inventory.",
+    name: "Pro Plan",
+    slug: "pro",
+    description: "2 Outlets, 15 Employees, Unlimited QR Orders, CRM, Analytics, Inventory, KDS.",
     monthlyPrice: 999,
     yearlyPrice: 9990,
     currency: "INR",
@@ -69,27 +69,15 @@ const FALLBACK_PLANS = [
   },
   {
     _id: "6a3c17666bb70afe757e2223",
-    name: "Professional Plan",
-    slug: "professional",
-    description: "10 Outlets, Unlimited Employees, Advanced Inventory, Finance, KDS, Reports.",
+    name: "Super Plan",
+    slug: "super",
+    description: "105 Outlets, Unlimited Employees/Orders, Dedicated Account Manager, API Access, White-Label.",
     monthlyPrice: 2999,
     yearlyPrice: 29990,
     currency: "INR",
     trialDays: 0,
-    features: { inventory: true, crm: true, analytics: true, finance: true, kitchenDisplay: true, waiterApp: true, qrOrdering: true, reports: true, apiAccess: false, whiteLabel: false },
-    limits: { outlets: 10, employees: 10000, monthlyOrders: 1000000, menuItems: 2000, storageGB: 20 }
-  },
-  {
-    _id: "6a3c17666bb70afe757e2224",
-    name: "Enterprise Plan",
-    slug: "enterprise",
-    description: "Custom Pricing, Unlimited Everything, Dedicated Account Manager, API Access.",
-    monthlyPrice: 9999,
-    yearlyPrice: 99990,
-    currency: "INR",
-    trialDays: 0,
     features: { inventory: true, crm: true, analytics: true, finance: true, kitchenDisplay: true, waiterApp: true, qrOrdering: true, reports: true, apiAccess: true, whiteLabel: true },
-    limits: { outlets: 100, employees: 10000, monthlyOrders: 10000000, menuItems: 10000, storageGB: 100 }
+    limits: { outlets: 105, employees: 10000, monthlyOrders: 10000000, menuItems: 10000, storageGB: 100 }
   }
 ];
 
@@ -543,7 +531,7 @@ export default function SubscriptionsPage() {
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <h3 className="font-extrabold text-[15px] text-on-background">{p.name}</h3>
-                        {p.slug === 'starter' && <span className="bg-indigo-500/10 text-indigo-500 text-[8px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">POPULAR</span>}
+                        {p.slug === 'pro' && <span className="bg-indigo-500/10 text-indigo-500 text-[8px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">POPULAR</span>}
                       </div>
                       <div className="flex items-baseline gap-1 my-3">
                         <span className="text-2xl font-black text-on-background">₹{price.toLocaleString()}</span>

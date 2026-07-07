@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { UserStatus, WeekDay } from '../enums/enums.js';
+import { UserStatus, WeekDay } from "./enums.js";
 
 export interface IOperatingHours {
   day: WeekDay;

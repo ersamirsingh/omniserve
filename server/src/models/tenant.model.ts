@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { SubscriptionPlan, UserStatus } from '../enums/enums.js';
+import { SubscriptionPlan, UserStatus } from "./enums.js";
 
 export interface ITenant extends Document {
   name: string;

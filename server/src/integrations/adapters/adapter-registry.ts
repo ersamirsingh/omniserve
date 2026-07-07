@@ -3,7 +3,7 @@ import { MockSwiggyAdapter } from "./mock-swiggy.adapter.js";
 import { MockZomatoAdapter } from "./mock-zomato.adapter.js";
 import { QrAdapter } from "./qr.adapter.js";
 import { WebsiteAdapter } from "./website.adapter.js";
-import { OrderGatewayService } from "../../services/ordergateway.service.js";
+import { OrderGatewayService } from "../../modules/order/ordergateway.service.js";
 import { IntegrationProvider } from "../../types/integration.type.js";
 
 const mockSwiggy = new MockSwiggyAdapter();

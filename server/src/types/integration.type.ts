@@ -1,4 +1,4 @@
-import { OrderStatus } from "../enums/enums.js";
+import { OrderStatus } from "../models/enums.js";
 
 export enum IntegrationProvider {
   QR = "QR",

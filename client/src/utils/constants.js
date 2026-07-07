@@ -68,7 +68,7 @@ export const PAYMENT_STATUS_VARIANT = {
 export const PAYMENT_METHODS = ['CASH', 'CARD', 'UPI', 'WALLET', 'NET_BANKING', 'COD'];
 
 /* ── Subscription ── */
-export const SUBSCRIPTION_PLANS = ['FREE', 'STARTER', 'PRO', 'ENTERPRISE'];
+export const SUBSCRIPTION_PLANS = ['FREE', 'PRO', 'SUPER'];
 
 export const SUBSCRIPTION_STATUS_VARIANT = {
   ACTIVE: 'success',

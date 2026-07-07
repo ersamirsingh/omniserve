@@ -1,0 +1,137 @@
+export enum UserRole {
+  SUPER_ADMIN = "SUPER_ADMIN",
+  RESTAURANT_OWNER = "RESTAURANT_OWNER",
+  OUTLET_MANAGER = "OUTLET_MANAGER",
+  STAFF = "STAFF",
+}
+
+export enum UserStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  BLOCKED = "BLOCKED",
+}
+
+export enum OrderStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  PREPARING = "PREPARING",
+  READY = "READY",
+  PICKED_UP = "PICKED_UP",
+  DELIVERED = "DELIVERED",
+  SERVED = "SERVED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  SUCCESS = "SUCCESS",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+}
+
+export enum SubscriptionPlan {
+  FREE = "FREE",
+  PRO = "PRO",
+  SUPER = "SUPER",
+}
+
+export enum AuditAction {
+  CREATE = "CREATE",
+  UPDATE = "UPDATE",
+  DELETE = "DELETE",
+  RESTORE = "RESTORE",
+  LOGIN = "LOGIN",
+  LOGOUT = "LOGOUT",
+  EXPORT = "EXPORT",
+  IMPORT = "IMPORT",
+  STATUS_CHANGE = "STATUS_CHANGE",
+}
+
+export enum NotificationType {
+  ORDER_PLACED = "ORDER_PLACED",
+  ORDER_ACCEPTED = "ORDER_ACCEPTED",
+  ORDER_PREPARING = "ORDER_PREPARING",
+  ORDER_READY = "ORDER_READY",
+  ORDER_DELIVERED = "ORDER_DELIVERED",
+  ORDER_CANCELLED = "ORDER_CANCELLED",
+  PAYMENT_SUCCESS = "PAYMENT_SUCCESS",
+  PAYMENT_FAILED = "PAYMENT_FAILED",
+  LOW_INVENTORY = "LOW_INVENTORY",
+  SYSTEM = "SYSTEM",
+  GENERAL = "GENERAL",
+  OPERATIONAL_ALERT = "OPERATIONAL_ALERT",
+}
+
+export enum WebhookStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  SUCCESS = "SUCCESS",
+  FAILED = "FAILED",
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  CANCELLED = "CANCELLED",
+}
+
+export enum PaymentMethod {
+  CASH = "CASH",
+  CARD = "CARD",
+  UPI = "UPI",
+  WALLET = "WALLET",
+  NET_BANKING = "NET_BANKING",
+  COD = "COD",
+}
+
+export enum OrderSource {
+  DINE_IN = "DINE_IN",
+  TAKEAWAY = "TAKEAWAY",
+  DELIVERY = "DELIVERY",
+  ONLINE = "ONLINE",
+  QR_DINE_IN = "QR_DINE_IN",
+  SWIGGY = "SWIGGY",
+  ZOMATO = "ZOMATO",
+  POS = "POS", // DEPRECATED: Retained for historical schema compatibility. New orders use DINE_IN.
+  WEBSITE = "WEBSITE",
+  ONDC = "ONDC",
+  WHATSAPP = "WHATSAPP",
+  WAITER = "WAITER",
+}
+
+export enum ReviewSource {
+  GOOGLE = "GOOGLE",
+  ZOMATO = "ZOMATO",
+  SWIGGY = "SWIGGY",
+  INTERNAL = "INTERNAL",
+  FACEBOOK = "FACEBOOK",
+  TRIPADVISOR = "TRIPADVISOR",
+  OTHER = "OTHER",
+}
+
+export enum SentimentLabel {
+  POSITIVE = "POSITIVE",
+  NEUTRAL = "NEUTRAL",
+  NEGATIVE = "NEGATIVE",
+}
+
+export enum WebhookProvider {
+  RAZORPAY = "RAZORPAY",
+  STRIPE = "STRIPE",
+  ZOMATO = "ZOMATO",
+  SWIGGY = "SWIGGY",
+  DUNZO = "DUNZO",
+  PORTER = "PORTER",
+  CUSTOM = "CUSTOM",
+}
+
+export enum WeekDay {
+  MONDAY = "Monday",
+  TUESDAY = "Tuesday",
+  WEDNESDAY = "Wednesday",
+  THURSDAY = "Thursday",
+  FRIDAY = "Friday",
+  SATURDAY = "Saturday",
+  SUNDAY = "Sunday",
+}

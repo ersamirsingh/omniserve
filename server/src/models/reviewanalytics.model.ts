@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { ReviewSource, SentimentLabel } from '../enums/enums.js';
+import { ReviewSource, SentimentLabel } from "./enums.js";
 
 export interface IReviewAnalytics extends Document {
   tenantId: Types.ObjectId;

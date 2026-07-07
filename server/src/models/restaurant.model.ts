@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { UserStatus } from '../enums/enums.js';
+import { UserStatus } from "./enums.js";
 
 export interface IRestaurant extends Document {
   tenantId: Types.ObjectId;

@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getTablesApi, getWaiterTasksApi, getCurrentShiftApi, getKdsQueueApi } from '../../../api/models/operations.api';
+import { listOutletsApi } from '../../../api/models/outlet.api';
 import { useSocket } from '../../../context/SocketContext';
+import { useToast } from '../../../components/ui/Toast';
+import Badge from '../../../components/ui/Badge';
 import StatCard from '../../../components/StatCard';
 import { 
   HiOutlineTableCells, 
@@ -12,6 +15,7 @@ import {
 
 export default function RestaurantOperationsDashboard({ onNavigate }) {
   const { lastMessage } = useSocket();
+  const { addToast } = useToast();
   const [stats, setStats] = useState({
     activeTables: 0,
     availableTables: 0,
@@ -26,15 +30,22 @@ export default function RestaurantOperationsDashboard({ onNavigate }) {
   });
 
   const [loading, setLoading] = useState(true);
+  const [outletStatus, setOutletStatus] = useState('ACTIVE');
 
   const fetchStats = async () => {
     try {
-      const [tablesRes, tasksRes, shiftRes, kdsRes] = await Promise.all([
+      const [tablesRes, tasksRes, shiftRes, kdsRes, outletsRes] = await Promise.all([
         getTablesApi(),
         getWaiterTasksApi(),
         getCurrentShiftApi(),
-        getKdsQueueApi({ holdStatus: 'FIRE_REQUESTED' })
+        getKdsQueueApi({ holdStatus: 'FIRE_REQUESTED' }),
+        listOutletsApi()
       ]);
+
+      const activeOutlet = outletsRes.data?.data?.outlets?.[0];
+      if (activeOutlet) {
+        setOutletStatus(activeOutlet.status);
+      }
 
       const tables = tablesRes.data?.data?.tables || [];
       const tasks = tasksRes.data?.data?.tasks || [];
@@ -219,16 +230,18 @@ export default function RestaurantOperationsDashboard({ onNavigate }) {
           </div>
         </div>
 
-        {/* Current shift status card */}
+        {/* Current outlet status card */}
         <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-border-base dark:border-zinc-900 flex flex-col justify-between">
           <div>
             <h3 className="text-[14px] font-bold text-on-background uppercase tracking-wider mb-4">
-              Current Session Status
+              Current Outlet Status
             </h3>
             <div className="space-y-3.5 text-[13px]">
-              <div className="flex justify-between">
-                <span className="text-on-surface-variant dark:text-zinc-400">Current Shift:</span>
-                <span className="font-bold text-on-background">{stats.shiftName}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-on-surface-variant dark:text-zinc-400">Outlet Status:</span>
+                <Badge variant={outletStatus === 'ACTIVE' ? 'success' : 'danger'}>
+                  {outletStatus === 'ACTIVE' ? 'OPEN' : 'CLOSED'}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant dark:text-zinc-400">Live Orders Preparing:</span>
@@ -241,7 +254,7 @@ export default function RestaurantOperationsDashboard({ onNavigate }) {
             </div>
           </div>
           <div className="border-t border-border-base dark:border-zinc-900 pt-4 mt-6 text-[12px] font-semibold text-on-surface-variant dark:text-zinc-400">
-            <span>Shift logs auto-archive on shift close.</span>
+            <span>Toggle status via header controller slider.</span>
           </div>
         </div>
       </div>

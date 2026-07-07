@@ -5,6 +5,7 @@ import { useToast } from '../../../components/ui/Toast';
 import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
 import Badge from '../../../components/ui/Badge';
+import Modal from '../../../components/ui/Modal';
 import { HiOutlineReceiptPercent, HiOutlineCheckCircle, HiOutlineUserGroup, HiOutlineCreditCard } from 'react-icons/hi2';
 
 export default function BillingWorkspace() {
@@ -21,6 +22,10 @@ export default function BillingWorkspace() {
   const [tip, setTip] = useState(0);
   const [notes, setNotes] = useState('');
   
+  // Settle Modal state
+  const [paymentModal, setPaymentModal] = useState({ open: false, seatNumber: null });
+  const [selectedMethod, setSelectedMethod] = useState('CASH');
+
   // Custom split parameters
   const [customSplitSeats, setCustomSplitSeats] = useState([]);
 
@@ -125,18 +130,22 @@ export default function BillingWorkspace() {
     }
   };
 
-  const handleSettle = async (seatNumber) => {
+  const handleSettle = (seatNumber) => {
+    setPaymentModal({ open: true, seatNumber });
+  };
+
+  const confirmSettle = async () => {
     if (!billData?.billSession) return;
+    const { seatNumber } = paymentModal;
     try {
-      // paymentId is mock populated
       const paymentId = 'pay_' + Math.random().toString(36).substring(2, 9);
       await settleBillApi(billData.billSession._id, {
         ...(seatNumber && { seatNumber }),
-        paymentId
+        paymentId,
+        paymentMethod: selectedMethod
       });
       addToast(seatNumber ? `Seat ${seatNumber} payment settled` : 'Full bill settled successfully!', 'success');
-      
-      // If fully settled, reset selection
+      setPaymentModal({ open: false, seatNumber: null });
       fetchBillingSessions();
     } catch (err) {
       addToast(err.response?.data?.message || 'Settle payment failed', 'error');
@@ -327,6 +336,60 @@ export default function BillingWorkspace() {
           </div>
         )}
       </div>
+
+      {paymentModal.open && (
+        <Modal
+          isOpen={paymentModal.open}
+          onClose={() => setPaymentModal({ open: false, seatNumber: null })}
+          title="Settle Bill Payment"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-on-surface-variant dark:text-zinc-400">
+              Select the payment method to settle the {paymentModal.seatNumber ? `Seat ${paymentModal.seatNumber}` : 'Full'} bill:
+            </p>
+            <div className="space-y-2">
+              {[
+                { method: 'CASH', label: 'Cash (Offline)', desc: 'Cash paid in hand at counter' },
+                { method: 'CARD', label: 'Card Payment', desc: 'Credit/Debit card swipe' },
+                { method: 'UPI', label: 'UPI / QR Scan', desc: 'Instant UPI/QR code payment' },
+                { method: 'WALLET', label: 'Digital Wallet', desc: 'Paytm, PhonePe, etc.' },
+              ].map(({ method, label, desc }) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setSelectedMethod(method)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all flex flex-col cursor-pointer ${
+                    selectedMethod === method
+                      ? 'border-success-green bg-success-green/5 ring-1 ring-success-green'
+                      : 'border-border-base dark:border-zinc-800 hover:bg-surface-container-low'
+                  }`}
+                >
+                  <span className="text-xs font-bold text-on-background">{label}</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-450">{desc}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 pt-3 border-t border-border-base dark:border-zinc-850">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPaymentModal({ open: false, seatNumber: null })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="success"
+                size="sm"
+                className="font-bold"
+                onClick={confirmSettle}
+              >
+                Confirm Settlement
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

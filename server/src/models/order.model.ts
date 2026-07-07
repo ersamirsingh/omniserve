@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { OrderSource, OrderStatus, PaymentStatus } from '../enums/enums.js';
+import { OrderSource, OrderStatus, PaymentStatus } from "./enums.js";
 
 export interface IDiningContext {
   tableId?: Types.ObjectId | null;

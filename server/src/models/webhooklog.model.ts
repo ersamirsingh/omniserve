@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { WebhookProvider, WebhookStatus } from '../enums/enums.js';
+import { WebhookProvider, WebhookStatus } from "./enums.js";
 
 export interface IWebhookLog extends Document {
   tenantId: Types.ObjectId;

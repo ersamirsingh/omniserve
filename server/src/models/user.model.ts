@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { UserRole, UserStatus } from '../enums/enums.js';
+import { UserRole, UserStatus } from "./enums.js";
 
 export interface IUser extends Document {
   tenantId: Types.ObjectId;

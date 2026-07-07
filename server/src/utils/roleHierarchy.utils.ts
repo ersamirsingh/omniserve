@@ -1,4 +1,4 @@
-import { UserRole } from '../enums/enums.js';
+import { UserRole } from "../models/enums.js";
 
 const ROLE_RANK: Record<UserRole, number> = {
   [UserRole.SUPER_ADMIN]: 100,

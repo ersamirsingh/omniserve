@@ -1,31 +1,30 @@
 import { Router } from "express";
 
-import authRoutes from "./auth.route.js";
-import subscriptionRoutes from "./subscription.route.js";
-import restaurantRouter from "./restaurant.route.js";
-import outletRoutes from "./outlet.routes.js";
-import categoryRouter from "./category.route.js";
-import menuItemRouter from "./menuitem.route.js";
-import variantRouter from "./variant.route.js";
-import addonRouter from "./addon.route.js";
-import inventoryRouter from "./inventory.route.js";
-import customerRouter from "./customer.route.js";
-import orderRouter from "./order.route.js";
-import paymentRouter from "./payment.route.js";
-import notificationRouter from "./notification.route.js";
-import analyticsRouter from "./analytics.route.js";
-import webhookRouter from "./webhook.route.js";
-import auditLogRouter from "./auditlog.route.js";
-import userRoutes from "./user.route.js";
-import integrationRouter from "./integration.route.js";
-import publicRouter from "./public.route.js";
-import diningRouter from "./dining.route.js";
-import kdsRouter from "./kds.route.js";
-import billingRouter from "./billing.route.js";
-import shiftRouter from "./shift.route.js";
-import reservationRouter from "./reservation.route.js";
-import diningAnalyticsRouter from "./dining-analytics.route.js";
-
+import authRoutes from "../modules/auth/auth.routes.js";
+import subscriptionRoutes from "../modules/subscription/subscription.routes.js";
+import restaurantRouter from "../modules/restaurant/restaurant.routes.js";
+import outletRoutes from "../modules/outlet/outlet.routes.js";
+import categoryRouter from "../modules/category/category.routes.js";
+import menuItemRouter from "../modules/menuItem/menuItem.routes.js";
+import variantRouter from "../modules/variant/variant.routes.js";
+import addonRouter from "../modules/addon/addon.routes.js";
+import inventoryRouter from "../modules/inventory/inventory.routes.js";
+import customerRouter from "../modules/customer/customer.routes.js";
+import orderRouter from "../modules/order/order.routes.js";
+import paymentRouter from "../modules/payment/payment.routes.js";
+import notificationRouter from "../modules/notification/notification.routes.js";
+import analyticsRouter from "../modules/analytics/analytics.routes.js";
+import webhookRouter from "../modules/webhook/webhook.routes.js";
+import auditLogRouter from "../modules/auditLog/auditLog.routes.js";
+import userRoutes from "../modules/user/user.routes.js";
+import integrationRouter from "../modules/integration/integration.routes.js";
+import publicRouter from "../modules/auth/public.routes.js";
+import diningRouter from "../modules/order/dining.routes.js";
+import kdsRouter from "../modules/order/kds.routes.js";
+import billingRouter from "../modules/order/billing.routes.js";
+import shiftRouter from "../modules/outlet/shift.routes.js";
+import reservationRouter from "../modules/order/reservation.routes.js";
+import diningAnalyticsRouter from "../modules/analytics/dining-analytics.routes.js";
 
 const router = Router();
 
@@ -55,6 +54,5 @@ router.use("/billing", billingRouter);
 router.use("/shifts", shiftRouter);
 router.use("/reservations", reservationRouter);
 router.use("/dining-analytics", diningAnalyticsRouter);
-
 
 export default router;

@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
-import { NotificationType } from '../enums/enums.js';
+import { NotificationType } from "./enums.js";
 
 export interface INotification extends Document {
   tenantId: Types.ObjectId;
