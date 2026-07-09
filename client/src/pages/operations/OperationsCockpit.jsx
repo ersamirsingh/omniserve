@@ -72,15 +72,18 @@ export default function OperationsCockpit() {
       addToast(`Bill requested for Session on Table ${payload.tableNumber || ''}`, 'info');
     } else if (event === 'WAITER_TASK_ESCALATED') {
       addToast(`CRITICAL: Waiter Task escalated for Table ${payload.tableId}`, 'error');
+    } else if (event === 'OUTLET_STATUS_CHANGED') {
+      const targetId = user?.outletId || (user?.outletIds && user.outletIds[0]);
+      if (payload.outletId === targetId) {
+        setOutlet(prev => prev ? { ...prev, status: payload.newStatus } : null);
+        addToast(`Outlet is now ${payload.newStatus === 'ACTIVE' ? 'OPEN' : 'CLOSED'}`, 'info');
+      }
     }
-  }, [lastMessage, addToast]);
+  }, [lastMessage, addToast, user]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: HiOutlinePresentationChartLine, component: RestaurantOperationsDashboard },
-    { id: 'floor', label: 'Live Floor', icon: HiOutlineMap, component: FloorView },
     { id: 'dine-in-orders', label: 'Dine-In Orders', icon: HiOutlineListBullet, component: null },
-    { id: 'qr-codes', label: 'QR Codes', icon: HiOutlineQrCode, component: QRCodesCenter },
-    { id: 'designer', label: 'Floor Designer', icon: HiOutlinePencilSquare, component: FloorDesigner },
     { id: 'waiters', label: 'Waiter Console', icon: HiOutlineUserGroup, component: WaiterConsole },
     { id: 'billing', label: 'Billing Splits', icon: HiOutlineReceiptPercent, component: BillingWorkspace },
     { id: 'reservations', label: 'Reservations', icon: HiOutlineCalendarDays, component: ReservationCalendar },
@@ -99,13 +102,7 @@ export default function OperationsCockpit() {
           subtitle="Real-time control center for dining floor, kitchen, service tasks, and outlets."
         />
         <div className="flex items-center gap-4 self-start sm:self-center">
-          {/* Socket Connection Dot */}
-          <div className="flex items-center gap-1.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 px-2.5 py-1.5 rounded-xl">
-            <span className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-success-green animate-pulse' : 'bg-red-500'}`} />
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-              {connected ? 'Sync Connected' : 'Sync Offline'}
-            </span>
-          </div>
+          {/* Socket Connection Dot removed */}
 
           {/* Outlet status toggle slider */}
           {outlet && (
@@ -117,8 +114,10 @@ export default function OperationsCockpit() {
                 <input 
                   type="checkbox" 
                   className="sr-only peer" 
+                  disabled={user?.role === 'STAFF'}
                   checked={outlet.status === 'ACTIVE'}
                   onChange={async () => {
+                    if (user?.role === 'STAFF') return;
                     const newStatus = outlet.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
                     try {
                       await toggleOutletStatusApi(outlet.id || outlet._id, newStatus);
@@ -129,7 +128,7 @@ export default function OperationsCockpit() {
                     }
                   }}
                 />
-                <div className="w-9 h-5 bg-zinc-300 dark:bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-success-green"></div>
+                <div className={`w-9 h-5 bg-zinc-300 dark:bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-success-green ${user?.role === 'STAFF' ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
               </label>
             </div>
           )}

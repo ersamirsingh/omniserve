@@ -43,15 +43,24 @@ async function compositeTableCleaningStartedWorker(event: any): Promise<void> {
   await realtimeSyncWorker(event);
 }
 
+// Composite worker for Outlet Status Changes
+async function compositeOutletStatusChangedWorker(event: any): Promise<void> {
+  await statusSyncWorker(event);
+  await realtimeSyncWorker(event);
+}
+
 export function initWorkerRegistry(): void {
   // Composite Order Events
   workerRegistry.register("ORDER_CREATED", compositeOrderCreatedWorker);
   workerRegistry.register("ORDER_STATUS_CHANGED", compositeOrderStatusChangedWorker);
 
   // Stock & Catalog Events
-  workerRegistry.register("OUTLET_STATUS_CHANGED", statusSyncWorker);
+  workerRegistry.register("OUTLET_STATUS_CHANGED", compositeOutletStatusChangedWorker);
   workerRegistry.register("INVENTORY_CHANGED", inventorySyncWorker);
   workerRegistry.register("MENU_CHANGED", menuSyncWorker);
+  workerRegistry.register("DINING_AREA_CREATED", realtimeSyncWorker);
+  workerRegistry.register("DINING_AREA_UPDATED", realtimeSyncWorker);
+  workerRegistry.register("DINING_AREA_ARCHIVED", realtimeSyncWorker);
 
   // Dining Operations & Assistance Events
   workerRegistry.register("QR_ASSISTANCE_REQUESTED", compositeQRAssistanceRequestedWorker);

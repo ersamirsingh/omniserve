@@ -11,27 +11,33 @@ router.patch(
   UserController.acceptMyInvitation
 );
 
-// Get list of users (Auth required, restricted to Restaurant Owner and above)
+router.get(
+  '/me/profile-context',
+  verifyToken,
+  UserController.getMyProfileContext
+);
+
+// Get list of users (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.get(
   '/',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
   UserController.listUsers
 );
 
-// Create user (Auth required, restricted to Restaurant Owner and above)
+// Create user (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.post(
   '/',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
   UserController.createUser
 );
 
-// Get user details by ID (Auth required, restricted to Restaurant Owner and above)
+// Get user details by ID (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.get(
   '/:id',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
   UserController.getUserById
 );
 
@@ -42,11 +48,11 @@ router.put(
   UserController.updateUser
 );
 
-// Soft-delete user (Auth required, restricted to Restaurant Owner and above)
+// Soft-delete user (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.delete(
   '/:id',
   verifyToken,
-  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER),
+  authorizeRole(UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER),
   UserController.deleteUser
 );
 

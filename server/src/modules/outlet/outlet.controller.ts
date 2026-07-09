@@ -482,6 +482,11 @@ export class OutletController {
         return;
       }
 
+      if (req.user.role === 'STAFF') {
+        ApiResponseHandler.forbidden(res, 'Staff cannot toggle outlet status');
+        return;
+      }
+
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid outlet ID format');
@@ -510,6 +515,13 @@ export class OutletController {
         return;
       }
 
+      const oldOutlet = await OutletService.getOutletById(id, req.user.tenantId);
+      if (!oldOutlet) {
+        ApiResponseHandler.notFound(res, 'Outlet not found');
+        return;
+      }
+      const previousStatus = oldOutlet.status;
+
       const updatedOutlet = await OutletService.updateOutletStatus(
         id,
         req.user.tenantId,
@@ -522,13 +534,16 @@ export class OutletController {
         return;
       }
 
-      // Publish event to trigger auto-updates on online platforms (Swiggy/Zomato connectors)
+      // Publish event to trigger auto-updates on online platforms (Swiggy/Zomato connectors) and realtime WebSocket broadcast
       await EventBusService.publishOutletStatusChanged(
         req.user.tenantId,
         updatedOutlet._id,
         {
-          status: userStatus,
-          name: updatedOutlet.name,
+          outletId: updatedOutlet._id.toString(),
+          previousStatus: previousStatus,
+          newStatus: userStatus,
+          changedBy: req.user.userId,
+          changedAt: new Date(),
         },
         { createdBy: req.user.userId }
       );

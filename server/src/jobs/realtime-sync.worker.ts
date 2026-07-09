@@ -36,6 +36,10 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
     case RealtimeEvent.WAITER_TASK_CANCELLED:
     case RealtimeEvent.WAITER_TASK_ESCALATED:
     case RealtimeEvent.QR_ASSISTANCE_REQUESTED:
+    case RealtimeEvent.DINING_AREA_CREATED:
+    case RealtimeEvent.DINING_AREA_UPDATED:
+    case RealtimeEvent.DINING_AREA_ARCHIVED:
+    case RealtimeEvent.OUTLET_STATUS_CHANGED:
       if (outletId) {
         RealtimeService.sendToOutlet(tenantId, outletId, eventType as RealtimeEvent, messagePayload);
       }

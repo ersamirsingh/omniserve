@@ -74,7 +74,23 @@ export const routeComponents = {
   GlobalAuditLogs: createLazyPage(() => import('../../pages/systemAdmin/GlobalAuditLogs')),
   HealthDiagnostics: createLazyPage(() => import('../../pages/systemAdmin/HealthDiagnostics')),
   AcceptSystemAdminInvite: createLazyPage(() => import('../../pages/systemAdmin/AcceptSystemAdminInvite')),
+  FloorManagementPage: createLazyPage(() => import('../../pages/operations/FloorManagement')),
+  MenuManagementPage: createLazyPage(() => import('../../pages/menu/MenuManagement')),
 };
+
+export const NAV_PERMISSIONS = {
+  [SUPER_ADMIN]: ['MENU_MANAGEMENT', 'INVENTORY', 'TEAM_MANAGEMENT', 'FLOOR_MANAGEMENT', 'FLOOR_DESIGNER', 'RESTAURANT_OPERATIONS', 'OUTLET_TOGGLE', 'QR_CODES', 'MERGE_TABLE'],
+  [RESTAURANT_OWNER]: ['MENU_MANAGEMENT', 'INVENTORY', 'TEAM_MANAGEMENT', 'FLOOR_MANAGEMENT', 'FLOOR_DESIGNER', 'RESTAURANT_OPERATIONS', 'OUTLET_TOGGLE', 'QR_CODES', 'MERGE_TABLE'],
+  [OUTLET_MANAGER]: ['MENU_MANAGEMENT', 'INVENTORY', 'TEAM_MANAGEMENT', 'FLOOR_MANAGEMENT', 'FLOOR_DESIGNER', 'RESTAURANT_OPERATIONS', 'OUTLET_TOGGLE', 'QR_CODES', 'MERGE_TABLE'],
+  [STAFF]: ['FLOOR_MANAGEMENT', 'RESTAURANT_OPERATIONS'],
+  [SYSTEM_ADMIN]: []
+};
+
+export function hasPermission(userRole, feature) {
+  if (!userRole) return false;
+  const allowedFeatures = NAV_PERMISSIONS[userRole] || [];
+  return allowedFeatures.includes(feature);
+}
 
 export const authRoutes = [
   { path: '/login', component: routeComponents.LoginPage },
@@ -90,22 +106,31 @@ export const dashboardRoutes = [
   { path: '/audit-logs', title: 'Audit Logs', component: routeComponents.AuditLogsPage, roles: [SUPER_ADMIN], nav: { section: 'Insights', label: 'Audit Logs', icon: HiOutlineDocumentText } },
   { path: '/webhook-logs', title: 'Webhook Logs', component: routeComponents.WebhookLogsPage, roles: [SUPER_ADMIN], nav: { section: 'Insights', label: 'Webhook Logs', icon: HiOutlineDocumentText } },
   { path: '/subscriptions', title: 'Subscriptions', component: routeComponents.SubscriptionsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER], nav: { section: 'Finance', label: 'Subscriptions', icon: HiOutlineCreditCard } },
-  { path: '/users', title: 'Users', component: routeComponents.UsersPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER], nav: { section: 'Insights', label: 'Team', icon: HiOutlineCog6Tooth } },
+  { path: '/users', title: 'Users', component: routeComponents.UsersPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Insights', label: 'Team', icon: HiOutlineCog6Tooth } },
   { path: '/outlets', title: 'Outlets', component: routeComponents.OutletsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Outlets', icon: HiOutlineMapPin } },
   { path: '/analytics', title: 'Analytics', component: routeComponents.AnalyticsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER], nav: { section: 'Insights', label: 'Analytics', icon: HiOutlineChartBarSquare } },
   { path: '/payments', title: 'Payments', component: routeComponents.PaymentsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER], nav: { section: 'Finance', label: 'Payments', icon: HiOutlineCreditCard } },
-  { path: '/categories', title: 'Categories', component: routeComponents.CategoriesPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Categories', icon: HiOutlineSquares2X2 } },
-  { path: '/menu-items', title: 'Menu Items', component: routeComponents.MenuItemsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Menu Items', icon: HiOutlineRectangleStack } },
-  { path: '/variants', title: 'Variants', component: routeComponents.VariantsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Variants', icon: HiOutlineTag } },
-  { path: '/addons', title: 'Addons', component: routeComponents.AddonsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Addons', icon: HiOutlineTag } },
+  
+  // Menu Management Unified Workspace
+  { path: '/menu-management', title: 'Menu Management', component: routeComponents.MenuManagementPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Menu Management', icon: HiOutlineSquares2X2 } },
+  
+  // Standalone paths (no longer in sidebar, but still routable)
+  { path: '/categories', title: 'Categories', component: routeComponents.CategoriesPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
+  { path: '/menu-items', title: 'Menu Items', component: routeComponents.MenuItemsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
+  { path: '/variants', title: 'Variants', component: routeComponents.VariantsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
+  { path: '/addons', title: 'Addons', component: routeComponents.AddonsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
+  
   { path: '/customers', title: 'Customers', component: routeComponents.CustomersPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Operations', label: 'Customers', icon: HiOutlineUsers } },
   { path: '/integrations', title: 'Integrations', component: routeComponents.IntegrationsDashboardPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Integrations', icon: HiOutlineClipboardDocumentList } },
   { path: '/integrations/mappings', title: 'Integrations', component: routeComponents.MappingReviewPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
-  { path: '/inventory', title: 'Inventory', component: routeComponents.InventoryPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER, STAFF], nav: { section: 'Operations', label: 'Inventory', icon: HiOutlineCube } },
+  { path: '/inventory', title: 'Inventory', component: routeComponents.InventoryPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Operations', label: 'Inventory', icon: HiOutlineCube } },
   { path: '/operations/online', title: 'Online Orders', component: routeComponents.OnlineOrdersPage, roles: RESTAURANT_ROLES },
   { path: '/operations/preparation', title: 'Order Preparation', component: routeComponents.OrderPreparationPage, roles: RESTAURANT_ROLES, nav: { section: 'Operations', label: 'Order Preparation', icon: HiOutlineQueueList } },
   { path: '/operations/dine-in', title: 'Restaurant Operations', component: routeComponents.OperationsCockpitPage, roles: RESTAURANT_ROLES, nav: { section: 'Operations', label: 'Restaurant Operations', icon: HiOutlineSquares2X2 } },
   { path: '/operations', title: 'Restaurant Operations', component: routeComponents.OperationsCockpitPage, roles: RESTAURANT_ROLES },
+  
+  // Floor Management Workspace
+  { path: '/floor-management', title: 'Floor Management', component: routeComponents.FloorManagementPage, roles: RESTAURANT_ROLES, nav: { section: 'Operations', label: 'Floor Management', icon: HiOutlineSquares2X2 } },
   
   // System Admin Routes
   { path: '/system-admin/tenants', title: 'Tenant Operations', component: routeComponents.TenantManagement, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Tenants', icon: HiOutlineBuildingStorefront } },

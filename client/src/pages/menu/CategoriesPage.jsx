@@ -26,7 +26,7 @@ const menuTabs = [
   { to: '/addons', label: 'Addons' },
 ];
 
-export default function CategoriesPage() {
+export default function CategoriesPage({ isEmbedded = false }) {
   const [data, setData] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,32 +140,37 @@ export default function CategoriesPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        section="Operations"
-        title="Categories"
-        description="Manage and organize menu categories for your outlets."
-        actions={actions}
-        tabs={menuTabs}
-      />
+    <div className={isEmbedded ? '' : 'space-y-6'}>
+      {!isEmbedded && (
+        <PageHeader 
+          section="Operations"
+          title="Categories"
+          description="Manage and organize menu categories for your outlets."
+          actions={actions}
+          tabs={menuTabs}
+        />
+      )}
 
-      {/* Outlet Filtering Select */}
-      <div className="flex items-center gap-4 bg-surface-subtle dark:bg-zinc-900/40 p-3 rounded-2xl border border-border-base dark:border-zinc-900 shadow-xs max-w-xs">
-        <div className="w-full">
-          <Select 
-            id="cat-outlet-filter" 
-            label="Filter by Outlet" 
-            value={selectedOutletFilter} 
-            onChange={(e) => setSelectedOutletFilter(e.target.value)}
-          >
-            <option value="all">All Outlets</option>
-            {outlets.map((outlet) => (
-              <option key={getEntityId(outlet)} value={getEntityId(outlet)}>
-                {outlet.name}
-              </option>
-            ))}
-          </Select>
+      {/* Outlet Filtering Select and Action button */}
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex items-center gap-4 bg-surface-subtle dark:bg-zinc-900/40 p-3 rounded-2xl border border-border-base dark:border-zinc-900 shadow-xs max-w-xs flex-1">
+          <div className="w-full">
+            <Select 
+              id="cat-outlet-filter" 
+              label="Filter by Outlet" 
+              value={selectedOutletFilter} 
+              onChange={(e) => setSelectedOutletFilter(e.target.value)}
+            >
+              <option value="all">All Outlets</option>
+              {outlets.map((outlet) => (
+                <option key={getEntityId(outlet)} value={getEntityId(outlet)}>
+                  {outlet.name}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
+        {isEmbedded && actions}
       </div>
 
       <Table columns={columns} data={filteredData} loading={loading} />

@@ -4,6 +4,7 @@ import { UserService } from "./user.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { UserRole, UserStatus } from "../../models/enums.js";
 import { RoleHierarchy } from "../../utils/roleHierarchy.utils.js";
+import { UserProfileContextService } from "./user-profile-context.service.js";
 
 export class UserController {
   private static EMAIL_REGEX = /^\S+@\S+\.\S+$/;
@@ -42,6 +43,28 @@ export class UserController {
       });
     } catch (error: any) {
       ApiResponseHandler.badRequest(res, error.message || 'Failed to accept invitation');
+    }
+  }
+
+  /**
+   * Get authenticated user's profile context hierarchy
+   * GET /users/me/profile-context
+   */
+  static async getMyProfileContext(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user?.tenantId || !req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
+        return;
+      }
+      const user = await UserService.getUserById(req.user.userId, req.user.tenantId);
+      if (!user) {
+        ApiResponseHandler.notFound(res, 'User not found');
+        return;
+      }
+      const context = await UserProfileContextService.resolveProfileContext(user);
+      ApiResponseHandler.success(res, 200, 'Profile context resolved successfully', context);
+    } catch (error: any) {
+      ApiResponseHandler.badRequest(res, error.message || 'Failed to resolve profile context');
     }
   }
 
@@ -123,6 +146,22 @@ export class UserController {
         }
       }
 
+      if (req.user.role === UserRole.OUTLET_MANAGER) {
+        if (role !== UserRole.STAFF) {
+          ApiResponseHandler.forbidden(res, 'Outlet managers can only create staff members');
+          return;
+        }
+      }
+
+      let targetRestaurantId = restaurantId;
+      let targetOutletId = outletId;
+      let targetOutletIds = outletIds;
+      if (req.user.role === UserRole.OUTLET_MANAGER) {
+        targetRestaurantId = req.user.restaurantId;
+        targetOutletId = req.user.outletId;
+        targetOutletIds = req.user.outletIds && req.user.outletIds.length > 0 ? req.user.outletIds : [req.user.outletId];
+      }
+
       const userData = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -131,9 +170,9 @@ export class UserController {
         password,
         role,
         status: status || UserStatus.ACTIVE,
-        restaurantId,
-        outletId,
-        outletIds,
+        restaurantId: targetRestaurantId,
+        outletId: targetOutletId,
+        outletIds: targetOutletIds,
       };
 
       const user = await UserService.createUser(
@@ -271,6 +310,15 @@ export class UserController {
         return;
       }
 
+      if (req.user.role === UserRole.OUTLET_MANAGER) {
+        const myOutletIdStr = req.user.outletId?.toString();
+        const isSameOutlet = user.outletId?.toString() === myOutletIdStr || user.outletIds?.map((oid: any) => oid.toString()).includes(myOutletIdStr || '');
+        if (!isSameOutlet) {
+          ApiResponseHandler.forbidden(res, 'You are not authorized to view users outside your outlet scope');
+          return;
+        }
+      }
+
       ApiResponseHandler.success(res, 200, 'User details retrieved successfully', {
         id: user._id,
         firstName: user.firstName,
@@ -318,11 +366,47 @@ export class UserController {
       }
 
       const isSelfUpdate = id === req.user.userId;
-      const hasManagerPrivileges = [UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER].includes(req.user.role as UserRole);
+      const hasManagerPrivileges = [UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER].includes(req.user.role as UserRole);
 
       if (!isSelfUpdate && !hasManagerPrivileges) {
         ApiResponseHandler.forbidden(res, 'You do not have permission to update this user');
         return;
+      }
+
+      const existingUser = await UserService.getUserById(id, req.user.tenantId);
+      if (!existingUser) {
+        ApiResponseHandler.notFound(res, 'User not found');
+        return;
+      }
+
+      if (req.user.role === UserRole.OUTLET_MANAGER && !isSelfUpdate) {
+        const myOutletIdStr = req.user.outletId?.toString();
+        const isSameOutlet = existingUser.outletId?.toString() === myOutletIdStr || existingUser.outletIds?.map((oid: any) => oid.toString()).includes(myOutletIdStr || '');
+        if (!isSameOutlet) {
+          ApiResponseHandler.forbidden(res, 'You cannot update users outside your outlet scope');
+          return;
+        }
+
+        const { role, restaurantId, outletId, outletIds } = req.body;
+        if (role !== undefined && role !== UserRole.STAFF) {
+          ApiResponseHandler.forbidden(res, 'Outlet managers can only assign users the STAFF role');
+          return;
+        }
+        if (restaurantId !== undefined && restaurantId !== req.user.restaurantId?.toString()) {
+          ApiResponseHandler.forbidden(res, 'You cannot change the restaurant assignment outside your scope');
+          return;
+        }
+        if (outletId !== undefined && outletId !== req.user.outletId?.toString()) {
+          ApiResponseHandler.forbidden(res, 'You cannot change the outlet assignment outside your scope');
+          return;
+        }
+        if (outletIds !== undefined) {
+          const hasOutsideOutlet = outletIds.some((oid: any) => oid.toString() !== req.user!.outletId?.toString());
+          if (hasOutsideOutlet) {
+            ApiResponseHandler.forbidden(res, 'You cannot assign outlets outside your scope');
+            return;
+          }
+        }
       }
 
       const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId, outletIds, profileImage, address, idProof, idProofStatus } = req.body;
@@ -463,6 +547,26 @@ export class UserController {
       if (!Types.ObjectId.isValid(id)) {
         ApiResponseHandler.badRequest(res, 'Invalid user ID format');
         return;
+      }
+
+      const user = await UserService.getUserById(id, req.user.tenantId);
+      if (!user) {
+        ApiResponseHandler.notFound(res, 'User not found');
+        return;
+      }
+
+      if (req.user.role === UserRole.OUTLET_MANAGER) {
+        if (user.role !== UserRole.STAFF) {
+          ApiResponseHandler.forbidden(res, 'Outlet managers can only delete staff members');
+          return;
+        }
+
+        const myOutletIdStr = req.user.outletId?.toString();
+        const isSameOutlet = user.outletId?.toString() === myOutletIdStr || user.outletIds?.map((oid: any) => oid.toString()).includes(myOutletIdStr || '');
+        if (!isSameOutlet) {
+          ApiResponseHandler.forbidden(res, 'You cannot delete users outside your outlet scope');
+          return;
+        }
       }
 
       const deletedUser = await UserService.deleteUser(

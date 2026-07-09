@@ -45,7 +45,9 @@ export default function PageHeader({
       {tabs && tabs.length > 0 && (
         <div className="tabs tabs-bordered mt-6 border-b border-border-base/40 dark:border-zinc-900/40">
           {tabs.map((tab) => {
-            const isActive = location.pathname === tab.to;
+            const isActive = tab.to.includes('?')
+              ? (location.pathname + location.search) === tab.to
+              : location.pathname === tab.to;
             return (
               <button
                 key={tab.to}

@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { InventoryService } from "./inventory.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
+import { UserRole } from "../../models/enums.js";
 
 export class InventoryController {
   /**
@@ -13,6 +14,10 @@ export class InventoryController {
     try {
       if (!req.user?.tenantId) {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
+        return;
+      }
+      if (req.user.role === UserRole.STAFF) {
+        ApiResponseHandler.forbidden(res, 'Staff cannot access inventory');
         return;
       }
 
@@ -94,6 +99,10 @@ export class InventoryController {
     try {
       if (!req.user?.tenantId) {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
+        return;
+      }
+      if (req.user.role === UserRole.STAFF) {
+        ApiResponseHandler.forbidden(res, 'Staff cannot access inventory');
         return;
       }
 
@@ -179,6 +188,10 @@ export class InventoryController {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;
       }
+      if (req.user.role === UserRole.STAFF) {
+        ApiResponseHandler.forbidden(res, 'Staff cannot access inventory');
+        return;
+      }
 
       const { id } = req.params as { id: string };
       if (!Types.ObjectId.isValid(id)) {
@@ -220,6 +233,10 @@ export class InventoryController {
     try {
       if (!req.user?.tenantId) {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
+        return;
+      }
+      if (req.user.role === UserRole.STAFF) {
+        ApiResponseHandler.forbidden(res, 'Staff cannot access inventory');
         return;
       }
 
@@ -288,6 +305,10 @@ export class InventoryController {
     try {
       if (!req.user?.tenantId) {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
+        return;
+      }
+      if (req.user.role === UserRole.STAFF) {
+        ApiResponseHandler.forbidden(res, 'Staff cannot access inventory');
         return;
       }
 

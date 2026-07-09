@@ -87,14 +87,17 @@ const integrationEventQueueSchema = new Schema<IIntegrationEventQueue>(
         "RESERVATION_CONFIRMED",
         "RESERVATION_SEATED",
         "RESERVATION_CANCELLED",
-        "OUTLET_STATUS_CHANGED"
+        "OUTLET_STATUS_CHANGED",
+        "DINING_AREA_CREATED",
+        "DINING_AREA_UPDATED",
+        "DINING_AREA_ARCHIVED"
       ],
       trim: true,
     },
     aggregateType: {
       type: String,
       required: [true, "Aggregate type is required"],
-      enum: ["ORDER", "MENU_ITEM", "INVENTORY", "CART", "TABLE", "WAITER_TASK", "ORDER_ITEM", "BILL_SESSION", "RESERVATION", "OUTLET"],
+      enum: ["ORDER", "MENU_ITEM", "INVENTORY", "CART", "TABLE", "WAITER_TASK", "ORDER_ITEM", "BILL_SESSION", "RESERVATION", "OUTLET", "DINING_AREA"],
       trim: true,
     },
     aggregateId: {

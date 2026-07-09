@@ -14,7 +14,7 @@ export class QRSessionService {
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
     tableId: string | Types.ObjectId,
-    options: { customerId?: string; seatNumber?: string; waiterId?: string; reservationId?: string } = {}
+    options: { customerId?: string; seatNumber?: string; seatNumbers?: string[]; waiterId?: string; reservationId?: string } = {}
   ): Promise<IQRSession> {
     // Validate outlet is active (open)
     const outlet = await Outlet.findOne({ _id: new Types.ObjectId(outletId), isDeleted: false });
@@ -45,6 +45,13 @@ export class QRSessionService {
       }
     }
 
+    const seatNumbers = options.seatNumbers || (options.seatNumber ? [options.seatNumber] : []);
+    const seats = seatNumbers.map(seat => ({
+      seatNumber: seat,
+      customerId: options.customerId ? new Types.ObjectId(options.customerId) : null,
+      joinedAt: new Date()
+    }));
+
     // Create session
     const session = new QRSession({
       tenantId: new Types.ObjectId(tenantId),
@@ -52,13 +59,9 @@ export class QRSessionService {
       tableId: new Types.ObjectId(tableId),
       status: "ACTIVE",
       joinCode,
-      seats: options.seatNumber ? [{
-        seatNumber: options.seatNumber,
-        customerId: options.customerId ? new Types.ObjectId(options.customerId) : null,
-        joinedAt: new Date()
-      }] : [],
+      seats,
       customerId: options.customerId ? new Types.ObjectId(options.customerId) : null,
-      seatNumber: options.seatNumber || null,
+      seatNumber: options.seatNumber || (seatNumbers.length > 0 ? seatNumbers[0] : null),
       waiterId: finalWaiterId,
       openedAt: new Date()
     });

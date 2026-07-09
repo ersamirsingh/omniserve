@@ -832,4 +832,58 @@ export class EventBusService {
       options
     );
   }
+
+  static async publishDiningAreaCreated(
+    tenantId: string | Types.ObjectId,
+    outletId: string | Types.ObjectId,
+    diningAreaId: string | Types.ObjectId,
+    payload: unknown,
+    options?: PublishOptions
+  ): Promise<IIntegrationEventQueue | null> {
+    return this.createEvent(
+      tenantId,
+      outletId,
+      RealtimeEvent.DINING_AREA_CREATED,
+      "DINING_AREA",
+      diningAreaId,
+      payload,
+      options
+    );
+  }
+
+  static async publishDiningAreaUpdated(
+    tenantId: string | Types.ObjectId,
+    outletId: string | Types.ObjectId,
+    diningAreaId: string | Types.ObjectId,
+    payload: unknown,
+    options?: PublishOptions
+  ): Promise<IIntegrationEventQueue | null> {
+    return this.createEvent(
+      tenantId,
+      outletId,
+      RealtimeEvent.DINING_AREA_UPDATED,
+      "DINING_AREA",
+      diningAreaId,
+      payload,
+      options
+    );
+  }
+
+  static async publishDiningAreaArchived(
+    tenantId: string | Types.ObjectId,
+    outletId: string | Types.ObjectId,
+    diningAreaId: string | Types.ObjectId,
+    payload: unknown,
+    options?: PublishOptions
+  ): Promise<IIntegrationEventQueue | null> {
+    return this.createEvent(
+      tenantId,
+      outletId,
+      RealtimeEvent.DINING_AREA_ARCHIVED,
+      "DINING_AREA",
+      diningAreaId,
+      payload,
+      options
+    );
+  }
 }

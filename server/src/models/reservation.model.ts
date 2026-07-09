@@ -37,6 +37,7 @@ export interface IReservation extends Document {
   /** QR session created when guest is seated */
   sessionId?: Types.ObjectId | null;
   seatNumber?: string | null;
+  seatNumbers?: string[];
   /** Waiter pre-assigned to this reservation */
   assignedWaiterId?: Types.ObjectId | null;
   createdBy?: Types.ObjectId | null;
@@ -134,6 +135,10 @@ const reservationSchema = new Schema<IReservation>(
       type: String,
       default: null,
       trim: true,
+    },
+    seatNumbers: {
+      type: [String],
+      default: [],
     },
     assignedWaiterId: {
       type: Schema.Types.ObjectId,

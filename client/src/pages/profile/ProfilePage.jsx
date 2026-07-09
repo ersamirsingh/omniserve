@@ -11,14 +11,15 @@ import {
   HiArrowUpTray, 
   HiCheckCircle, 
   HiXCircle, 
-  HiClock 
+  HiClock,
+  HiBuildingOffice
 } from 'react-icons/hi2';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import useAuth from '../../hooks/useAuth';
-import { updateUserApi } from '../../api/models/user.api';
+import { updateUserApi, getProfileContextApi } from '../../api/models/user.api';
 import { fetchCurrentUser } from '../../store/authSlice';
 import { ROLE_LABELS, ROLE_BADGE_VARIANT } from '../../utils/constants';
 
@@ -29,6 +30,49 @@ export default function ProfilePage() {
 
   const [activeTab, setActiveTab] = useState('personal');
   const [loading, setLoading] = useState(false);
+  const [profileContext, setProfileContext] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
+
+  const fetchProfileContext = async () => {
+    setContextLoading(true);
+    try {
+      const response = await getProfileContextApi();
+      if (response?.data?.data) {
+        setProfileContext(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load profile context', err);
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileContext();
+  }, []);
+
+  const getRoleActions = () => {
+    const actions = [];
+    if (user?.role === 'SYSTEM_ADMIN') {
+      actions.push({ to: '/system-admin/tenants', label: 'Manage Tenants', icon: 'storefront' });
+      actions.push({ to: '/system-admin/audit-logs', label: 'Global Audit Logs', icon: 'description' });
+    }
+    if (['SUPER_ADMIN', 'RESTAURANT_OWNER'].includes(user?.role)) {
+      actions.push({ to: '/users', label: 'Manage Team', icon: 'group' });
+      actions.push({ to: '/menu-management', label: 'Menu Management', icon: 'menu_book' });
+      actions.push({ to: '/subscriptions', label: 'Subscriptions', icon: 'credit_card' });
+    }
+    if (user?.role === 'OUTLET_MANAGER') {
+      actions.push({ to: '/users', label: 'Manage Scoped Staff', icon: 'group' });
+      actions.push({ to: '/floor-management', label: 'Floor Management', icon: 'layers' });
+      actions.push({ to: '/menu-management', label: 'Menu Management', icon: 'menu_book' });
+    }
+    if (user?.role === 'STAFF') {
+      actions.push({ to: '/floor-management', label: 'Live Floor Operations', icon: 'layers' });
+    }
+    return actions;
+  };
+
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -254,6 +298,16 @@ export default function ProfilePage() {
             }`}
           >
             <HiIdentification className="text-sm shrink-0" /> ID Verification
+          </button>
+          <button
+            onClick={() => setActiveTab('organization')}
+            className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full cursor-pointer border-none text-left font-sans select-none ${
+              activeTab === 'organization'
+                ? 'bg-primary text-white'
+                : 'text-on-surface-variant dark:text-zinc-405 hover:bg-surface-container-low dark:hover:bg-zinc-900/60 hover:text-on-surface dark:hover:text-zinc-200'
+            }`}
+          >
+            <HiBuildingOffice className="text-sm shrink-0" /> Organization & Access
           </button>
           <button
             onClick={() => setActiveTab('security')}
@@ -502,6 +556,84 @@ export default function ProfilePage() {
                 </Button>
               </div>
             </form>
+          )}
+
+          {activeTab === 'organization' && (
+            <div className="space-y-6 animate-fade-in">
+              <div>
+                <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Organization & Access</h3>
+                <p className="text-xs text-on-surface-variant dark:text-zinc-405">View your organizational hierarchy and access boundaries resolved by the system.</p>
+              </div>
+
+              {contextLoading ? (
+                <div className="flex justify-center p-8">
+                  <span className="loading loading-spinner loading-md text-primary"></span>
+                </div>
+              ) : profileContext ? (
+                <div className="space-y-4">
+                  {profileContext.tenant && (
+                    <div className="p-4 bg-surface-subtle dark:bg-zinc-900/40 border border-border-base dark:border-zinc-850 rounded-2xl">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 dark:text-zinc-500">Tenant Account</span>
+                      <h4 className="text-sm font-bold text-on-surface dark:text-zinc-200 mt-1">{profileContext.tenant.name}</h4>
+                      <p className="text-[11px] font-mono text-on-surface-variant/70 dark:text-zinc-500 mt-0.5">ID: {profileContext.tenant.id}</p>
+                    </div>
+                  )}
+
+                  {profileContext.restaurants && profileContext.restaurants.length > 0 && (
+                    <div className="p-4 bg-surface-subtle dark:bg-zinc-900/40 border border-border-base dark:border-zinc-850 rounded-2xl">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 dark:text-zinc-500">Restaurants Scope</span>
+                      <div className="space-y-2 mt-2">
+                        {profileContext.restaurants.map((rest) => (
+                          <div key={rest.id} className="border-l-2 border-primary pl-3 py-0.5">
+                            <h5 className="text-xs font-bold text-on-surface dark:text-zinc-300">{rest.name}</h5>
+                            <p className="text-[10px] font-mono text-on-surface-variant/70 dark:text-zinc-500">ID: {rest.id}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {profileContext.outlets && profileContext.outlets.length > 0 && (
+                    <div className="p-4 bg-surface-subtle dark:bg-zinc-900/40 border border-border-base dark:border-zinc-850 rounded-2xl">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 dark:text-zinc-500">Outlets Scope</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                        {profileContext.outlets.map((out) => (
+                          <div key={out.id} className="bg-white dark:bg-zinc-950 p-3 rounded-xl border border-border-base/60 dark:border-zinc-900/60 shadow-2xs">
+                            <h5 className="text-xs font-bold text-on-surface dark:text-zinc-300">{out.name}</h5>
+                            <p className="text-[10px] font-mono text-on-surface-variant/70 dark:text-zinc-550 mt-0.5">ID: {out.id}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {getRoleActions().length > 0 && (
+                    <div className="pt-4 border-t border-border-base dark:border-zinc-900">
+                      <h4 className="text-xs font-bold text-on-surface dark:text-zinc-350 mb-3">Quick Navigation & Admin Actions</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {getRoleActions().map((act) => (
+                          <a
+                            key={act.to}
+                            href={act.to}
+                            className="flex items-center justify-between p-3.5 bg-indigo-50/50 dark:bg-indigo-950/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-950/30 rounded-2xl transition-all group cursor-pointer decoration-none"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[20px]">{act.icon}</span>
+                              <span className="text-xs font-bold text-indigo-950 dark:text-indigo-300">{act.label}</span>
+                            </div>
+                            <span className="material-symbols-outlined text-indigo-400 group-hover:translate-x-0.5 transition-transform text-[16px]">arrow_forward</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center p-6 text-on-surface-variant dark:text-zinc-500">
+                  <p className="text-xs font-semibold">No active organizational context resolved for your account.</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

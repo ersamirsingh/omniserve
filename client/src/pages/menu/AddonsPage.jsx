@@ -26,7 +26,7 @@ const menuTabs = [
   { to: '/addons', label: 'Addons' },
 ];
 
-export default function AddonsPage() {
+export default function AddonsPage({ isEmbedded = false }) {
   const [data, setData] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
@@ -170,33 +170,38 @@ export default function AddonsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        section="Operations"
-        title="Addons"
-        description="Manage optional item add-ons and toppings."
-        actions={actions}
-        tabs={menuTabs}
-      />
+    <div className={isEmbedded ? '' : 'space-y-6'}>
+      {!isEmbedded && (
+        <PageHeader 
+          section="Operations"
+          title="Addons"
+          description="Manage optional item add-ons and toppings."
+          actions={actions}
+          tabs={menuTabs}
+        />
+      )}
 
-      {/* Menu Item Selector Filter */}
-      <div className="flex items-center gap-4 bg-surface-subtle dark:bg-zinc-900/40 p-3 rounded-2xl border border-border-base dark:border-zinc-900 shadow-xs max-w-xs">
-        <div className="w-full">
-          <Select 
-            id="addon-filter-item" 
-            label="Filter by Menu Item" 
-            value={selectedMenuItemId} 
-            onChange={(e) => handleSelectedMenuItem(e.target.value)} 
-            disabled={!menuItems.length}
-          >
-            <option value="" disabled>Select menu item</option>
-            {menuItems.map((item) => (
-              <option key={getEntityId(item)} value={getEntityId(item)}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
+      {/* Menu Item Selector Filter and Action button */}
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex items-center gap-4 bg-surface-subtle dark:bg-zinc-900/40 p-3 rounded-2xl border border-border-base dark:border-zinc-900 shadow-xs max-w-xs flex-1">
+          <div className="w-full">
+            <Select 
+              id="addon-filter-item" 
+              label="Filter by Menu Item" 
+              value={selectedMenuItemId} 
+              onChange={(e) => handleSelectedMenuItem(e.target.value)} 
+              disabled={!menuItems.length}
+            >
+              <option value="" disabled>Select menu item</option>
+              {menuItems.map((item) => (
+                <option key={getEntityId(item)} value={getEntityId(item)}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
+        {isEmbedded && actions}
       </div>
 
       <Table columns={columns} data={data} loading={loading} />

@@ -17,6 +17,7 @@ import { getEntityId, getList, getRefId } from '../../utils/apiData';
 const ASSIGNABLE_ROLES = {
   [USER_ROLES.SUPER_ADMIN]: [USER_ROLES.RESTAURANT_OWNER, USER_ROLES.OUTLET_MANAGER, USER_ROLES.STAFF],
   [USER_ROLES.RESTAURANT_OWNER]: [USER_ROLES.OUTLET_MANAGER, USER_ROLES.STAFF],
+  [USER_ROLES.OUTLET_MANAGER]: [USER_ROLES.STAFF],
 };
 
 const restaurantScopedRoles = [USER_ROLES.RESTAURANT_OWNER];
@@ -539,6 +540,7 @@ export default function UsersPage() {
               id="u-restaurant" 
               label="Assigned Restaurant" 
               value={form.restaurantId} 
+              disabled={currentUser?.role === USER_ROLES.OUTLET_MANAGER}
               onChange={(e) => updateRestaurant(e.target.value)} 
               required
             >
@@ -565,6 +567,7 @@ export default function UsersPage() {
                       <input
                         type="checkbox"
                         checked={isChecked}
+                        disabled={currentUser?.role === USER_ROLES.OUTLET_MANAGER}
                         onChange={(e) => {
                           let nextIds = [...(form.outletIds || [])];
                           if (e.target.checked) {

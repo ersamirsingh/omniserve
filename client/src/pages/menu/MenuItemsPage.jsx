@@ -31,7 +31,7 @@ const menuTabs = [
   { to: '/addons', label: 'Addons' },
 ];
 
-export default function MenuItemsPage() {
+export default function MenuItemsPage({ isEmbedded = false }) {
   const [data, setData] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -247,16 +247,18 @@ export default function MenuItemsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        section="Operations"
-        title="Menu Items"
-        description="Manage and configure your outlet menu items."
-        actions={actions}
-        tabs={menuTabs}
-      />
+    <div className={isEmbedded ? '' : 'space-y-6'}>
+      {!isEmbedded && (
+        <PageHeader 
+          section="Operations"
+          title="Menu Items"
+          description="Manage and configure your outlet menu items."
+          actions={actions}
+          tabs={menuTabs}
+        />
+      )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-surface-subtle dark:bg-zinc-900/40 p-3 rounded-2xl border border-border-base dark:border-zinc-900 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-surface-subtle dark:bg-zinc-900/40 p-3 rounded-2xl border border-border-base dark:border-zinc-900 shadow-xs mb-4">
         <div className="relative flex-1 max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 dark:text-zinc-500 text-[20px]">
             search
@@ -304,6 +306,7 @@ export default function MenuItemsPage() {
               ))}
             </Select>
           </div>
+          {isEmbedded && actions}
         </div>
       </div>
 

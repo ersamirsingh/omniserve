@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import Reservation, { ReservationStatus } from "../../models/reservation.model.js";
 import Table from "../../models/table.model.js";
 import { EventBusService } from "../../events/eventBus.js";
@@ -18,6 +18,7 @@ export interface ICreateReservationInput {
   specialRequests?: string;
   notes?: string;
   seatNumber?: string;
+  seatNumbers?: string[];
   createdBy?: Types.ObjectId;
 }
 
@@ -50,6 +51,20 @@ export class ReservationService {
       throw new Error("This outlet is currently closed. Bookings are disabled.");
     }
 
+    // Determine and normalize seat numbers for compatibility
+    const seatNumbers = input.seatNumbers || (input.seatNumber ? [input.seatNumber] : []);
+    const seatNumber = input.seatNumber || (input.seatNumbers && input.seatNumbers.length > 0 ? input.seatNumbers[0] : null);
+
+    if (seatNumbers.length > 0) {
+      if (seatNumbers.length !== input.partySize) {
+        throw new Error(`Selected seat count (${seatNumbers.length}) must equal party size (${input.partySize})`);
+      }
+      const uniqueSeats = new Set(seatNumbers);
+      if (uniqueSeats.size !== seatNumbers.length) {
+        throw new Error("Seat selection cannot contain duplicates");
+      }
+    }
+
     // If a table is specified, validate it exists and is not already reserved at the slot
     let tableNumber: string | null = null;
     if (input.tableId) {
@@ -60,19 +75,49 @@ export class ReservationService {
       });
       if (!table) throw new Error(`Table ${input.tableId} not found`);
 
-      // Check for time-overlapping confirmed reservations (within ±2 hour window)
+      // Validate capacity
+      if (table.seatCount < input.partySize) {
+        throw new Error(`Table capacity (${table.seatCount}) is smaller than party size (${input.partySize})`);
+      }
+
+      // Check for time-overlapping confirmed/active reservations (within ±2 hour window)
       const windowStart = new Date(input.scheduledAt.getTime() - 2 * 60 * 60 * 1000);
       const windowEnd = new Date(input.scheduledAt.getTime() + 2 * 60 * 60 * 1000);
-      const conflict = await Reservation.findOne({
+
+      const overlapping = await Reservation.find({
         tableId: new Types.ObjectId(input.tableId),
         tenantId,
-        status: { $in: ["PENDING", "CONFIRMED"] },
+        status: { $in: ["PENDING", "CONFIRMED", "SEATED", "HOLD"] },
         scheduledAt: { $gte: windowStart, $lte: windowEnd },
         isDeleted: false
       });
-      if (conflict) {
-        throw new Error(`Table is already reserved around that time slot`);
+
+      const occupiedSeats = new Set<string>();
+      for (const res of overlapping) {
+        const resSeats = res.seatNumbers && res.seatNumbers.length > 0 ? res.seatNumbers : (res.seatNumber ? [res.seatNumber] : []);
+        resSeats.forEach(s => occupiedSeats.add(s));
       }
+
+      // Also check active QRSession seat occupancy
+      const QRSession = mongoose.model("QRSession");
+      const activeSession = await QRSession.findOne({
+        tableId: new Types.ObjectId(input.tableId),
+        status: { $in: ["ACTIVE", "ORDERING", "DINING", "PAYMENT_PENDING", "OPEN", "ORDERED", "PAID"] },
+        isDeleted: false
+      });
+      if (activeSession) {
+        for (const seat of activeSession.seats) {
+          occupiedSeats.add(seat.seatNumber);
+        }
+      }
+
+      // Check if selected seats overlap
+      for (const seat of seatNumbers) {
+        if (occupiedSeats.has(seat)) {
+          throw new Error(`Seat "${seat}" is already reserved/occupied in this time window`);
+        }
+      }
+
       tableNumber = table.tableNumber;
     }
 
@@ -90,7 +135,8 @@ export class ReservationService {
       ...(input.customerId && { customerId: new Types.ObjectId(input.customerId) }),
       ...(input.specialRequests && { specialRequests: input.specialRequests }),
       ...(input.notes && { notes: input.notes }),
-      ...(input.seatNumber && { seatNumber: input.seatNumber }),
+      seatNumber,
+      seatNumbers,
       ...(input.createdBy && { createdBy: input.createdBy })
     });
 
@@ -177,7 +223,11 @@ export class ReservationService {
         finalTableId,
         {
           ...(reservation.customerId ? { customerId: reservation.customerId.toString() } : {}),
-          ...(reservation.seatNumber ? { seatNumber: reservation.seatNumber } : {}),
+          ...((() => {
+            const sn = reservation.seatNumber || (reservation.seatNumbers && reservation.seatNumbers.length > 0 ? reservation.seatNumbers[0] : undefined);
+            return sn ? { seatNumber: sn } : {};
+          })()),
+          seatNumbers: reservation.seatNumbers && reservation.seatNumbers.length > 0 ? reservation.seatNumbers : (reservation.seatNumber ? [reservation.seatNumber] : []),
           reservationId: reservation._id.toString()
         }
       );

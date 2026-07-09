@@ -9,6 +9,8 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { resolveDiningContext } from "./order.utils.js";
 import { DiningAreaService } from "../outlet/dining-area.service.js";
 import { TableService } from "../outlet/table.service.js";
+import { AccessScope } from "../../utils/accessScope.utils.js";
+import { UserRole } from "../../models/enums.js";
 
 export class DiningOperationsController {
   /**
@@ -42,20 +44,39 @@ export class DiningOperationsController {
     }
   }
 
+  private static async checkStructuralPermission(req: Request, res: Response): Promise<{ tenantId: Types.ObjectId; outletId: Types.ObjectId } | null> {
+    if (!req.user) {
+      ApiResponseHandler.unauthorized(res, "Authentication required");
+      return null;
+    }
+    if (req.user.role === UserRole.STAFF) {
+      ApiResponseHandler.forbidden(res, "Staff cannot modify floor or table structure");
+      return null;
+    }
+    const { tenantId, outletId } = await resolveDiningContext(req);
+    if (!(await AccessScope.canAccessOutlet(req.user, outletId.toString()))) {
+      ApiResponseHandler.forbidden(res, "You do not have access to this outlet");
+      return null;
+    }
+    return { tenantId, outletId };
+  }
+
   /**
    * PUT /api/v1/dining/tables/layout
    * Batch updates table layout coordinates for the floor designer
    */
   static async updateTablesLayout(req: Request, res: Response): Promise<void> {
     try {
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId } = context;
+
       const { tables } = req.body;
 
       if (!tables || !Array.isArray(tables)) {
         ApiResponseHandler.badRequest(res, "Missing or invalid tables array parameter");
         return;
       }
-
-      const { tenantId } = await resolveDiningContext(req);
       const updatedTableIds: string[] = [];
 
       for (const tableData of tables) {
@@ -288,7 +309,9 @@ export class DiningOperationsController {
    */
   static async createTable(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId, outletId } = context;
       const triggeredById = req.user?.userId;
       const payload = req.body;
 
@@ -306,7 +329,9 @@ export class DiningOperationsController {
    */
   static async updateTable(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId, outletId } = context;
       const tableId = req.params.id as string;
       const triggeredById = req.user?.userId;
       const payload = req.body;
@@ -330,7 +355,9 @@ export class DiningOperationsController {
    */
   static async archiveTable(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId, outletId } = context;
       const tableId = req.params.id as string;
       const triggeredById = req.user?.userId;
 
@@ -378,7 +405,9 @@ export class DiningOperationsController {
    */
   static async createDiningArea(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId, outletId } = context;
       const triggeredById = req.user?.userId;
       const payload = req.body;
 
@@ -402,7 +431,9 @@ export class DiningOperationsController {
    */
   static async updateDiningArea(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId, outletId } = context;
       const areaId = req.params.id as string;
       const triggeredById = req.user?.userId;
       const payload = req.body;
@@ -427,7 +458,9 @@ export class DiningOperationsController {
    */
   static async archiveDiningArea(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      const context = await DiningOperationsController.checkStructuralPermission(req, res);
+      if (!context) return;
+      const { tenantId, outletId } = context;
       const areaId = req.params.id as string;
       const triggeredById = req.user?.userId;
 

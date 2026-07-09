@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTablesApi, getDiningAreasApi, updateTablesLayoutApi, createDiningAreaApi, createTableApi, archiveDiningAreaApi, archiveTableApi } from '../../../api/models/operations.api';
+import { getTablesApi, getDiningAreasApi, updateTablesLayoutApi, createDiningAreaApi, createTableApi, archiveDiningAreaApi, archiveTableApi, updateTableApi } from '../../../api/models/operations.api';
 import { useToast } from '../../../components/ui/Toast';
 import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
@@ -28,6 +28,11 @@ export default function FloorDesigner() {
   const [showTableModal, setShowTableModal] = useState(false);
   const [newTableData, setNewTableData] = useState({ tableNumber: '', seatCount: 4 });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline edit states for table properties
+  const [editTableNumber, setEditTableNumber] = useState('');
+  const [editSeatCount, setEditSeatCount] = useState(4);
+  const [isSavingProps, setIsSavingProps] = useState(false);
 
   const handleAddArea = async () => {
     if (!newAreaName.trim()) return addToast('Name is required', 'error');
@@ -213,6 +218,14 @@ export default function FloorDesigner() {
 
   const activeEditTable = tables.find(t => t._id === selectedTable?._id);
 
+  // Sync edit fields when selected table changes
+  useEffect(() => {
+    if (activeEditTable) {
+      setEditTableNumber(activeEditTable.tableNumber || '');
+      setEditSeatCount(activeEditTable.seatCount || 4);
+    }
+  }, [activeEditTable?._id]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in">
       {/* Designer Workspace controls */}
@@ -310,11 +323,57 @@ export default function FloorDesigner() {
 
         {activeEditTable ? (
           <div className="space-y-4">
-            <div className="bg-surface-container-low dark:bg-zinc-900/40 p-3.5 rounded-lg text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>Selected Table:</span>
-                <span className="font-bold text-primary dark:text-primary-fixed-dim">{activeEditTable.tableNumber}</span>
+            {/* Table Name + Seat Count editing */}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide">Table Name / Number</label>
+                <input
+                  type="text"
+                  value={editTableNumber}
+                  onChange={(e) => setEditTableNumber(e.target.value)}
+                  className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2 text-xs font-semibold text-on-surface dark:text-zinc-200"
+                  placeholder="e.g. T1, Bar-1"
+                />
               </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide">Seat Count</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editSeatCount}
+                  onChange={(e) => setEditSeatCount(parseInt(e.target.value, 10) || 1)}
+                  className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2 text-xs"
+                />
+              </div>
+              {(editTableNumber !== activeEditTable.tableNumber || editSeatCount !== (activeEditTable.seatCount || 4)) && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="w-full"
+                  isLoading={isSavingProps}
+                  onClick={async () => {
+                    if (!editTableNumber.trim()) return addToast('Table name is required', 'error');
+                    setIsSavingProps(true);
+                    try {
+                      await updateTableApi(activeEditTable._id, {
+                        tableNumber: editTableNumber.trim(),
+                        seatCount: editSeatCount,
+                      });
+                      addToast('Table updated', 'success');
+                      fetchData();
+                    } catch (e) {
+                      addToast(e.response?.data?.message || 'Failed to update table', 'error');
+                    } finally {
+                      setIsSavingProps(false);
+                    }
+                  }}
+                >
+                  Save Name & Seats
+                </Button>
+              )}
+            </div>
+
+            <div className="bg-surface-container-low dark:bg-zinc-900/40 p-3.5 rounded-lg text-xs space-y-1">
               <div className="flex justify-between">
                 <span>Coordinates:</span>
                 <span className="font-semibold">{activeEditTable.layout?.x || 50}px, {activeEditTable.layout?.y || 50}px</span>

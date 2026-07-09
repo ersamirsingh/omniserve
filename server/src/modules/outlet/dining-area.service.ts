@@ -1,6 +1,8 @@
 import { Types } from "mongoose";
 import DiningArea, { IDiningArea } from "../../models/diningarea.model.js";
 import Table from "../../models/table.model.js";
+import { EventBusService } from "../../events/eventBus.js";
+import { escapeRegex } from "../../utils/sanitize.utils.js";
 
 export class DiningAreaService {
   /**
@@ -12,16 +14,50 @@ export class DiningAreaService {
     payload: { name: string; description?: string; displayOrder?: number; isActive?: boolean },
     triggeredById?: string
   ): Promise<IDiningArea> {
+    if (!payload.name) {
+      throw new Error("Dining area name is required");
+    }
+    const nameClean = payload.name.trim();
+    if (!nameClean) {
+      throw new Error("Dining area name cannot be empty");
+    }
+
+    // Case-insensitive duplicate name check for active dining areas in the same outlet
+    const existing = await DiningArea.findOne({
+      tenantId: new Types.ObjectId(tenantId),
+      outletId: new Types.ObjectId(outletId),
+      name: { $regex: new RegExp(`^${escapeRegex(nameClean)}$`, "i") },
+      isDeleted: false
+    });
+    if (existing) {
+      throw new Error(`Dining area name "${nameClean}" already exists in this outlet`);
+    }
+
     const diningArea = new DiningArea({
       tenantId: new Types.ObjectId(tenantId),
       outletId: new Types.ObjectId(outletId),
-      name: payload.name,
+      name: nameClean,
       description: payload.description,
       displayOrder: payload.displayOrder || 0,
       isActive: payload.isActive !== undefined ? payload.isActive : true
     });
 
     await diningArea.save();
+
+    // Publish transactional outbox event
+    await EventBusService.publishDiningAreaCreated(
+      tenantId,
+      outletId,
+      diningArea._id,
+      {
+        diningAreaId: diningArea._id.toString(),
+        name: diningArea.name,
+        action: "CREATE",
+        updatedAt: new Date()
+      },
+      { createdBy: triggeredById, sourceSystem: "SYSTEM" }
+    );
+
     return diningArea;
   }
 
@@ -36,7 +72,26 @@ export class DiningAreaService {
     triggeredById?: string
   ): Promise<IDiningArea> {
     const updateData: any = {};
-    if (payload.name !== undefined) updateData.name = payload.name;
+    
+    if (payload.name !== undefined) {
+      const nameClean = payload.name.trim();
+      if (!nameClean) {
+        throw new Error("Dining area name cannot be empty");
+      }
+      // Case-insensitive duplicate name check
+      const existing = await DiningArea.findOne({
+        _id: { $ne: new Types.ObjectId(areaId) },
+        tenantId: new Types.ObjectId(tenantId),
+        outletId: new Types.ObjectId(outletId),
+        name: { $regex: new RegExp(`^${escapeRegex(nameClean)}$`, "i") },
+        isDeleted: false
+      });
+      if (existing) {
+        throw new Error(`Dining area name "${nameClean}" already exists in this outlet`);
+      }
+      updateData.name = nameClean;
+    }
+    
     if (payload.description !== undefined) updateData.description = payload.description;
     if (payload.displayOrder !== undefined) updateData.displayOrder = payload.displayOrder;
     if (payload.isActive !== undefined) updateData.isActive = payload.isActive;
@@ -50,6 +105,20 @@ export class DiningAreaService {
     if (!diningArea) {
       throw new Error(`DiningArea not found: ${areaId}`);
     }
+
+    // Publish event
+    await EventBusService.publishDiningAreaUpdated(
+      tenantId,
+      outletId,
+      diningArea._id,
+      {
+        diningAreaId: diningArea._id.toString(),
+        name: diningArea.name,
+        action: "UPDATE",
+        updatedAt: new Date()
+      },
+      { createdBy: triggeredById, sourceSystem: "SYSTEM" }
+    );
 
     return diningArea;
   }
@@ -83,6 +152,20 @@ export class DiningAreaService {
     if (!diningArea) {
       throw new Error(`DiningArea not found: ${areaId}`);
     }
+
+    // Publish event
+    await EventBusService.publishDiningAreaArchived(
+      tenantId,
+      outletId,
+      diningArea._id,
+      {
+        diningAreaId: diningArea._id.toString(),
+        name: diningArea.name,
+        action: "DELETE",
+        updatedAt: new Date()
+      },
+      { createdBy: triggeredById, sourceSystem: "SYSTEM" }
+    );
 
     return diningArea;
   }
