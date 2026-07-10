@@ -57,7 +57,11 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await api.post('/auth/refresh');
+        const refreshRes = await api.post('/auth/refresh');
+        const newAccessToken = refreshRes.data?.data?.accessToken;
+        if (newAccessToken) {
+          localStorage.setItem('accessToken', newAccessToken);
+        }
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {

@@ -12,7 +12,14 @@ const iconColors = {
   error: 'bg-rose-500/10 text-error',
 };
 
-export default function StatCard({ title, value, icon: Icon, trend, trendUp, color = 'indigo', onClick }) {
+export default function StatCard({ title, value, icon, trend, trendUp, color = 'indigo', onClick }) {
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (React.isValidElement(icon)) return icon;
+    const IconComponent = icon;
+    return <IconComponent />;
+  };
+
   return (
     <div 
       onClick={onClick}
@@ -22,7 +29,7 @@ export default function StatCard({ title, value, icon: Icon, trend, trendUp, col
     >
       <div className="flex items-center justify-between">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 ${iconColors[color] || iconColors.indigo}`}>
-          {Icon && <Icon />}
+          {renderIcon()}
         </div>
         {trend && (
           <span 

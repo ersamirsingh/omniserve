@@ -44,8 +44,9 @@ router.delete('/invites/:id', SystemAdminController.revokeInvite);
 router.get('/tenants', SystemAdminController.listTenants);
 router.get('/tenants/:id', SystemAdminController.getTenantDetail);
 router.post('/tenants/:id/status', SystemAdminController.updateTenantStatus);
-router.delete('/tenants/:id', SystemAdminController.deleteTenant);
 router.post('/tenants/:id/subscription-override', SystemAdminController.overrideSubscription);
+router.post('/tenants/:id/subscription/override', SystemAdminController.overrideSubscription);
+router.delete('/tenants/:id', SystemAdminController.deleteTenant);
 
 // User search
 router.get('/users/search', SystemAdminController.searchUsers);

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { OutletService } from "./outlet.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
-import { UserStatus, WeekDay } from "../../models/enums.js";
+import { UserStatus, WeekDay, UserRole } from "../../models/enums.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 import { EventBusService } from "../../events/eventBus.js";
 
@@ -210,7 +210,8 @@ export class OutletController {
       const status = req.query.status as string | undefined;
       const city = req.query.city as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const defaultLimit = (req.user?.role === UserRole.SUPER_ADMIN || req.user?.role === UserRole.SYSTEM_ADMIN || req.user?.role === UserRole.RESTAURANT_OWNER) ? 200 : 20;
+      const limit = Math.min(parseInt(req.query.limit as string) || defaultLimit, 500);
       const skip = (page - 1) * limit;
 
       // Validate filter ObjectId

@@ -142,10 +142,13 @@ export const isRestaurantOwner = (
     return;
   }
 
-  if (
-    req.user.role !== UserRole.RESTAURANT_OWNER &&
-    req.user.role !== UserRole.SUPER_ADMIN
-  ) {
+  const allowedRoles = [
+    UserRole.RESTAURANT_OWNER,
+    UserRole.SUPER_ADMIN,
+    UserRole.SYSTEM_ADMIN,
+  ];
+
+  if (!allowedRoles.includes(req.user.role as UserRole)) {
     res.status(403).json({
       success: false,
       message: 'Only restaurant owners can perform this action',
@@ -171,6 +174,7 @@ export const isOutletManager = (
     UserRole.OUTLET_MANAGER,
     UserRole.RESTAURANT_OWNER,
     UserRole.SUPER_ADMIN,
+    UserRole.SYSTEM_ADMIN,
   ];
 
   if (!allowedRoles.includes(req.user.role as UserRole)) {

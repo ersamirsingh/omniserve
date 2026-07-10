@@ -113,14 +113,18 @@ export class NotificationService {
    */
   static async getNotificationsForUser(
     userId: string,
-    tenantId: string,
+    tenantId: string | undefined | null,
     filters: { isRead?: boolean; limit: number; skip: number }
   ): Promise<{ notifications: INotification[]; total: number }> {
     const query: any = {
-      tenantId: new Types.ObjectId(tenantId),
       userId: new Types.ObjectId(userId),
       isDeleted: false,
     };
+    if (tenantId) {
+      query.tenantId = new Types.ObjectId(tenantId);
+    } else {
+      query.tenantId = null;
+    }
 
     if (filters.isRead !== undefined) {
       query.isRead = filters.isRead;
@@ -143,15 +147,20 @@ export class NotificationService {
   static async markAsRead(
     id: string,
     userId: string,
-    tenantId: string
+    tenantId: string | undefined | null
   ): Promise<INotification | null> {
+    const query: any = {
+      _id: new Types.ObjectId(id),
+      userId: new Types.ObjectId(userId),
+      isDeleted: false,
+    };
+    if (tenantId) {
+      query.tenantId = new Types.ObjectId(tenantId);
+    } else {
+      query.tenantId = null;
+    }
     return await Notification.findOneAndUpdate(
-      {
-        _id: new Types.ObjectId(id),
-        userId: new Types.ObjectId(userId),
-        tenantId: new Types.ObjectId(tenantId),
-        isDeleted: false,
-      },
+      query,
       {
         isRead: true,
         readAt: new Date(),
@@ -166,15 +175,20 @@ export class NotificationService {
    */
   static async markAllAsRead(
     userId: string,
-    tenantId: string
+    tenantId: string | undefined | null
   ): Promise<void> {
+    const query: any = {
+      userId: new Types.ObjectId(userId),
+      isRead: false,
+      isDeleted: false,
+    };
+    if (tenantId) {
+      query.tenantId = new Types.ObjectId(tenantId);
+    } else {
+      query.tenantId = null;
+    }
     await Notification.updateMany(
-      {
-        userId: new Types.ObjectId(userId),
-        tenantId: new Types.ObjectId(tenantId),
-        isRead: false,
-        isDeleted: false,
-      },
+      query,
       {
         isRead: true,
         readAt: new Date(),
@@ -189,15 +203,20 @@ export class NotificationService {
   static async deleteNotification(
     id: string,
     userId: string,
-    tenantId: string
+    tenantId: string | undefined | null
   ): Promise<INotification | null> {
+    const query: any = {
+      _id: new Types.ObjectId(id),
+      userId: new Types.ObjectId(userId),
+      isDeleted: false,
+    };
+    if (tenantId) {
+      query.tenantId = new Types.ObjectId(tenantId);
+    } else {
+      query.tenantId = null;
+    }
     return await Notification.findOneAndUpdate(
-      {
-        _id: new Types.ObjectId(id),
-        userId: new Types.ObjectId(userId),
-        tenantId: new Types.ObjectId(tenantId),
-        isDeleted: false,
-      },
+      query,
       {
         isDeleted: true,
         updatedBy: new Types.ObjectId(userId),

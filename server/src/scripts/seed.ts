@@ -366,10 +366,10 @@ const runSeed = async () => {
         const orderSources = Object.values(OrderSource).filter(s => s !== OrderSource.POS); // Skip deprecated POS
         
         for (let ord = 1; ord <= orderCount; ord++) {
-          const randomCustomer = customers[Math.floor(Math.random() * customers.length)];
-          const randomSource = orderSources[Math.floor(Math.random() * orderSources.length)];
+          const randomCustomer = customers[Math.floor(Math.random() * customers.length)]!;
+          const randomSource = orderSources[Math.floor(Math.random() * orderSources.length)]!;
           
-          let randomStatus = OrderStatus.COMPLETED;
+          let randomStatus: OrderStatus = OrderStatus.COMPLETED;
           const statusRand = Math.random();
           if (statusRand < 0.1) {
             randomStatus = OrderStatus.PENDING;
@@ -401,7 +401,7 @@ const runSeed = async () => {
           }
 
           if (selectedItems.length === 0 && menuItemsCreated.length > 0) {
-            selectedItems.push(menuItemsCreated[0]);
+            selectedItems.push(menuItemsCreated[0]!);
           }
 
           // Calculate pricing
@@ -457,7 +457,7 @@ const runSeed = async () => {
             createdAt: orderDate,
             updatedAt: orderDate,
             createdBy: randomCustomer._id,
-            waiterId: randomStatus === OrderStatus.SERVED || randomStatus === OrderStatus.COMPLETED ? staffIds[Math.floor(Math.random() * staffIds.length)] : null,
+            waiterId: (randomStatus as string) === OrderStatus.SERVED || (randomStatus as string) === OrderStatus.COMPLETED ? staffIds[Math.floor(Math.random() * staffIds.length)] : null,
           });
 
           await Customer.updateOne(

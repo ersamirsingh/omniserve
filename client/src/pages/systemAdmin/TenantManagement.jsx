@@ -94,7 +94,7 @@ export default function TenantManagement() {
   useEffect(() => {
     listPlansApi()
       .then((res) => {
-        setAvailablePlans(res.data?.data || []);
+        setAvailablePlans(res.data?.data?.plans || []);
       })
       .catch(() => {});
   }, []);
@@ -134,11 +134,11 @@ export default function TenantManagement() {
     }
 
     setUpdatingStatus(true);
-    updateTenantStatusApi(selectedTenant.tenant._id, targetStatus, statusReason)
+    updateTenantStatusApi(selectedTenant.tenant.id || selectedTenant.tenant._id, targetStatus, statusReason)
       .then(() => {
         setShowStatusModal(false);
         // Refresh details & list
-        handleViewDetails(selectedTenant.tenant._id);
+        handleViewDetails(selectedTenant.tenant.id || selectedTenant.tenant._id);
         fetchTenants();
       })
       .catch((err) => {
@@ -161,7 +161,7 @@ export default function TenantManagement() {
     }
 
     setDeletingTenant(true);
-    deleteTenantApi(selectedTenant.tenant._id, deleteReason)
+    deleteTenantApi(selectedTenant.tenant.id || selectedTenant.tenant._id, deleteReason)
       .then(() => {
         setShowDeleteModal(false);
         setPanelOpen(false);
@@ -206,10 +206,10 @@ export default function TenantManagement() {
     }
 
     setOverridingSub(true);
-    overrideSubscriptionApi(selectedTenant.tenant._id, payload)
+    overrideSubscriptionApi(selectedTenant.tenant.id || selectedTenant.tenant._id, payload)
       .then(() => {
         setShowOverrideModal(false);
-        handleViewDetails(selectedTenant.tenant._id);
+        handleViewDetails(selectedTenant.tenant.id || selectedTenant.tenant._id);
         fetchTenants();
       })
       .catch((err) => {
@@ -237,7 +237,7 @@ export default function TenantManagement() {
       label: 'Actions',
       render: (r) => (
         <button 
-          onClick={() => handleViewDetails(r._id)}
+          onClick={() => handleViewDetails(r.id || r._id)}
           className="text-xs text-primary font-bold hover:underline cursor-pointer"
         >
           Manage Cockpit
@@ -360,7 +360,7 @@ export default function TenantManagement() {
                     <h4 className="text-2xl font-bold text-primary dark:text-primary-fixed-dim">
                       {selectedTenant.tenant.name}
                     </h4>
-                    <span className="text-xs text-on-surface-variant font-mono">ID: {selectedTenant.tenant._id}</span>
+                    <span className="text-xs text-on-surface-variant font-mono">ID: {selectedTenant.tenant.id || selectedTenant.tenant._id}</span>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-1">
@@ -402,7 +402,7 @@ export default function TenantManagement() {
                   </div>
                   {selectedTenant.activeSubscription ? (
                     <div className="text-xs space-y-1 bg-surface-container-low dark:bg-zinc-900/40 p-3 rounded-lg border border-border-base dark:border-zinc-900">
-                      <p><strong>Plan Name:</strong> {typeof selectedTenant.activeSubscription.planId === 'object' ? selectedTenant.activeSubscription.planId.name : selectedTenant.activeSubscription.planId || 'Free'}</p>
+                      <p><strong>Plan Name:</strong> {selectedTenant.activeSubscription.planId?.name || selectedTenant.activeSubscription.plan || 'Free'}</p>
                       <p><strong>Billing Cycle:</strong> {selectedTenant.activeSubscription.billingCycle}</p>
                       <p><strong>Billing Status:</strong> <span className="font-bold text-emerald-500">{selectedTenant.activeSubscription.status}</span></p>
                       <p><strong>Price Amount:</strong> ₹{(selectedTenant.activeSubscription.amount || 0).toLocaleString()}</p>

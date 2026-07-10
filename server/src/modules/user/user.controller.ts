@@ -52,7 +52,11 @@ export class UserController {
    */
   static async getMyProfileContext(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user?.tenantId || !req.user?.userId) {
+      if (!req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated');
+        return;
+      }
+      if (!req.user?.tenantId && req.user?.role !== UserRole.SYSTEM_ADMIN) {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;
       }

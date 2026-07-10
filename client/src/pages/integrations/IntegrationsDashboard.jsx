@@ -22,6 +22,103 @@ export default function IntegrationsDashboard() {
   const tenantId = user?.tenantId;
   const { addToast } = useToast();
 
+  const getOrderPaymentDetails = (order) => {
+    if (!order) return null;
+    // 1. Try canonicalPayload first
+    if (order.canonicalPayload?.pricing) {
+      const { subtotal, tax, deliveryFee, discount, totalAmount } = order.canonicalPayload.pricing;
+      return { subtotal, tax, deliveryFee, discount, totalAmount };
+    }
+    // 2. Fallback to rawPayload based on provider
+    const rp = order.rawPayload || {};
+    if (order.provider?.includes('SWIGGY')) {
+      const totalAmount = rp.pricing?.total_amount || 0;
+      const subtotal = rp.pricing?.subtotal || totalAmount;
+      const tax = rp.pricing?.tax || 0;
+      const deliveryFee = rp.pricing?.delivery_fee || 0;
+      const discount = rp.pricing?.discount || 0;
+      return { subtotal, tax, deliveryFee, discount, totalAmount };
+    } else if (order.provider?.includes('ZOMATO')) {
+      const totalAmount = rp.billDetails?.totalBill || 0;
+      const subtotal = rp.billDetails?.itemSubTotal || totalAmount;
+      const tax = rp.billDetails?.taxes || 0;
+      const deliveryFee = rp.billDetails?.deliveryCharges || 0;
+      const discount = rp.billDetails?.discounts || 0;
+      return { subtotal, tax, deliveryFee, discount, totalAmount };
+    }
+    return null;
+  };
+
+  const renderItemDetailPayments = (data) => {
+    if (!data) return null;
+    let pay = null;
+    if (data.pricing && (data.pricing.totalAmount !== undefined || data.pricing.total_amount !== undefined)) {
+      pay = {
+        totalAmount: data.pricing.totalAmount ?? data.pricing.total_amount,
+        subtotal: data.pricing.subtotal ?? data.pricing.subtotal,
+        tax: data.pricing.tax ?? 0,
+        deliveryFee: data.pricing.deliveryFee ?? data.pricing.delivery_fee ?? 0,
+        discount: data.pricing.discount ?? 0,
+      };
+    } else if (data.billDetails && data.billDetails.totalBill !== undefined) {
+      pay = {
+        totalAmount: data.billDetails.totalBill,
+        subtotal: data.billDetails.itemSubTotal,
+        tax: data.billDetails.taxes ?? 0,
+        deliveryFee: data.billDetails.deliveryCharges ?? 0,
+        discount: data.billDetails.discounts ?? 0,
+      };
+    } else if (data.order?.pricing) {
+      pay = {
+        totalAmount: data.order.pricing.totalAmount ?? data.order.pricing.total_amount,
+        subtotal: data.order.pricing.subtotal,
+        tax: data.order.pricing.tax ?? 0,
+        deliveryFee: data.order.pricing.deliveryFee ?? 0,
+        discount: data.order.pricing.discount ?? 0,
+      };
+    } else if (data.totalAmount !== undefined) {
+      pay = {
+        totalAmount: data.totalAmount,
+        subtotal: data.subtotal ?? data.totalAmount,
+        tax: data.tax ?? 0,
+        deliveryFee: data.deliveryFee ?? 0,
+        discount: data.discount ?? 0,
+      };
+    }
+
+    if (!pay) return null;
+
+    return (
+      <div className="mb-4 p-4 bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-900/50 rounded-xl space-y-2 font-sans">
+        <h4 className="text-xs font-black text-indigo-650 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+          💳 Payment Summary Details
+        </h4>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center pt-1.5">
+          <div className="bg-white dark:bg-zinc-900 p-2 rounded-lg border border-border-base dark:border-zinc-800">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Subtotal</span>
+            <span className="text-xs font-extrabold text-on-surface dark:text-zinc-200">₹{pay.subtotal}</span>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-2 rounded-lg border border-border-base dark:border-zinc-800">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Taxes</span>
+            <span className="text-xs font-extrabold text-on-surface dark:text-zinc-200">₹{pay.tax}</span>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-2 rounded-lg border border-border-base dark:border-zinc-800">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Delivery</span>
+            <span className="text-xs font-extrabold text-on-surface dark:text-zinc-200">₹{pay.deliveryFee}</span>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-2 rounded-lg border border-border-base dark:border-zinc-800">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase block">Discount</span>
+            <span className="text-xs font-extrabold text-rose-500 font-bold">₹{pay.discount}</span>
+          </div>
+          <div className="bg-indigo-600 p-2 rounded-lg border border-indigo-500 text-white">
+            <span className="text-[9px] font-bold text-indigo-200 uppercase block">Total Amount</span>
+            <span className="text-xs font-black">₹{pay.totalAmount}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const [health, setHealth] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const [stats, setStats] = useState(null);
@@ -507,12 +604,13 @@ export default function IntegrationsDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-border-base dark:border-zinc-800 text-on-surface-variant/70 dark:text-zinc-500 font-bold">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr className="border-b border-border-base dark:border-zinc-800 text-on-surface-variant/70 dark:text-zinc-550 font-bold">
                       <th className="py-2.5">Order ID</th>
                       <th className="py-2.5">Channel</th>
                       <th className="py-2.5">Outlet</th>
+                      <th className="py-2.5">Payment Details</th>
                       <th className="py-2.5">Status</th>
                       <th className="py-2.5 text-right">Actions</th>
                     </tr>
@@ -520,11 +618,11 @@ export default function IntegrationsDashboard() {
                   <tbody className="divide-y divide-border-base/55 dark:divide-zinc-850">
                     {loadingOrders ? (
                       <tr>
-                        <td colSpan="5" className="py-8 text-center text-on-surface-variant/60 dark:text-zinc-550">Loading orders...</td>
+                        <td colSpan="6" className="py-8 text-center text-on-surface-variant/60 dark:text-zinc-550">Loading orders...</td>
                       </tr>
                     ) : recentOrders.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="py-8 text-center text-on-surface-variant/60 dark:text-zinc-550">No external orders found.</td>
+                        <td colSpan="6" className="py-8 text-center text-on-surface-variant/60 dark:text-zinc-550">No external orders found.</td>
                       </tr>
                     ) : (
                       recentOrders.map((order) => (
@@ -548,6 +646,21 @@ export default function IntegrationsDashboard() {
                           </td>
                           <td className="py-3 text-on-surface-variant dark:text-zinc-400 font-medium">
                             {order.outletId?.name || 'Unmapped'}
+                          </td>
+                          <td className="py-3">
+                            {(() => {
+                              const pay = getOrderPaymentDetails(order);
+                              if (!pay) return <span className="text-on-surface-variant/40 dark:text-zinc-650">—</span>;
+                              return (
+                                <div className="text-xs space-y-0.5">
+                                  <div className="font-bold text-on-surface dark:text-zinc-200">Total: ₹{pay.totalAmount}</div>
+                                  <div className="text-[10px] text-on-surface-variant/80 dark:text-zinc-500">
+                                    Sub: ₹{pay.subtotal} | Tax: ₹{pay.tax} | Del: ₹{pay.deliveryFee}
+                                    {pay.discount > 0 && ` | Disc: -₹${pay.discount}`}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="py-3">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
@@ -910,8 +1023,9 @@ export default function IntegrationsDashboard() {
               </button>
             </div>
             
-            <div className="p-5 overflow-y-auto flex-1 font-mono text-[11px] bg-zinc-50 dark:bg-zinc-950 dark:text-zinc-350 p-4 rounded-lg m-4 border border-zinc-200/50 dark:border-zinc-850">
-              <pre className="whitespace-pre-wrap">
+            <div className="p-5 overflow-y-auto flex-1 bg-zinc-50 dark:bg-zinc-950 m-4 rounded-lg border border-zinc-200/50 dark:border-zinc-850">
+              {renderItemDetailPayments(selectedItemDetail.data)}
+              <pre className="whitespace-pre-wrap font-mono text-[11px] dark:text-zinc-350 mt-2">
                 {JSON.stringify(selectedItemDetail.data, null, 2)}
               </pre>
             </div>

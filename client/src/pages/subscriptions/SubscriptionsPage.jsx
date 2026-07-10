@@ -86,7 +86,7 @@ const FALLBACK_PLANS = [
 export default function SubscriptionsPage() {
   const { user } = useAuth();
   const { addToast } = useToast();
-  const isSuperAdmin = false; // SUPER_ADMIN behaves as the Tenant Owner; SaaS plan configuration console is reserved for future developer roles.
+  const isSuperAdmin = user?.role === 'SYSTEM_ADMIN'; // SYSTEM_ADMIN accesses the global SaaS plan configuration and analytics dashboard.
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('current');
@@ -1007,7 +1007,7 @@ export default function SubscriptionsPage() {
               return (
                 <div key={s.step} className="flex flex-col items-center z-10 relative">
                   <div 
-                    onClick={() => wizardStep > s.step && setWizardStep(s.step)}
+                    onClick={() => setWizardStep(s.step)}
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 cursor-pointer ${
                       isCompleted 
                         ? 'bg-green-600 text-white shadow-md shadow-green-600/20' 
@@ -1116,19 +1116,17 @@ export default function SubscriptionsPage() {
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Plan Slug (Choose Type)</label>
-                   <select
-                     disabled={!!editingPlan}
-                     className="w-full px-4 py-2.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none cursor-pointer focus:border-indigo-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-950 transition-all"
-                     value={planForm.slug}
-                     onChange={(e) => setPlanForm(prev => ({ ...prev, slug: e.target.value }))}
-                     required
-                   >
-                     <option value="free">Free Trial (free)</option>
-                     <option value="pro">Pro Plan (pro)</option>
-                     <option value="super">Super Plan (super)</option>
-                   </select>
-                 </div>
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Plan Slug (Unique Key)</label>
+                    <input
+                      type="text"
+                      disabled={!!editingPlan}
+                      placeholder="e.g. starter, enterprise, professional"
+                      className="w-full px-4 py-2.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none focus:border-indigo-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-950 transition-all"
+                      value={planForm.slug}
+                      onChange={(e) => setPlanForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                      required
+                    />
+                  </div>
                </div>
  
                <div className="space-y-1.5">

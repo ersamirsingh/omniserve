@@ -405,12 +405,17 @@ export class UserService {
   /**
    * Retrieve a user by ID (scoped to tenantId)
    */
-  static async getUserById(id: string, tenantId: string): Promise<IUser | null> {
-    return await User.findOne({
+  static async getUserById(id: string, tenantId?: string): Promise<IUser | null> {
+    const query: any = {
       _id: new Types.ObjectId(id),
-      tenantId: new Types.ObjectId(tenantId),
       isDeleted: false,
-    });
+    };
+    if (tenantId) {
+      query.tenantId = new Types.ObjectId(tenantId);
+    } else {
+      query.tenantId = null;
+    }
+    return await User.findOne(query);
   }
 
   /**

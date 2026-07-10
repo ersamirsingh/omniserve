@@ -10,7 +10,11 @@ export class NotificationController {
    */
   static async listNotifications(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user?.userId || !req.user?.tenantId) {
+      if (!req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated');
+        return;
+      }
+      if (!req.user?.tenantId && req.user?.role !== 'SYSTEM_ADMIN') {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;
       }
@@ -68,7 +72,11 @@ export class NotificationController {
    */
   static async markAsRead(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user?.userId || !req.user?.tenantId) {
+      if (!req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated');
+        return;
+      }
+      if (!req.user?.tenantId && req.user?.role !== 'SYSTEM_ADMIN') {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;
       }
@@ -106,7 +114,11 @@ export class NotificationController {
    */
   static async markAllAsRead(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user?.userId || !req.user?.tenantId) {
+      if (!req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated');
+        return;
+      }
+      if (!req.user?.tenantId && req.user?.role !== 'SYSTEM_ADMIN') {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;
       }
@@ -125,7 +137,11 @@ export class NotificationController {
    */
   static async deleteNotification(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user?.userId || !req.user?.tenantId) {
+      if (!req.user?.userId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated');
+        return;
+      }
+      if (!req.user?.tenantId && req.user?.role !== 'SYSTEM_ADMIN') {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;
       }

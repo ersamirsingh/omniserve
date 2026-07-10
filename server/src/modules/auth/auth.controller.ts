@@ -220,7 +220,10 @@ export class AuthController {
 
       res.status(200).json({
         success: true,
-        data: user,
+        data: {
+          ...user.toObject(),
+          accessToken: req.cookies?.accessToken || req.headers.authorization?.split(' ')[1]
+        },
       });
     } catch (error: any) {
       res.status(500).json({

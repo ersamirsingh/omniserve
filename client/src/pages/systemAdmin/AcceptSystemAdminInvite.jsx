@@ -48,11 +48,16 @@ export default function AcceptSystemAdminInvite() {
     setErrorMsg('');
 
     try {
-      await acceptInviteApi({
+      const response = await acceptInviteApi({
         token,
         name: form.name,
         password: form.password,
       });
+
+      const accessToken = response.data?.data?.accessToken;
+      if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+      }
 
       setSuccess(true);
       

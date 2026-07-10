@@ -2,6 +2,7 @@ import express, { Router } from "express";
 import { AdminSubscriptionController } from "./admin-subscription.controller.js";
 import { RestaurantSubscriptionController } from "./restaurant-subscription.controller.js";
 import { verifyToken, isRestaurantOwner, isSuperAdmin } from "../../middlewares/auth.middleware.js";
+import { requireSystemAdmin } from "../../middlewares/rbac.middleware.js";
 
 const router: Router = express.Router();
 
@@ -11,15 +12,15 @@ const router: Router = express.Router();
 
 // Plans configuration
 router.get("/plans", verifyToken, isRestaurantOwner, AdminSubscriptionController.listPlans);
-router.post("/plans", verifyToken, isSuperAdmin, AdminSubscriptionController.createPlan);
-router.put("/plans/:id", verifyToken, isSuperAdmin, AdminSubscriptionController.updatePlan);
-router.delete("/plans/:id", verifyToken, isSuperAdmin, AdminSubscriptionController.deletePlan);
+router.post("/plans", verifyToken, requireSystemAdmin, AdminSubscriptionController.createPlan);
+router.put("/plans/:id", verifyToken, requireSystemAdmin, AdminSubscriptionController.updatePlan);
+router.delete("/plans/:id", verifyToken, requireSystemAdmin, AdminSubscriptionController.deletePlan);
 
 // Global Subscriptions lists
-router.get("/admin/list", verifyToken, isSuperAdmin, AdminSubscriptionController.listSubscriptions);
-router.get("/admin/invoices", verifyToken, isSuperAdmin, AdminSubscriptionController.listInvoices);
-router.get("/admin/analytics", verifyToken, isSuperAdmin, AdminSubscriptionController.getAnalytics);
-router.get("/admin/:id", verifyToken, isSuperAdmin, AdminSubscriptionController.getSubscriptionById);
+router.get("/admin/list", verifyToken, requireSystemAdmin, AdminSubscriptionController.listSubscriptions);
+router.get("/admin/invoices", verifyToken, requireSystemAdmin, AdminSubscriptionController.listInvoices);
+router.get("/admin/analytics", verifyToken, requireSystemAdmin, AdminSubscriptionController.getAnalytics);
+router.get("/admin/:id", verifyToken, requireSystemAdmin, AdminSubscriptionController.getSubscriptionById);
 
 
 // ==========================================

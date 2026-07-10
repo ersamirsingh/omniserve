@@ -13,7 +13,7 @@ export function SocketProvider({ children }) {
   const connectSocket = useCallback(() => {
     if (!isAuthenticated || !user) return;
 
-    const token = localStorage.getItem('sessionToken');
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('sessionToken');
     const socketUrl = import.meta.env.VITE_WS_URL || window.location.origin;
 
     console.log('[SocketContext] Connecting websocket...', socketUrl);
