@@ -66,7 +66,14 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        if (window.location.pathname !== '/login') {
+        const isPublicPath = 
+          window.location.pathname === '/' ||
+          window.location.pathname === '/register' ||
+          window.location.pathname.startsWith('/public/') ||
+          window.location.pathname.startsWith('/qr/') ||
+          window.location.pathname === '/system-admin/accept-invite';
+
+        if (window.location.pathname !== '/login' && !isPublicPath) {
           window.location.assign('/login');
         }
         return Promise.reject(refreshError);
