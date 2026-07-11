@@ -1,7 +1,7 @@
 import React from 'react';
 import { HiXMark } from 'react-icons/hi2';
 
-const sizeClasses = { sm: 'max-w-sm', md: 'max-w-xl', lg: 'max-w-3xl' };
+const sizeClasses = { sm: 'max-w-sm', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
 
 export default function Modal({ isOpen, onClose, title, children, size = 'md' }) {
   if (!isOpen) return null;

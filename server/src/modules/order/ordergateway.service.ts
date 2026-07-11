@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { AuditAction, OrderSource } from "../../models/enums.js";
+import { AuditAction, OrderSource, PaymentMethod, PaymentStatus } from "../../models/enums.js";
 import ChannelAddonMapping from "../../models/channeladdonmapping.model.js";
 import ChannelMenuItemMapping from "../../models/channelmenuitemmapping.model.js";
 import ChannelVariantMapping from "../../models/channelvariantmapping.model.js";
@@ -22,6 +22,7 @@ import { CustomerService } from "../customer/customer.service.js";
 import { OrderService } from "./order.service.js";
 import { CustomerResolutionService } from "../customer/customer-resolution.service.js";
 import { MappingResolutionService } from "../integration/mapping-resolution.service.js";
+import { PaymentService } from "../payment/payment.service.js";
 
 interface IngestExternalOrderInput {
   tenantId: string;
@@ -252,6 +253,30 @@ export class OrderGatewayService {
         internalPayload,
         input.actorUserId
       );
+
+      // Record successful payment transaction if prepaid/online payment succeeded
+      if (canonicalOrder.payment && canonicalOrder.payment.status === "SUCCESS") {
+        try {
+          const paymentMethod = canonicalOrder.payment.mode === "CASH" ? PaymentMethod.CASH : PaymentMethod.UPI;
+          const transactionId = canonicalOrder.payment.transactionId || `TXN-${canonicalOrder.provider}-${canonicalOrder.externalOrderId}`;
+          
+          await PaymentService.createPayment(
+            externalOrder.tenantId.toString(),
+            {
+              orderId: order._id.toString(),
+              transactionId,
+              paymentMethod,
+              amount: canonicalOrder.pricing.totalAmount,
+              currency: "INR",
+              status: PaymentStatus.SUCCESS,
+              gatewayResponse: { provider: canonicalOrder.provider, externalOrderId: canonicalOrder.externalOrderId }
+            },
+            input.actorUserId ? input.actorUserId.toString() : undefined
+          );
+        } catch (payError: any) {
+          console.error("Failed to automatically record integrated order payment:", payError);
+        }
+      }
 
       const placedOrder = await ExternalOrder.findOneAndUpdate(
         { _id: externalOrder._id, tenantId: externalOrder.tenantId },

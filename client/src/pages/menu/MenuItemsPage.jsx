@@ -25,13 +25,13 @@ const emptyForm = {
 };
 
 const menuTabs = [
-  { to: '/menu-items', label: 'Menu Items' },
   { to: '/categories', label: 'Categories' },
+  { to: '/menu-items', label: 'Menu Items' },
   { to: '/variants', label: 'Variants' },
   { to: '/addons', label: 'Addons' },
 ];
 
-export default function MenuItemsPage({ isEmbedded = false }) {
+export default function MenuItemsPage({ isEmbedded = false, selectedOutletId, globalOutletActive }) {
   const [data, setData] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -39,6 +39,7 @@ export default function MenuItemsPage({ isEmbedded = false }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [selectedOutletFilter, setSelectedOutletFilter] = useState('all');
+  const [showInfo, setShowInfo] = useState(false);
   const [modal, setModal] = useState({ open: false, mode: 'create', item: null });
   const [form, setForm] = useState(emptyForm);
   const { addToast } = useToast();
@@ -46,10 +47,14 @@ export default function MenuItemsPage({ isEmbedded = false }) {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const params = { limit: 1000 };
+      if (globalOutletActive && selectedOutletId && selectedOutletId !== 'all') {
+        params.outletId = selectedOutletId;
+      }
       const [menuItemResponse, outletResponse, categoryResponse] = await Promise.all([
-        listMenuItemsApi(),
+        listMenuItemsApi(params),
         listOutletsApi(),
-        listCategoriesApi(),
+        listCategoriesApi(params),
       ]);
       setData(getList(menuItemResponse, 'menuItems'));
       setOutlets(getList(outletResponse, 'outlets'));
@@ -63,7 +68,14 @@ export default function MenuItemsPage({ isEmbedded = false }) {
 
   useEffect(() => { 
     fetchData(); 
-  }, []);
+  }, [selectedOutletId, globalOutletActive]);
+
+  useEffect(() => {
+    if (globalOutletActive && selectedOutletId !== undefined) {
+      setSelectedOutletFilter(selectedOutletId);
+      setSelectedCategoryFilter('all');
+    }
+  }, [selectedOutletId, globalOutletActive]);
 
   const outletName = (outletId) => {
     const id = getRefId(outletId);
@@ -80,7 +92,9 @@ export default function MenuItemsPage({ isEmbedded = false }) {
   const firstCategoryForOutlet = (outletId) => getEntityId(categoriesForOutlet(outletId)[0]) || '';
 
   const openCreate = () => {
-    const outletId = getEntityId(outlets[0]);
+    const outletId = globalOutletActive && selectedOutletId && selectedOutletId !== 'all'
+      ? selectedOutletId
+      : getEntityId(outlets[0]);
     setForm({
       ...emptyForm,
       outletId,
@@ -117,7 +131,7 @@ export default function MenuItemsPage({ isEmbedded = false }) {
     outletId: form.outletId,
     categoryId: form.categoryId,
     name: form.name.trim(),
-    price: Number(form.price),
+    price: 0,
     description: form.description.trim(),
     displayOrder: Number(form.displayOrder),
     isVeg: form.isVeg,
@@ -201,15 +215,7 @@ export default function MenuItemsPage({ isEmbedded = false }) {
     },
     { key: 'outletId', label: 'Outlet', render: (r) => outletName(r.outletId) },
     { key: 'categoryId', label: 'Category', render: (r) => categoryName(r.categoryId) },
-    { 
-      key: 'price', 
-      label: 'Price', 
-      render: (r) => (
-        <span className="font-mono font-semibold text-on-surface dark:text-zinc-300">
-          ₹{Number(r.price || 0).toFixed(2)}
-        </span>
-      ) 
-    },
+
     { 
       key: 'isVeg', 
       label: 'Diet', 
@@ -273,24 +279,26 @@ export default function MenuItemsPage({ isEmbedded = false }) {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="w-40 max-w-full">
-            <Select 
-              id="mi-outlet-filter" 
-              label="Outlet" 
-              value={selectedOutletFilter} 
-              onChange={(e) => {
-                setSelectedOutletFilter(e.target.value);
-                setSelectedCategoryFilter('all'); 
-              }}
-            >
-              <option value="all">All Outlets</option>
-              {outlets.map((outlet) => (
-                <option key={getEntityId(outlet)} value={getEntityId(outlet)}>
-                  {outlet.name}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {!globalOutletActive && (
+            <div className="w-40 max-w-full">
+              <Select 
+                id="mi-outlet-filter" 
+                label="Outlet" 
+                value={selectedOutletFilter} 
+                onChange={(e) => {
+                  setSelectedOutletFilter(e.target.value);
+                  setSelectedCategoryFilter('all'); 
+                }}
+              >
+                <option value="all">All Outlets</option>
+                {outlets.map((outlet) => (
+                  <option key={getEntityId(outlet)} value={getEntityId(outlet)}>
+                    {outlet.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           <div className="w-40 max-w-full">
             <Select 
               id="mi-category-filter" 
@@ -306,9 +314,32 @@ export default function MenuItemsPage({ isEmbedded = false }) {
               ))}
             </Select>
           </div>
-          {isEmbedded && actions}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowInfo(!showInfo)}
+              className="flex items-center justify-center w-9 h-9 rounded-xl border border-border-base dark:border-zinc-800 text-on-surface-variant/70 hover:bg-surface-container-low hover:text-on-surface dark:hover:bg-zinc-900 transition-all cursor-pointer bg-surface dark:bg-zinc-950 shadow-xs shrink-0"
+              title="Section Info"
+            >
+              <span className="material-symbols-outlined text-[18px]">info</span>
+            </button>
+            {isEmbedded && actions}
+          </div>
         </div>
       </div>
+
+      {showInfo && (
+        <div className="bg-surface-subtle dark:bg-zinc-900/60 border border-border-base dark:border-zinc-800 rounded-xl p-4 text-xs font-medium text-on-surface-variant dark:text-zinc-350 transition-all flex items-start gap-2.5 mb-4 animate-fadeIn">
+          <span className="material-symbols-outlined text-[20px] text-primary shrink-0">info</span>
+          <div>
+            <span className="font-bold text-on-surface dark:text-zinc-200 block mb-0.5">Menu Items Section Info</span>
+            <p className="leading-relaxed">
+              Manage your main dishes, drinks, or combos. You can set prices, assign categories, tag them as Veg/Non-Veg, and toggle availability. Outlets can be specified for each item.
+            </p>
+          </div>
+        </div>
+      )}
+
 
       <Table columns={columns} data={filteredData} loading={loading} />
 
@@ -324,8 +355,7 @@ export default function MenuItemsPage({ isEmbedded = false }) {
           </Select>
           <Input id="mi-name" label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input id="mi-desc" label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength="500" />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input id="mi-price" label="Price (INR)" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+          <div>
             <Input id="mi-order" label="Display Order" type="number" min="0" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} required />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

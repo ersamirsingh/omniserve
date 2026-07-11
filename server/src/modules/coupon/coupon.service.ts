@@ -57,7 +57,7 @@ export class CouponService {
   }
 
   /**
-   * Validate coupon code method signature retained for backwards compatibility or safe checks (delegates to validateSubscriptionCoupon)
+   * Validate coupon code for order checkouts (checking active status, expiration, and minimum spend)
    */
   static async validateCoupon(
     tenantId: string,
@@ -65,7 +65,51 @@ export class CouponService {
     code: string,
     subtotal: number
   ): Promise<{ isValid: boolean; discount: number; reason?: string; coupon?: ICoupon }> {
-    return this.validateSubscriptionCoupon(code, subtotal);
+    const formattedCode = code.trim().toUpperCase();
+
+    // Query active coupon matching code globally
+    const coupon = await Coupon.findOne({
+      code: formattedCode,
+      isActive: true,
+      isDeleted: false,
+    });
+
+    if (!coupon) {
+      return { isValid: false, discount: 0, reason: "Invalid coupon code" };
+    }
+
+    // Check expiration date
+    if (coupon.expirationDate && coupon.expirationDate < new Date()) {
+      return { isValid: false, discount: 0, reason: "Coupon has expired" };
+    }
+
+    // Check minimum order subtotal requirement
+    const minAmt = coupon.minAmount || 0;
+    if (subtotal < minAmt) {
+      return {
+        isValid: false,
+        discount: 0,
+        reason: `Minimum order amount of ₹${minAmt} is required for this coupon`,
+      };
+    }
+
+    // Calculate discount value
+    let discount = 0;
+    if (coupon.discountType === "FLAT") {
+      discount = coupon.discountValue;
+    } else if (coupon.discountType === "PERCENTAGE") {
+      discount = subtotal * (coupon.discountValue / 100);
+      if (coupon.maxDiscountAmount !== null && coupon.maxDiscountAmount !== undefined) {
+        discount = Math.min(discount, coupon.maxDiscountAmount);
+      }
+    }
+
+    // Discount cannot exceed subtotal
+    discount = Math.min(discount, subtotal);
+    // Round to 2 decimal places
+    discount = Number(discount.toFixed(2));
+
+    return { isValid: true, discount, coupon };
   }
 
   /**

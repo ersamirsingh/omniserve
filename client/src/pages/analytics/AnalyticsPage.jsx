@@ -11,6 +11,7 @@ import useAuth from '../../hooks/useAuth';
 import { listOutletsApi } from '../../api/models/outlet.api';
 import { getSummaryStatsApi, getDailyStatsApi, getSentimentSummaryApi } from '../../api/models/analytics.api';
 import { getEntityId, getList, getPayload, getRefId } from '../../utils/apiData';
+import AnalyticsChartCard from './components/AnalyticsChartCard';
 
 const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString()}`;
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`;
@@ -130,6 +131,9 @@ export default function AnalyticsPage() {
         <StatCard title="Outlets In Scope" value={summary?.outletCount || 0} icon={<HiMapPin />} color="blue" />
         <StatCard title="Reviews" value={totalReviews} icon={<HiStar />} color="blue" />
       </div>
+
+      {/* Daily Performance Trend Charts */}
+      <AnalyticsChartCard dailyData={daily} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card className="xl:col-span-2">

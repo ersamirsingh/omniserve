@@ -679,21 +679,20 @@ export default function SubscriptionsPage() {
           <Table columns={columns} data={invoices} emptyMessage="No subscription billing receipts available" />
         )}
 
-        {/* HIGH FIDELITY MOCK PAYMENT MODAL (2-STEP WIZARD) */}
-        <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Checkout Subscription" size="sm">
+        {/* HIGH FIDELITY MOCK PAYMENT MODAL (2-STEP WIZARD) */}        <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Checkout Subscription" size="sm">
           {/* STEP 1: CONFIRM DETAILS (DATES & AMOUNT FIXED) */}
           {checkoutStep === 1 && (
-            <div className="space-y-4 animate-fade-in">
+            <div className="space-y-2.5 max-h-[45vh] overflow-y-auto pr-1 animate-fade-in">
               {/* Plan Summary Card */}
-              <div className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl">
+              <div className="p-3 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl">
                 <span className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider block">Selected Plan</span>
-                <h4 className="text-base font-black text-on-background mt-0.5">{selectedPlan?.name}</h4>
-                <p className="text-[11px] text-zinc-500 mt-1">{selectedPlan?.description}</p>
+                <h4 className="text-sm font-black text-on-background mt-0.5">{selectedPlan?.name}</h4>
+                <p className="text-[10px] text-zinc-500 mt-0.5">{selectedPlan?.description}</p>
               </div>
 
               {/* Details Grid */}
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-border-base dark:border-zinc-900 rounded-xl space-y-3 text-xs font-semibold">
-                <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Duration & Period</h5>
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-900/50 border border-border-base dark:border-zinc-900 rounded-xl space-y-2 text-xs font-semibold">
+                <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Duration & Period</h5>
                 
                 <div className="flex justify-between">
                   <span className="text-zinc-500">Billing Cycle:</span>
@@ -737,7 +736,7 @@ export default function SubscriptionsPage() {
               </div>
 
               {/* Promo Coupon Entry */}
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-border-base dark:border-zinc-900 rounded-xl space-y-2">
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-900/50 border border-border-base dark:border-zinc-900 rounded-xl space-y-2">
                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block">Promo Coupon</label>
                 {appliedCoupon ? (
                   <div className="flex justify-between items-center bg-green-500/10 border border-green-500/35 rounded-lg px-3 py-2 text-xs font-bold text-green-600 dark:text-green-400">
@@ -768,8 +767,8 @@ export default function SubscriptionsPage() {
                 const gst = Number((netPrice * 0.18).toFixed(2));
                 const totalPayable = netPrice + gst;
                 return (
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-border-base dark:border-zinc-900 rounded-xl space-y-2.5 text-xs font-semibold">
-                    <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Billing Summary</h5>
+                  <div className="p-3 bg-zinc-50 dark:bg-zinc-900/50 border border-border-base dark:border-zinc-900 rounded-xl space-y-2 text-xs font-semibold">
+                    <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Billing Summary</h5>
                     
                     <div className="flex justify-between">
                       <span className="text-zinc-500">Base Price:</span>
@@ -807,7 +806,7 @@ export default function SubscriptionsPage() {
 
           {/* STEP 2: CHOOSE PAYMENT METHOD & INPUTS */}
           {checkoutStep === 2 && (
-            <div className="space-y-4 animate-fade-in">
+            <div className="space-y-2.5 max-h-[45vh] overflow-y-auto pr-1 animate-fade-in">
               {/* Plan Total Sticky Header */}
               <div className="p-3 bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-150 dark:border-zinc-900 rounded-xl flex justify-between items-center text-xs font-bold">
                 <span className="text-zinc-500">Amount to pay:</span>
@@ -821,12 +820,13 @@ export default function SubscriptionsPage() {
                 </span>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Choose Payment Method</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col gap-3.5">
                   {['stripe', 'razorpay', 'manual'].map((p) => (
                     <button
                       key={p}
+                      type="button"
                       onClick={() => setPaymentProvider(p)}
                       className={`py-2 text-[10px] font-bold uppercase tracking-wider border rounded-xl transition cursor-pointer ${
                         paymentProvider === p
@@ -886,7 +886,7 @@ export default function SubscriptionsPage() {
               {paymentProvider === 'razorpay' && (
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-xl flex flex-col items-center justify-center space-y-3 animate-fade-in text-center">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Razorpay UPI Checkout</span>
-                  <div className="w-28 h-28 bg-white p-2 border border-zinc-200 rounded-lg flex items-center justify-center shadow-inner select-none">
+                  <div className="w-24 h-24 bg-white p-2 border border-zinc-200 rounded-lg flex items-center justify-center shadow-inner select-none">
                     <span className="text-lg font-sans">📱 UPI QR</span>
                   </div>
                   <span className="text-[10px] text-zinc-500">Scan QR Code using PhonePe, GPay, or UPI app to pay</span>
@@ -1035,37 +1035,97 @@ export default function SubscriptionsPage() {
 
       {/* SUPER ADMIN PLANS LIST TAB */}
       {activeTab === 'plans' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plans.map((p) => (
-            <Card 
-              key={p._id} 
-              onClick={() => handleEditPlan(p)}
-              className="bg-white dark:bg-zinc-950 p-6 rounded-2xl border border-border-base dark:border-zinc-900 flex flex-col justify-between shadow-md hover:shadow-xl hover:border-indigo-500/80 hover:translate-y-[-4px] cursor-pointer transition-all duration-300 relative group overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div>
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-black text-on-background text-base tracking-tight group-hover:text-indigo-500 transition-colors duration-200">{p.name}</h4>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDeletePlan(p._id); }} 
-                    className="p-1.5 border border-zinc-200 dark:border-zinc-850 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 hover:border-transparent rounded-lg text-zinc-450 dark:text-zinc-500 transition-all duration-200 cursor-pointer shadow-sm z-10"
-                    title="Delete Plan"
-                  >
-                    <HiOutlineTrash className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-2.5 text-xs text-on-surface-variant dark:text-zinc-400">
-                  <div className="flex items-center gap-1.5"><span className="text-zinc-500 font-medium">Monthly:</span> <span className="font-bold text-on-background">₹{p.monthlyPrice.toLocaleString()}</span></div>
-                  <div className="flex items-center gap-1.5"><span className="text-zinc-500 font-medium">Yearly:</span> <span className="font-bold text-on-background">₹{p.yearlyPrice.toLocaleString()}</span></div>
-                  <div className="flex items-center gap-1.5"><span className="text-zinc-500 font-medium">Access Limits:</span> <span className="font-bold text-indigo-500 dark:text-indigo-400">{p.limits.outlets} Outlets, {p.limits.employees} Staff</span></div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-900 flex justify-between items-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                  <span>View & Configure</span>
-                  <span className="material-symbols-outlined text-[14px] group-hover:translate-x-1 transition-transform duration-200">arrow_forward</span>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex rounded-xl bg-zinc-100 dark:bg-zinc-900 p-1 border border-zinc-200 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setBillingCycleToggle('MONTHLY')}
+                className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition ${
+                  billingCycleToggle === 'MONTHLY' ? 'bg-indigo-600 text-white shadow-md' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Monthly Billing
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycleToggle('YEARLY')}
+                className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition ${
+                  billingCycleToggle === 'YEARLY' ? 'bg-indigo-600 text-white shadow-md' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Yearly Billing (Save 15%)
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {plans.map((p) => {
+              const price = billingCycleToggle === 'MONTHLY' ? p.monthlyPrice : p.yearlyPrice;
+              return (
+                <Card 
+                  key={p._id} 
+                  className="bg-white dark:bg-zinc-950 p-6 rounded-2xl border border-border-base dark:border-zinc-900 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300"
+                >
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="font-extrabold text-[15px] text-on-background">{p.name}</h3>
+                      {p.slug === 'pro' && <span className="bg-indigo-500/10 text-indigo-500 text-[8px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">POPULAR</span>}
+                    </div>
+                    <div className="flex items-baseline gap-1 my-3">
+                      <span className="text-2xl font-black text-on-background">₹{price.toLocaleString()}</span>
+                      <span className="text-zinc-500 text-xs font-semibold capitalize">/{billingCycleToggle.toLowerCase()}</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-relaxed mb-6">{p.description}</p>
+
+                    <ul className="space-y-2.5 text-xs text-on-surface-variant dark:text-zinc-400 border-t border-zinc-150 dark:border-zinc-900 pt-4">
+                      <li className="flex items-center gap-2"><HiOutlineCheckCircle className="text-indigo-500 w-4 h-4" /> Max {p.limits.outlets} Outlets</li>
+                      <li className="flex items-center gap-2"><HiOutlineCheckCircle className="text-indigo-500 w-4 h-4" /> Max {p.limits.employees} Staff members</li>
+                      <li className="flex items-center gap-2"><HiOutlineCheckCircle className="text-indigo-500 w-4 h-4" /> {p.limits.monthlyOrders >= 1000000 ? 'Unlimited' : `${p.limits.monthlyOrders} Orders/mo`}</li>
+                      {p.features.inventory ? (
+                        <li className="flex items-center gap-2 text-on-surface-variant dark:text-zinc-300"><HiOutlineCheck className="text-indigo-500 w-4 h-4" /> Stock/Inventory Sync</li>
+                      ) : (
+                        <li className="flex items-center gap-2 text-zinc-550"><HiOutlineXCircle className="text-zinc-650 w-4 h-4" /> Inventory locked</li>
+                      )}
+                      {p.features.crm ? (
+                        <li className="flex items-center gap-2 text-on-surface-variant dark:text-zinc-300"><HiOutlineCheck className="text-indigo-500 w-4 h-4" /> Customer CRM</li>
+                      ) : (
+                        <li className="flex items-center gap-2 text-zinc-550"><HiOutlineXCircle className="text-zinc-650 w-4 h-4" /> CRM locked</li>
+                      )}
+                      {p.features.kitchenDisplay ? (
+                        <li className="flex items-center gap-2 text-on-surface-variant dark:text-zinc-300"><HiOutlineCheck className="text-indigo-500 w-4 h-4" /> Kitchen Displays</li>
+                      ) : (
+                        <li className="flex items-center gap-2 text-zinc-550"><HiOutlineXCircle className="text-zinc-650 w-4 h-4" /> KDS locked</li>
+                      )}
+                      {p.features.apiAccess ? (
+                        <li className="flex items-center gap-2 text-on-surface-variant dark:text-zinc-300"><HiOutlineCheck className="text-indigo-500 w-4 h-4" /> API Access</li>
+                      ) : (
+                        <li className="flex items-center gap-2 text-zinc-550"><HiOutlineXCircle className="text-zinc-650 w-4 h-4" /> API Access locked</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="mt-8 flex gap-2">
+                    <Button
+                      variant="primary"
+                      onClick={() => handleEditPlan(p)}
+                      className="flex-1 text-xs font-bold cursor-pointer"
+                    >
+                      Configure Plan
+                    </Button>
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeletePlan(p._id); }} 
+                      className="p-2 border border-zinc-200 dark:border-zinc-800 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 hover:border-transparent rounded-lg text-zinc-450 dark:text-zinc-500 transition-all duration-200 cursor-pointer shadow-sm"
+                      title="Delete Plan"
+                    >
+                      <HiOutlineTrash className="w-4 h-4" />
+                    </button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1080,7 +1140,7 @@ export default function SubscriptionsPage() {
       )}
 
       {/* PLAN CREATE / EDIT MODAL (MULTI-STEP WIZARD) */}
-      <Modal isOpen={planFormOpen} onClose={() => setPlanFormOpen(false)} title={editingPlan ? `Configure Billing Plan: ${planForm.name || ''}` : 'Add New Billing Plan'} size="md">
+      <Modal isOpen={planFormOpen} onClose={() => setPlanFormOpen(false)} title={editingPlan ? `Configure Billing Plan: ${planForm.name || ''}` : 'Add New Billing Plan'} size="sm">
         {/* Step Indicator Progress Bar */}
         <div className="mb-6 px-1">
           <div className="flex items-center justify-between relative">
@@ -1123,36 +1183,36 @@ export default function SubscriptionsPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSavePlan} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+        <form onSubmit={handleSavePlan} className="space-y-3.5 max-h-[50vh] overflow-y-auto px-1">
           {/* STEP 1: READ-ONLY PLAN SUMMARY */}
           {wizardStep === 1 && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="p-5 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl relative overflow-hidden">
+            <div className="space-y-3.5 animate-fade-in">
+              <div className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] uppercase font-black tracking-widest px-3 py-1 rounded-bl-xl shadow">
                   {planForm.slug || 'custom'}
                 </div>
-                <h4 className="text-lg font-black text-on-background tracking-tight">{planForm.name || 'Untitled Plan'}</h4>
-                <p className="text-xs text-zinc-500 mt-2 leading-relaxed">{planForm.description || 'No description configured.'}</p>
+                <h4 className="text-base font-black text-on-background tracking-tight">{planForm.name || 'Untitled Plan'}</h4>
+                <p className="text-[11px] text-zinc-500 mt-1.5 leading-relaxed">{planForm.description || 'No description configured.'}</p>
                 
-                <div className="mt-4 flex gap-6">
+                <div className="mt-3 flex gap-4">
                   <div>
                     <span className="text-[9px] text-zinc-400 font-bold block uppercase tracking-wider">Monthly Price</span>
-                    <span className="text-base font-black text-on-background">₹{planForm.monthlyPrice.toLocaleString()}</span>
+                    <span className="text-sm font-black text-on-background">₹{planForm.monthlyPrice.toLocaleString()}</span>
                   </div>
                   <div>
                     <span className="text-[9px] text-zinc-400 font-bold block uppercase tracking-wider">Yearly Price</span>
-                    <span className="text-base font-black text-on-background">₹{planForm.yearlyPrice.toLocaleString()}</span>
+                    <span className="text-sm font-black text-on-background">₹{planForm.yearlyPrice.toLocaleString()}</span>
                   </div>
                   <div>
                     <span className="text-[9px] text-zinc-400 font-bold block uppercase tracking-wider">Trial Days</span>
-                    <span className="text-base font-black text-on-background">{planForm.trialDays} days</span>
+                    <span className="text-sm font-black text-on-background">{planForm.trialDays} days</span>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-3.5">
                 {/* Resource Limits List */}
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl space-y-3">
+                <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl space-y-2.5">
                   <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
                     <HiOutlineChartBar className="text-indigo-500 w-4 h-4" /> Allocated Limits
                   </h5>
@@ -1166,7 +1226,7 @@ export default function SubscriptionsPage() {
                 </div>
 
                 {/* Features Checklist */}
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl">
+                <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl">
                   <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
                     <HiOutlineShieldCheck className="text-indigo-500 w-4 h-4" /> Enabled Features
                   </h5>
@@ -1197,8 +1257,8 @@ export default function SubscriptionsPage() {
 
           {/* STEP 2: EDIT PLAN BASIC DETAILS & PRICING */}
           {wizardStep === 2 && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3.5 animate-fade-in">
+              <div className="flex flex-col gap-3.5">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Plan Name</label>
                   <input
@@ -1232,7 +1292,7 @@ export default function SubscriptionsPage() {
                  />
                </div>
  
-               <div className="grid grid-cols-3 gap-4">
+               <div className="flex flex-col gap-3.5">
                  <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Monthly Price (INR)</label>
                    <input
@@ -1277,9 +1337,9 @@ export default function SubscriptionsPage() {
  
            {/* STEP 3: EDIT HARD LIMITS */}
            {wizardStep === 3 && (
-             <div className="space-y-4 animate-fade-in">
-               <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-900 rounded-2xl mb-1">
-                 <h5 className="text-[11px] font-extrabold text-zinc-400 uppercase tracking-widest mb-1">Limits Configuration</h5>
+             <div className="space-y-3.5 animate-fade-in">
+               <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-900 rounded-xl mb-1">
+                 <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mb-0.5">Limits Configuration</h5>
                  <p className="text-[10px] text-zinc-500 leading-normal">Specify the maximum operational resource count allowed for tenants active on this billing tier.</p>
                </div>
  
@@ -1300,7 +1360,7 @@ export default function SubscriptionsPage() {
                    <input
                      type="number"
                      min="1"
-                     className="w-full px-4 py-2.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none focus:border-indigo-500 transition-all"
+                     className="w-full px-4 py-2.5 bg-surface-subtle dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none focus:border-indigo-500 transition-all"
                      value={planForm.limits.employees}
                      onChange={(e) => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, employees: Number(e.target.value) } }))}
                      required
@@ -1353,13 +1413,13 @@ export default function SubscriptionsPage() {
  
            {/* STEP 4: EDIT ENABLED FEATURES */}
            {wizardStep === 4 && (
-             <div className="space-y-4 animate-fade-in">
-               <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-900 rounded-2xl mb-1">
-                 <h5 className="text-[11px] font-extrabold text-zinc-400 uppercase tracking-widest mb-1">Feature Gates</h5>
+             <div className="space-y-3.5 animate-fade-in">
+               <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-900 rounded-xl mb-1">
+                 <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mb-0.5">Feature Gates</h5>
                  <p className="text-[10px] text-zinc-500 leading-normal">Select which modules are accessible to restaurants active on this billing tier.</p>
                </div>
  
-               <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+               <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
                  {Object.keys(planForm.features).map((feat) => (
                    <label 
                      key={feat} 

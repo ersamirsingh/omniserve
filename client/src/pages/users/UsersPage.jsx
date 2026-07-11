@@ -42,6 +42,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState({ open: false, mode: 'create', item: null });
   const [form, setForm] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
   const { addToast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,6 +134,7 @@ export default function UsersPage() {
 
   const closeModal = () => {
     setShowPassword(false);
+    setSubmitting(false);
     setModal({ open: false, mode: 'create', item: null });
   };
 
@@ -172,6 +174,7 @@ export default function UsersPage() {
       addToast('Please select at least one outlet', 'warning');
       return;
     }
+    setSubmitting(true);
     try {
       const payload = buildPayload();
       if (modal.mode === 'create') {
@@ -185,6 +188,8 @@ export default function UsersPage() {
       fetchData();
     } catch (err) {
       addToast(err.response?.data?.message || 'Operation failed', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -595,8 +600,8 @@ export default function UsersPage() {
           )}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border-base dark:border-zinc-850">
-            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button type="submit">{modal.mode === 'create' ? 'Send Invite' : 'Save Changes'}</Button>
+            <Button variant="secondary" onClick={closeModal} disabled={submitting}>Cancel</Button>
+            <Button type="submit" disabled={submitting}>{submitting ? 'Sending...' : (modal.mode === 'create' ? 'Send Invite' : 'Save Changes')}</Button>
           </div>
         </form>
       </Modal>

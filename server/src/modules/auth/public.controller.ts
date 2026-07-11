@@ -951,7 +951,43 @@ export class PublicController {
    * Validates a coupon code and calculates discount for an outlet
    */
   static async validateCoupon(req: Request, res: Response): Promise<void> {
-    ApiResponseHandler.badRequest(res, "Order checkout coupons are no longer supported");
+    try {
+      const { outletSlug } = req.params;
+      const { code, subtotal } = req.query;
+
+      if (!code || !subtotal) {
+        ApiResponseHandler.badRequest(res, "Coupon code and subtotal are required");
+        return;
+      }
+
+      // Check if outlet exists
+      const outlet = await Outlet.findOne({ slug: outletSlug, isDeleted: false });
+      if (!outlet) {
+        ApiResponseHandler.notFound(res, "Outlet not found");
+        return;
+      }
+
+      const validation = await CouponService.validateCoupon(
+        outlet.tenantId.toString(),
+        outlet._id.toString(),
+        code as string,
+        Number(subtotal)
+      );
+
+      if (!validation.isValid) {
+        ApiResponseHandler.badRequest(res, validation.reason || "Invalid coupon code");
+        return;
+      }
+
+      ApiResponseHandler.success(res, 200, "Coupon is valid", {
+        code: validation.coupon?.code,
+        discount: validation.discount,
+        discountType: validation.coupon?.discountType,
+        discountValue: validation.coupon?.discountValue,
+      });
+    } catch (error: any) {
+      ApiResponseHandler.internalError(res, error.message || "Failed to validate coupon");
+    }
   }
 
   /**
@@ -1066,8 +1102,17 @@ export class PublicController {
       
       let discount = 0;
       if (couponCode) {
-        ApiResponseHandler.badRequest(res, "Coupons are not supported for order checkout");
-        return;
+        const validation = await CouponService.validateCoupon(
+          cart.tenantId ? cart.tenantId.toString() : "",
+          cart.outletId ? cart.outletId.toString() : null,
+          couponCode,
+          subtotal
+        );
+        if (!validation.isValid) {
+          ApiResponseHandler.badRequest(res, validation.reason || "Invalid coupon code");
+          return;
+        }
+        discount = validation.discount;
       }
       
       const totalAmount = subtotal + tax + deliveryFee - discount;
