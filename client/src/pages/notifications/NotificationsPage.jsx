@@ -93,7 +93,7 @@ export default function NotificationsPage() {
           return (
             <Card 
               key={notificationId} 
-              className={`flex items-start gap-4 transition-all duration-200 border border-border-base dark:border-zinc-800 hover:border-primary dark:hover:border-zinc-700 hover:shadow-md cursor-pointer !p-5 ${
+              className={`flex items-start gap-4 transition-all duration-200 border border-border-base dark:border-zinc-800 hover:border-primary dark:hover:border-zinc-700 hover:shadow-md cursor-pointer p-5! ${
                 n.isRead ? 'opacity-55 dark:opacity-40' : 'bg-surface-subtle/20 dark:bg-zinc-900/10'
               }`}
               onClick={() => handleNotificationClick(n)}
