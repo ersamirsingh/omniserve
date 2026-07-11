@@ -43,6 +43,7 @@ export default function UsersPage() {
   const [modal, setModal] = useState({ open: false, mode: 'create', item: null });
   const [form, setForm] = useState(emptyForm);
   const { addToast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOutletFilter, setSelectedOutletFilter] = useState('all');
@@ -172,6 +173,7 @@ export default function UsersPage() {
       addToast('Please select at least one outlet', 'warning');
       return;
     }
+    setSubmitting(true);
     try {
       const payload = buildPayload();
       if (modal.mode === 'create') {
@@ -185,6 +187,8 @@ export default function UsersPage() {
       fetchData();
     } catch (err) {
       addToast(err.response?.data?.message || 'Operation failed', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -470,7 +474,7 @@ export default function UsersPage() {
         <Table columns={columns} data={filteredData} loading={loading} />
       )}
 
-      <Modal isOpen={modal.open} onClose={closeModal} title={modal.mode === 'create' ? `Invite New ${isSuperAdmin ? 'User' : 'Team Member'}` : 'Edit User details'}>
+      <Modal isOpen={modal.open} onClose={submitting ? () => {} : closeModal} title={modal.mode === 'create' ? `Invite New ${isSuperAdmin ? 'User' : 'Team Member'}` : 'Edit User details'}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {modal.mode === 'create' && (
             <div className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-[12px] font-medium text-on-surface-variant dark:border-primary-fixed-dim/20 dark:bg-primary-fixed-dim/10 dark:text-zinc-300">
@@ -595,8 +599,8 @@ export default function UsersPage() {
           )}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border-base dark:border-zinc-850">
-            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button type="submit">{modal.mode === 'create' ? 'Send Invite' : 'Save Changes'}</Button>
+            <Button variant="secondary" onClick={closeModal} disabled={submitting}>Cancel</Button>
+            <Button type="submit" loading={submitting}>{modal.mode === 'create' ? 'Send Invite' : 'Save Changes'}</Button>
           </div>
         </form>
       </Modal>

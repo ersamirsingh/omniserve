@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getCartApi, checkoutCartApi } from "../../api/models/public.api";
+import { validateCouponApi } from "../../api/models/coupon.api";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -32,6 +33,14 @@ export default function CheckoutPage() {
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
 
   const [paymentMode, setPaymentMode] = useState("COD");
+
+  // Coupon states
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState(null);
+  const [couponSuccess, setCouponSuccess] = useState(null);
 
   useEffect(() => {
     getCartApi()
@@ -84,7 +93,42 @@ export default function CheckoutPage() {
 
   const tax = Number((subtotal * 0.05).toFixed(2));
   const deliveryFee = fulfillmentType === "DELIVERY" ? 50 : 0;
-  const totalAmount = subtotal + tax + deliveryFee;
+  const totalAmount = Math.max(0, Number((subtotal + tax + deliveryFee - couponDiscount).toFixed(2)));
+
+  const handleApplyCoupon = async (e) => {
+    e?.preventDefault();
+    if (!couponInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError(null);
+    setCouponSuccess(null);
+    try {
+      const res = await validateCouponApi(outletSlug, couponInput.trim(), subtotal);
+      if (res.data.data.isValid) {
+        setAppliedCoupon(res.data.data.code);
+        setCouponDiscount(res.data.data.discount);
+        setCouponSuccess(`Coupon "${res.data.data.code}" applied! You saved ₹${res.data.data.discount}`);
+        setCouponInput("");
+      } else {
+        setCouponError(res.data.data.reason || "Invalid coupon code");
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      }
+    } catch (err) {
+      setCouponError(err.response?.data?.message || "Failed to validate coupon");
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponSuccess(null);
+    setCouponError(null);
+    setCouponInput("");
+  };
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -109,6 +153,7 @@ export default function CheckoutPage() {
 
     const payload = {
       cartId: cart._id,
+      couponCode: appliedCoupon || undefined,
       customer: {
         name: customerName,
         phone: customerPhone,
@@ -381,8 +426,53 @@ export default function CheckoutPage() {
               })}
             </div>
 
+            {/* Coupon application container */}
+            <div className="border-t border-zinc-800 pt-3.5 space-y-2">
+              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block">Promo Coupon</label>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between p-2.5 bg-indigo-500/10 border border-indigo-550/30 rounded-xl animate-fade-in">
+                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-400">
+                    🎟️ {appliedCoupon}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-xs text-red-400 font-bold hover:underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      setCouponError(null);
+                      setCouponSuccess(null);
+                    }}
+                    placeholder="e.g. SAVE50"
+                    className="flex-1 bg-zinc-950 border border-zinc-800 text-zinc-200 rounded-xl px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-indigo-500 placeholder:text-zinc-700"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    loading={validatingCoupon}
+                    onClick={handleApplyCoupon}
+                    className="px-4 py-2 text-xs"
+                  >
+                    Apply
+                  </Button>
+                </div>
+              )}
+              {couponError && <p className="text-[10px] text-red-500 font-medium pl-1 animate-fade-in">{couponError}</p>}
+              {couponSuccess && <p className="text-[10px] text-emerald-500 font-medium pl-1 animate-fade-in">{couponSuccess}</p>}
+            </div>
+
             {/* Receipt calculation details */}
-            <div className="space-y-2 border-t border-zinc-800 pt-3 text-xs text-zinc-400">
+            <div className="space-y-2 border-t border-zinc-800 pt-3.5 text-xs text-zinc-400">
               <div className="flex justify-between">
                 <span>Items Subtotal</span>
                 <span className="text-zinc-200">₹{subtotal}</span>
@@ -395,6 +485,12 @@ export default function CheckoutPage() {
                 <span>Delivery Fee</span>
                 <span className="text-zinc-200">₹{deliveryFee}</span>
               </div>
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-emerald-500 font-semibold animate-fade-in">
+                  <span>Coupon Discount</span>
+                  <span>-₹{couponDiscount}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-zinc-800 pt-3 font-bold text-base text-white">
                 <span>Total Payable</span>
                 <span className="text-indigo-400">₹{totalAmount}</span>
