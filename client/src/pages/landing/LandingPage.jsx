@@ -120,10 +120,10 @@ export default function LandingPage() {
         <div className="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
           <div className="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">OmniServe</div>
           <div className="hidden md:flex items-center space-x-10">
-            <a href="#product" className="text-on-surface-variant hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Product</a>
-            <a href="#solutions" className="text-on-surface-variant hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Solutions</a>
-            <a href="#tech" className="text-on-surface-variant hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Technology</a>
-            <a href="#contact" className="text-on-surface-variant hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Contact</a>
+            <a href="#product" className="text-on-surface hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Product</a>
+            <a href="#solutions" className="text-on-surface hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Solutions</a>
+            <a href="#tech" className="text-on-surface hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Technology</a>
+            <a href="#contact" className="text-on-surface hover:text-brand-accent transition-colors duration-300 font-body-md text-body-md">Contact</a>
           </div>
           <div className="flex items-center space-x-4">
             <Link to="/login" className="px-8 py-3 bg-on-surface text-white rounded-full font-bold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg">Let's Get Started</Link>
@@ -144,7 +144,7 @@ export default function LandingPage() {
               <span className="text-brand-accent">Every Restaurant</span><br />
               Operation.
             </h1>
-            <p className="text-on-surface-variant text-body-lg mb-10 max-w-lg">
+            <p className="text-on-surface text-body-lg mb-10 max-w-lg">
               Unify your front-of-house, kitchen, inventory, and delivery aggregators into a single, canonical data stream. Scale with OmniServe.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -169,7 +169,7 @@ export default function LandingPage() {
       <section id="solutions" className="py-section-gap bg-surface-container-low">
         <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-20 reveal">
           <h2 className="font-headline-xl text-headline-xl mb-6">The Unified Restaurant Ecosystem</h2>
-          <p className="text-on-surface-variant max-w-2xl mx-auto">Connecting every touchpoint from QR scans to inventory logs in real-time through OmniServe.</p>
+          <p className="text-on-surface max-w-2xl mx-auto">Connecting every touchpoint from QR scans to inventory logs in real-time through OmniServe.</p>
         </div>
         <div className="max-w-container-max mx-auto px-margin-desktop reveal">
           <div className="glass-card p-4 md:p-8 rounded-[2.5rem] relative overflow-hidden bg-white/40">
@@ -177,7 +177,7 @@ export default function LandingPage() {
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
                 <h3 className="font-headline-lg text-headline-lg mb-4">Integrations Control Center</h3>
-                <p className="text-on-surface-variant mb-6">OmniServe acts as the central intelligence for your entire stack. Monitor sync health, manage circuit breakers, and ensure data integrity across Swiggy, Zomato, and your direct channels from a single 'Live Look' interface.</p>
+                <p className="text-on-surface mb-6">OmniServe acts as the central intelligence for your entire stack. Monitor sync health, manage circuit breakers, and ensure data integrity across Swiggy, Zomato, and your direct channels from a single 'Live Look' interface.</p>
               </div>
               <div className="relative group">
                 <img alt="OmniServe Integrations Control Center" className="w-full h-auto rounded-2xl shadow-2xl transform transition-transform group-hover:scale-[1.02]" src="/images/landingpage/integrations.png" />
@@ -193,69 +193,69 @@ export default function LandingPage() {
         <div className="max-w-container-max mx-auto px-margin-desktop mb-20 flex justify-between items-end">
           <div className="reveal">
             <h2 className="font-headline-xl text-headline-xl mb-4">Powerful Core Modules</h2>
-            <p className="text-on-surface-variant max-w-xl">Every tool you need to run an enterprise-grade restaurant group, available in one unified dashboard.</p>
+            <p className="text-on-surface max-w-xl">Every tool you need to run an enterprise-grade restaurant group, available in one unified dashboard.</p>
           </div>
         </div>
         <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-2 md:grid-cols-4 gap-6 reveal">
           <div className="glass-card p-8 rounded-3xl group">
             <Monitor className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Restaurant Ops</h3>
-            <p className="text-sm opacity-70">Real-time hub for every outlet activity.</p>
+            <p className="text-sm ">Real-time hub for every outlet activity.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <ChefHat className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">KDS</h3>
-            <p className="text-sm opacity-70">Smart kitchen display routing.</p>
+            <p className="text-sm ">Smart kitchen display routing.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <Package className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Inventory</h3>
-            <p className="text-sm opacity-70">Automated waste and stock tracking.</p>
+            <p className="text-sm ">Automated waste and stock tracking.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <CreditCard className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Billing</h3>
-            <p className="text-sm opacity-70">Multi-modal checkout experience.</p>
+            <p className="text-sm ">Multi-modal checkout experience.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <BarChart3 className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Analytics</h3>
-            <p className="text-sm opacity-70">Predictive demand & revenue maps.</p>
+            <p className="text-sm ">Predictive demand & revenue maps.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <Calendar className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Reservations</h3>
-            <p className="text-sm opacity-70">Unified table management engine.</p>
+            <p className="text-sm ">Unified table management engine.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <Scan className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">QR Ordering</h3>
-            <p className="text-sm opacity-70">Zero-latency mobile menus.</p>
+            <p className="text-sm ">Zero-latency mobile menus.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <LinkIcon className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Integrations</h3>
-            <p className="text-sm opacity-70">Native sync with major aggregators.</p>
+            <p className="text-sm ">Native sync with major aggregators.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <Bell className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Notifications</h3>
-            <p className="text-sm opacity-70">Omnichannel staff & guest alerts.</p>
+            <p className="text-sm ">Omnichannel staff & guest alerts.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <Zap className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Event Bus</h3>
-            <p className="text-sm opacity-70">Event-driven webhooks for scale.</p>
+            <p className="text-sm ">Event-driven webhooks for scale.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <Users className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Staff Mgmt</h3>
-            <p className="text-sm opacity-70">Role-based access & payroll sync.</p>
+            <p className="text-sm ">Role-based access & payroll sync.</p>
           </div>
           <div className="glass-card p-8 rounded-3xl group">
             <FileText className="w-8 h-8 mb-6 text-brand-accent group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">Menu Mgmt</h3>
-            <p className="text-sm opacity-70">Global catalog distribution.</p>
+            <p className="text-sm ">Global catalog distribution.</p>
           </div>
         </div>
       </section>
@@ -270,21 +270,21 @@ export default function LandingPage() {
                 <Layout className="text-brand-accent shrink-0 mt-1" />
                 <div>
                   <h4 className="font-bold mb-1">Super Admin Console</h4>
-                  <p className="text-sm text-gray-400">Global dashboard metrics and active operations across all restaurant locations.</p>
+                  <p className="text-sm text-zinc-200">Global dashboard metrics and active operations across all restaurant locations.</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4 p-6 bg-white/5 rounded-2xl border border-white/10">
                 <Activity className="text-brand-accent shrink-0 mt-1" />
                 <div>
                   <h4 className="font-bold mb-1">Real-time Order Flow</h4>
-                  <p className="text-sm text-gray-400">Monitor live orders across all channels with zero lag using OmniServe's internal event bus.</p>
+                  <p className="text-sm text-zinc-200">Monitor live orders across all channels with zero lag using OmniServe's internal event bus.</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4 p-6 bg-white/5 rounded-2xl border border-white/10">
                 <TrendingUp className="text-brand-accent shrink-0 mt-1" />
                 <div>
                   <h4 className="font-bold mb-1">SLA Analytics</h4>
-                  <p className="text-sm text-gray-400">Track kitchen preparation times and waiter efficiency in real-time.</p>
+                  <p className="text-sm text-zinc-200">Track kitchen preparation times and waiter efficiency in real-time.</p>
                 </div>
               </div>
             </div>
@@ -313,15 +313,15 @@ export default function LandingPage() {
           </div>
           <div className="reveal order-1 lg:order-2">
             <h2 className="font-headline-xl text-headline-xl mb-6">Live Insights & Analytics</h2>
-            <p className="text-on-surface-variant mb-8 text-body-lg">Stop guessing. OmniServe provides a real-time view of revenue, order volume, and outlet performance. Drill down into specific regions or view your entire enterprise scope at a glance.</p>
+            <p className="text-on-surface mb-8 text-body-lg">Stop guessing. OmniServe provides a real-time view of revenue, order volume, and outlet performance. Drill down into specific regions or view your entire enterprise scope at a glance.</p>
             <div className="grid grid-cols-2 gap-6">
               <div className="glass-card p-6 rounded-2xl">
                 <div className="text-brand-accent font-bold text-2xl mb-1">105+</div>
-                <p className="text-xs opacity-60 font-bold uppercase tracking-wider">Outlets in Scope</p>
+                <p className="text-xs  font-bold uppercase tracking-wider">Outlets in Scope</p>
               </div>
               <div className="glass-card p-6 rounded-2xl">
                 <div className="text-brand-accent font-bold text-2xl mb-1">₹85,070</div>
-                <p className="text-xs opacity-60 font-bold uppercase tracking-wider">Daily Revenue</p>
+                <p className="text-xs  font-bold uppercase tracking-wider">Daily Revenue</p>
               </div>
             </div>
           </div>
@@ -332,14 +332,14 @@ export default function LandingPage() {
       <section className="py-section-gap">
         <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-16 reveal">
           <h2 className="font-headline-xl text-headline-xl mb-6">The Seamless Order Journey</h2>
-          <p className="text-on-surface-variant max-w-2xl mx-auto">From the first click to the final delivery, OmniServe choreographs every step with precision.</p>
+          <p className="text-on-surface max-w-2xl mx-auto">From the first click to the final delivery, OmniServe choreographs every step with precision.</p>
         </div>
         <div className="max-w-container-max mx-auto px-margin-desktop reveal">
           <div className="relative group">
             <img alt="OmniServe Orders List View" className="w-full h-auto rounded-3xl shadow-2xl" src="/images/landingpage/orders.png" />
             <div className="absolute inset-0 bg-gradient-to-t from-on-surface/20 to-transparent pointer-events-none rounded-3xl"></div>
           </div>
-          <p className="mt-8 text-center text-on-surface-variant italic font-body-md">Manage live customer orders, update kitchen preparation stages, and handle delivery handoffs in one fluid list.</p>
+          <p className="mt-8 text-center text-on-surface italic font-body-md">Manage live customer orders, update kitchen preparation stages, and handle delivery handoffs in one fluid list.</p>
         </div>
       </section>
 
@@ -348,7 +348,7 @@ export default function LandingPage() {
         <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
           <div className="lg:col-span-5 reveal">
             <h2 className="font-headline-xl text-headline-xl mb-6">Effortless Staff Management</h2>
-            <p className="text-on-surface-variant mb-8">Manage team access and roles across hundreds of outlets. Create platform users and send invitation access from one central place.</p>
+            <p className="text-on-surface mb-8">Manage team access and roles across hundreds of outlets. Create platform users and send invitation access from one central place.</p>
             <ul className="space-y-4">
               <li className="flex items-center space-x-3">
                 <span className="w-2 h-2 rounded-full bg-brand-accent"></span>
@@ -374,33 +374,33 @@ export default function LandingPage() {
       <section className="py-section-gap" id="tech">
         <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-20 reveal">
           <h2 className="font-headline-xl text-headline-xl mb-4">Built for Scale</h2>
-          <p className="text-on-surface-variant">OmniServe\'s enterprise architecture ensures 99.9% uptime and sub-second latency.</p>
+          <p className="text-on-surface">OmniServe\'s enterprise architecture ensures 99.9% uptime and sub-second latency.</p>
         </div>
         <div className="max-w-container-max mx-auto px-margin-desktop reveal">
           <div className="grid grid-cols-2 md:grid-cols-6 gap-8 text-center">
             <div className="space-y-4">
               <div className="h-20 w-20 mx-auto bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-bold text-xl">React</div>
-              <p className="text-sm font-bold opacity-60">Frontend</p>
+              <p className="text-sm font-bold ">Frontend</p>
             </div>
             <div className="space-y-4">
               <div className="h-20 w-20 mx-auto bg-green-50 rounded-2xl flex items-center justify-center text-green-600 font-bold text-xl">Node</div>
-              <p className="text-sm font-bold opacity-60">Backend</p>
+              <p className="text-sm font-bold ">Backend</p>
             </div>
             <div className="space-y-4">
               <div className="h-20 w-20 mx-auto bg-red-50 rounded-2xl flex items-center justify-center text-red-600 font-bold text-xl">Redis</div>
-              <p className="text-sm font-bold opacity-60">Caching</p>
+              <p className="text-sm font-bold ">Caching</p>
             </div>
             <div className="space-y-4">
               <div className="h-20 w-20 mx-auto bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 font-bold text-xl">Mongo</div>
-              <p className="text-sm font-bold opacity-60">Database</p>
+              <p className="text-sm font-bold ">Database</p>
             </div>
             <div className="space-y-4">
               <div className="h-20 w-20 mx-auto bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 font-bold text-xl">WS</div>
-              <p className="text-sm font-bold opacity-60">Real-time</p>
+              <p className="text-sm font-bold ">Real-time</p>
             </div>
             <div className="space-y-4">
               <div className="h-20 w-20 mx-auto bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 font-bold text-xl">Bus</div>
-              <p className="text-sm font-bold opacity-60">Events</p>
+              <p className="text-sm font-bold ">Events</p>
             </div>
           </div>
         </div>
@@ -453,7 +453,7 @@ export default function LandingPage() {
       <section className="py-section-gap">
         <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-16 reveal">
           <h2 className="font-headline-xl text-headline-xl mb-4">The Minds Behind OmniServe</h2>
-          <p className="text-on-surface-variant">Experts in hospitality, engineering, and product design.</p>
+          <p className="text-on-surface">Experts in hospitality, engineering, and product design.</p>
         </div>
         <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 reveal">
           {teamMembers.map((member) => (
@@ -484,7 +484,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-gray-200"></div>
               <div>
                 <p className="font-bold">Julia Mendez</p>
-                <p className="text-xs opacity-60">Director, Gusto Group</p>
+                <p className="text-xs ">Director, Gusto Group</p>
               </div>
             </div>
           </div>
@@ -497,7 +497,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-white/20"></div>
               <div>
                 <p className="font-bold">Kenji Wu</p>
-                <p className="text-xs opacity-60">Operations Lead, Urban Eats</p>
+                <p className="text-xs ">Operations Lead, Urban Eats</p>
               </div>
             </div>
           </div>
@@ -510,7 +510,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-gray-200"></div>
               <div>
                 <p className="font-bold">Robert Hart</p>
-                <p className="text-xs opacity-60">Founder, Bistro Cloud</p>
+                <p className="text-xs ">Founder, Bistro Cloud</p>
               </div>
             </div>
           </div>
@@ -543,7 +543,7 @@ export default function LandingPage() {
                     paddingTop: faqOpen[index] ? '0.5rem' : '0px'
                   }}
                 >
-                  <p className="text-on-surface-variant">{faq.a}</p>
+                  <p className="text-on-surface">{faq.a}</p>
                 </div>
               </div>
             ))}
@@ -559,14 +559,14 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
               <div>
                 <h2 className="font-display-lg text-display-lg mb-6">Contact Us</h2>
-                <p className="text-on-surface-variant text-body-lg mb-10">Ready to transform your restaurant operations? Reach out to our enterprise team for a custom consultation.</p>
+                <p className="text-on-surface text-body-lg mb-10">Ready to transform your restaurant operations? Reach out to our enterprise team for a custom consultation.</p>
                 <div className="space-y-6">
                   <div className="flex items-center space-x-6">
                     <div className="w-14 h-14 bg-secondary-container flex items-center justify-center rounded-2xl">
                       <Mail className="text-secondary w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-sm opacity-60 font-bold uppercase tracking-wider">Email Us</p>
+                      <p className="text-sm  font-bold uppercase tracking-wider">Email Us</p>
                       <a className="text-lg font-bold hover:text-brand-accent transition-colors" href="mailto:hello@omniserve.com">hello@omniserve.com</a>
                     </div>
                   </div>
@@ -575,7 +575,7 @@ export default function LandingPage() {
                       <Phone className="text-secondary w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-sm opacity-60 font-bold uppercase tracking-wider">Call Us</p>
+                      <p className="text-sm  font-bold uppercase tracking-wider">Call Us</p>
                       <a className="text-lg font-bold hover:text-brand-accent transition-colors" href="tel:+18006664778">+1 800-OMNI-SRV</a>
                     </div>
                   </div>
@@ -603,7 +603,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-brand-accent/20 to-transparent"></div>
           <div className="relative z-10 max-w-2xl mx-auto">
             <h2 className="font-display-lg text-display-lg mb-8">Ready to modernize?</h2>
-            <p className="text-xl text-gray-300 mb-12">Join 1,200+ restaurant groups worldwide using OmniServe to orchestrate their operations.</p>
+            <p className="text-xl text-white mb-12">Join 1,200+ restaurant groups worldwide using OmniServe to orchestrate their operations.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link className="px-12 py-6 bg-white text-on-surface rounded-2xl font-bold text-lg hover:scale-105 transition-transform shadow-xl" to="/login">Let's Get Started</Link>
               <button className="px-12 py-6 bg-white/10 backdrop-blur-md rounded-2xl font-bold text-lg border border-white/20 hover:bg-white/20 transition-all">Schedule a Call</button>
@@ -617,16 +617,16 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-16 max-w-container-max mx-auto reveal">
           <div className="space-y-6">
             <div className="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">OmniServe</div>
-            <p className="text-on-surface-variant text-sm">Empowering the world's best restaurants with the most advanced operational software on the market.</p>
+            <p className="text-on-surface text-sm">Empowering the world's best restaurants with the most advanced operational software on the market.</p>
             <div className="flex space-x-4">
-              <TwitterIcon className="w-5 h-5 text-on-surface-variant cursor-pointer hover:text-brand-accent transition-colors" />
-              <LinkedinIcon className="w-5 h-5 text-on-surface-variant cursor-pointer hover:text-brand-accent transition-colors" />
-              <InstagramIcon className="w-5 h-5 text-on-surface-variant cursor-pointer hover:text-brand-accent transition-colors" />
+              <TwitterIcon className="w-5 h-5 text-on-surface cursor-pointer hover:text-brand-accent transition-colors" />
+              <LinkedinIcon className="w-5 h-5 text-on-surface cursor-pointer hover:text-brand-accent transition-colors" />
+              <InstagramIcon className="w-5 h-5 text-on-surface cursor-pointer hover:text-brand-accent transition-colors" />
             </div>
           </div>
           <div>
             <h4 className="font-bold mb-6">Platform</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant">
+            <ul className="space-y-4 text-sm text-on-surface">
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Operations Cockpit</li>
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Smart Inventory</li>
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Unified Billing</li>
@@ -635,7 +635,7 @@ export default function LandingPage() {
           </div>
           <div>
             <h4 className="font-bold mb-6">Security</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant">
+            <ul className="space-y-4 text-sm text-on-surface">
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Enterprise SLA</li>
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Privacy Policy</li>
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Data Encryption</li>
@@ -644,7 +644,7 @@ export default function LandingPage() {
           </div>
           <div>
             <h4 className="font-bold mb-6">Support</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant">
+            <ul className="space-y-4 text-sm text-on-surface">
               <li className="hover:text-brand-accent transition-colors cursor-pointer">API Docs</li>
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Case Studies</li>
               <li className="hover:text-brand-accent transition-colors cursor-pointer">Knowledge Base</li>
@@ -652,7 +652,7 @@ export default function LandingPage() {
             </ul>
           </div>
         </div>
-        <div className="max-w-container-max mx-auto px-margin-desktop py-8 border-t border-outline-variant/30 flex justify-between items-center text-xs opacity-50">
+        <div className="max-w-container-max mx-auto px-margin-desktop py-8 border-t border-outline-variant/30 flex justify-between items-center text-xs ">
           <p>© 2024 OmniServe Enterprise Solutions. All rights reserved.</p>
           <div className="flex space-x-6">
             <span className="cursor-pointer hover:underline">Terms of Service</span>
