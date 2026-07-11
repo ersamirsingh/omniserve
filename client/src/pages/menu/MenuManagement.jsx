@@ -11,8 +11,8 @@ export default function MenuManagement() {
   const activeTab = searchParams.get('tab') || 'items';
 
   const menuTabs = [
-    { to: '/menu-management?tab=categories', label: 'Categories' },
     { to: '/menu-management?tab=items', label: 'Menu Items' },
+    { to: '/menu-management?tab=categories', label: 'Categories' },
     { to: '/menu-management?tab=variants', label: 'Variants' },
     { to: '/menu-management?tab=addons', label: 'Addons' },
   ];
@@ -26,8 +26,8 @@ export default function MenuManagement() {
         tabs={menuTabs}
       />
       <div>
-        {activeTab === 'categories' && <CategoriesPage isEmbedded={true} />}
         {activeTab === 'items' && <MenuItemsPage isEmbedded={true} />}
+        {activeTab === 'categories' && <CategoriesPage isEmbedded={true} />}
         {activeTab === 'variants' && <VariantsPage isEmbedded={true} />}
         {activeTab === 'addons' && <AddonsPage isEmbedded={true} />}
       </div>
