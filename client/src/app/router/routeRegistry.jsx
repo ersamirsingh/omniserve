@@ -37,6 +37,7 @@ const {
 const RESTAURANT_ROLES = [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER, STAFF];
 
 export const routeComponents = {
+  LandingPage: createLazyPage(() => import('../../pages/landing/LandingPage')),
   LoginPage: createLazyPage(() => import('../../pages/auth/LoginPage')),
   RegisterPage: createLazyPage(() => import('../../pages/auth/RegisterPage')),
   DashboardPage: createLazyPage(() => import('../../pages/dashboard/DashboardPage')),
@@ -139,6 +140,7 @@ export const dashboardRoutes = [
 ];
 
 export const publicWebsiteRoutes = [
+  { path: '/', component: routeComponents.LandingPage },
   { path: '/public/w/:outletSlug', component: routeComponents.MenuPage },
   { path: '/public/w/:outletSlug/menu', component: routeComponents.MenuPage },
   { path: '/public/w/:outletSlug/cart', component: routeComponents.CartPage },
