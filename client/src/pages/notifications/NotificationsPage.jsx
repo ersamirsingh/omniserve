@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { fetchNotifications, markAsRead, markAllAsRead } from '../../store/notificationSlice';
@@ -19,6 +19,7 @@ export default function NotificationsPage() {
   const { addToast } = useToast();
   const { notifications, loading, unreadCount } = useSelector((s) => s.notifications);
   const { user } = useSelector((s) => s.auth);
+  const [acceptingId, setAcceptingId] = useState(null);
 
   useEffect(() => { 
     dispatch(fetchNotifications()); 
@@ -26,16 +27,20 @@ export default function NotificationsPage() {
 
   const handleAcceptInvitation = async (e, notification) => {
     e.stopPropagation();
+    const notificationId = notification.id || notification._id;
+    setAcceptingId(notificationId);
     try {
       await acceptMyInvitationApi();
       addToast('Invitation accepted successfully', 'success');
       if (!notification.isRead) {
-        await dispatch(markAsRead(notification.id || notification._id)).unwrap();
+        await dispatch(markAsRead(notificationId)).unwrap();
       }
       dispatch(fetchCurrentUser(true));
       dispatch(fetchNotifications());
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to accept invitation', 'error');
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -88,7 +93,7 @@ export default function NotificationsPage() {
           return (
             <Card 
               key={notificationId} 
-              className={`flex items-start gap-4 transition-all duration-200 border border-border-base dark:border-zinc-800 hover:border-primary dark:hover:border-zinc-700 hover:shadow-md cursor-pointer !p-5 ${
+              className={`flex items-start gap-4 transition-all duration-200 border border-border-base dark:border-zinc-800 hover:border-primary dark:hover:border-zinc-700 hover:shadow-md cursor-pointer p-5! ${
                 n.isRead ? 'opacity-55 dark:opacity-40' : 'bg-surface-subtle/20 dark:bg-zinc-900/10'
               }`}
               onClick={() => handleNotificationClick(n)}
@@ -163,13 +168,20 @@ export default function NotificationsPage() {
                   <div className="mt-3 flex gap-2 items-center flex-wrap">
                     {!user?.invitationAccepted ? (
                       <>
-                        <Button size="sm" onClick={(e) => handleAcceptInvitation(e, n)} className="font-bold">
+                        <Button 
+                          size="sm" 
+                          onClick={(e) => handleAcceptInvitation(e, n)} 
+                          loading={acceptingId === notificationId}
+                          disabled={acceptingId !== null}
+                          className="font-bold"
+                        >
                           Accept Invitation
                         </Button>
                         {!n.isRead && (
                           <Button 
                             size="sm" 
                             variant="secondary" 
+                            disabled={acceptingId !== null}
                             onClick={(e) => {
                               e.stopPropagation();
                               dispatch(markAsRead(notificationId));

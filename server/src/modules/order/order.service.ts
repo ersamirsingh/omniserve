@@ -110,6 +110,7 @@ export class OrderService {
       totalAmount,
       notes,
       items,
+      couponCode,
     } = data;
 
     // 1. Math validation: subtotal + tax + deliveryFee - discount === totalAmount
@@ -139,6 +140,7 @@ export class OrderService {
         notes,
         orderStatus: OrderStatus.PENDING,
         paymentStatus: PaymentStatus.PENDING,
+        couponCode: couponCode || null,
         createdBy: userId ? new Types.ObjectId(userId) : null,
         updatedBy: userId ? new Types.ObjectId(userId) : null,
       };

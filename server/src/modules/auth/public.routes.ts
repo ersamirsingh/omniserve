@@ -45,5 +45,6 @@ publicRouter.get("/orders/track/:orderId", PublicController.trackOrder);
 // QR Session Bill & Payments
 publicRouter.get("/qr/session/:sessionToken/bill", PublicController.getQrSessionBill);
 publicRouter.post("/qr/session/:sessionToken/pay", PublicController.payQrSessionBill);
+publicRouter.get("/o/:outletSlug/coupons/validate", PublicController.validateCoupon);
 
 export default publicRouter;

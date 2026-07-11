@@ -74,6 +74,7 @@ export class WebsiteAdapter extends BaseAdapter {
         })),
         ...(item.notes ? { notes: String(item.notes) } : {})
       })),
+      ...(payload.couponCode ? { couponCode: String(payload.couponCode) } : {}),
       ...(payload.notes ? { notes: String(payload.notes) } : {})
     };
   }

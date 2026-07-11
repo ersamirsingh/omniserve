@@ -179,6 +179,7 @@ export interface CanonicalOrder {
   pricing: CanonicalPricing;
   items: CanonicalOrderItem[];
   notes?: string;
+  couponCode?: string;
   rawPayloadRef?: string;
 }
 

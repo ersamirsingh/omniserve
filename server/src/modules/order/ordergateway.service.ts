@@ -60,6 +60,7 @@ interface InternalOrderPayload {
   discount: number;
   totalAmount: number;
   notes?: string;
+  couponCode?: string | undefined;
   diningContext?: {
     tableId?: string;
     tableNumber?: string;
@@ -443,6 +444,7 @@ export class OrderGatewayService {
       deliveryFee: canonicalOrder.pricing.deliveryFee,
       discount: canonicalOrder.pricing.discount,
       totalAmount: canonicalOrder.pricing.totalAmount,
+      couponCode: canonicalOrder.couponCode || undefined,
       items,
     };
 

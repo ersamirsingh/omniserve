@@ -34,6 +34,7 @@ export interface IOrder extends Document {
   waiterId?: Types.ObjectId | null;
   kitchenPriority?: 'NEW' | 'RUSH' | 'DELAYED' | 'CRITICAL' | 'VIP' | 'LARGE_PARTY' | 'HIGH_VALUE';
   diningContext?: IDiningContext | null;
+  couponCode?: string | null;
   isSandbox?: boolean;
   sandboxVersion?: string;
   sessionId?: Types.ObjectId | null;
@@ -132,6 +133,10 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       trim: true,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
+    },
+    couponCode: {
+      type: String,
+      default: null,
     },
     waiterId: {
       type: Schema.Types.ObjectId,
