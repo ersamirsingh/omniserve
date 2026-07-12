@@ -193,80 +193,143 @@ body {
 /* ── Landing Page Scoped Styles & Animations ── */
 .landing-page {
   font-family: 'Inter', sans-serif;
-  background-color: #FAF8FF !important;
-  color: #000000 !important;
-  --on-surface: #000000 !important;
-  --color-on-surface: #000000 !important;
-  --on-background: #000000 !important;
-  --color-on-background: #000000 !important;
 
-  /* Redefine surface containers as UrbanPiper style light slate/lavender */
-  --surface-container-low: #f3f5f8;
-  --color-surface-container-low: #f3f5f8;
+  /* Light Theme Variables */
+  --lp-bg: #FAF8FF;
+  --lp-text: #0B0F19;
+  --lp-text-secondary: #4E5A70;
+  --lp-border: rgba(99, 17, 244, 0.08);
+  --lp-surface-low: #F1EFF8;
+  --lp-surface: #EBE8F4;
+  --lp-surface-high: #E2DEEE;
+  --lp-surface-highest: #D5CFE5;
+  --lp-glass-bg: rgba(255, 255, 255, 0.7);
+  --lp-glass-border: rgba(99, 17, 244, 0.1);
+  --lp-card-shadow: 0px 8px 30px rgba(99, 17, 244, 0.03);
+  --lp-card-hover-shadow: 0px 16px 40px rgba(99, 17, 244, 0.08);
+  --lp-nav-bg: rgba(250, 248, 255, 0.8);
+  --lp-nav-border: rgba(99, 17, 244, 0.08);
 
-  --surface-container: #f7f6fc;
-  --color-surface-container: #f7f6fc;
+  /* Override standard theme variables locally for children */
+  --background: var(--lp-bg);
+  --on-background: var(--lp-text);
+  --on-surface: var(--lp-text);
+  --on-surface-variant: var(--lp-text-secondary);
+  --surface-container-low: var(--lp-surface-low);
+  --surface-container: var(--lp-surface);
+  --surface-container-high: var(--lp-surface-high);
+  --surface-container-highest: var(--lp-surface-highest);
+  --border-base: var(--lp-border);
 
-  --surface-container-high: #e4e4e4;
-  --color-surface-container-high: #e4e4e4;
+  background-color: var(--lp-bg) !important;
+  color: var(--lp-text) !important;
+  transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  --surface-container-highest: #c8c8c8;
-  --color-surface-container-highest: #c8c8c8;
+.dark .landing-page {
+  /* Dark Theme Variables (Linear/Vercel inspired slate/violet) */
+  --lp-bg: #030014; /* Extremely premium dark violet black */
+  --lp-text: #F3F1F8;
+  --lp-text-secondary: #8A8B9E;
+  --lp-border: rgba(255, 255, 255, 0.06);
+  --lp-surface-low: #08061A;
+  --lp-surface: #0E0B25;
+  --lp-surface-high: #161234;
+  --lp-surface-highest: #231C4D;
+  --lp-glass-bg: rgba(8, 6, 26, 0.65);
+  --lp-glass-border: rgba(99, 17, 244, 0.2);
+  --lp-card-shadow: 0px 8px 30px rgba(0, 0, 0, 0.4);
+  --lp-card-hover-shadow: 0px 16px 40px rgba(99, 17, 244, 0.25);
+  --lp-nav-bg: rgba(3, 0, 20, 0.8);
+  --lp-nav-border: rgba(255, 255, 255, 0.06);
+
+  /* Overrides for standard theme variables */
+  --background: var(--lp-bg);
+  --on-background: var(--lp-text);
+  --on-surface: var(--lp-text);
+  --on-surface-variant: var(--lp-text-secondary);
+  --surface-container-low: var(--lp-surface-low);
+  --surface-container: var(--lp-surface);
+  --surface-container-high: var(--lp-surface-high);
+  --surface-container-highest: var(--lp-surface-highest);
+  --border-base: var(--lp-border);
+
+  background-color: var(--lp-bg) !important;
+  color: var(--lp-text) !important;
 }
 
 /* Explicit background overrides to override Tailwind utilities */
 .landing-page .bg-surface-container-low {
-  background-color: #f3f5f8 !important;
+  background-color: var(--lp-surface-low) !important;
 }
 
 .landing-page .bg-surface-container {
-  background-color: #f7f6fc !important;
+  background-color: var(--lp-surface) !important;
 }
 
 .landing-page .bg-surface-container-high {
-  background-color: #e4e4e4 !important;
+  background-color: var(--lp-surface-high) !important;
 }
 
 .landing-page .bg-surface-container-highest {
-  background-color: #c8c8c8 !important;
+  background-color: var(--lp-surface-highest) !important;
 }
 
 .landing-page .bg-background {
-  background-color: #ffffff !important;
+  background-color: var(--lp-bg) !important;
 }
 
+.landing-page .text-on-surface {
+  color: var(--lp-text) !important;
+}
+
+/* ── Type scale: pushed up a full step so the hero reads like a $100M product,
+   not a template. Plus Jakarta Sans carries the weight; tighter tracking
+   at the largest sizes keeps it from feeling loose. ── */
 .landing-page .font-display-lg {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 3rem;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-size: 3.25rem;
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
 
 @media (min-width: 768px) {
   .landing-page .font-display-lg {
-    font-size: 4rem;
+    font-size: 5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-page .font-display-lg {
+    font-size: 6.25rem;
   }
 }
 
 .landing-page .font-headline-xl {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 2.25rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 768px) {
+  .landing-page .font-headline-xl {
+    font-size: 3.25rem;
+  }
 }
 
 .landing-page .font-headline-lg {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.75rem;
+  font-size: 1.875rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .landing-page .font-body-lg {
   font-family: 'Inter', sans-serif;
-  font-size: 1.125rem;
+  font-size: 1.1875rem;
   font-weight: 400;
   line-height: 1.6;
 }
@@ -285,17 +348,58 @@ body {
   line-height: 1.4;
 }
 
+/* ── Glass: reserved for ONE signature moment per section (hero-adjacent
+   panels), not repeated on every card — that repetition is what was
+   flattening the whole page into sameness. ── */
 .landing-page .glass-card {
-  background: #ffffff !important;
-  border: 1px solid #e4e8ef !important;
-  box-shadow: 0px 8px 24px rgba(62, 73, 95, 0.04) !important;
-  transition: all 0.3s ease !important;
+  background: var(--lp-glass-bg) !important;
+  border: 1px solid var(--lp-border) !important;
+  box-shadow: var(--lp-card-shadow) !important;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 
 .landing-page .glass-card:hover {
-  transform: translateY(-2px) scale(1.01) !important;
-  box-shadow: 0px 12px 30px rgba(99, 17, 244, 0.08) !important;
-  border-color: rgba(99, 17, 244, 0.2) !important;
+  box-shadow: var(--lp-card-hover-shadow) !important;
+  border-color: var(--lp-glass-border) !important;
+}
+
+/* ── Surface card: crisp, no blur, flat — used for dense grids (bento,
+   tech stack) where 8+ cards on screen at once need to read calmly,
+   not compete with glass shine. ── */
+.landing-page .surface-card {
+  background: var(--lp-surface-low);
+  border: 1px solid var(--lp-border);
+  box-shadow: none;
+  transition: border-color 0.25s ease, background-color 0.25s ease, transform 0.25s ease;
+}
+
+.landing-page .surface-card:hover {
+  border-color: var(--color-brand-accent);
+  transform: translateY(-2px);
+}
+
+/* ── Outline card: near-invisible until hovered — used for airy sections
+   like testimonials and FAQ so they don't read as "more of the same card". ── */
+.landing-page .outline-card {
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  box-shadow: none;
+  transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+
+.landing-page .outline-card:hover {
+  border-color: var(--lp-glass-border);
+  background: var(--lp-surface-low);
+}
+
+/* ── Terminal frame: the hero's signature element. A live-data console
+   look (deep violet-black, inset highlight, soft glow) instead of a
+   static screenshot in a laptop bezel. ── */
+.landing-page .terminal-frame {
+  background: #05030f;
+  border: 1px solid rgba(99, 17, 244, 0.25);
+  box-shadow: 0 40px 100px -25px rgba(99, 17, 244, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 @keyframes float {
