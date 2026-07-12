@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
-import { configDotenv } from 'dotenv';
-configDotenv(); // load .env variables
+import 'dotenv/config';
 
 import { QueryRouter } from '../router/query-router.js';
 import { AggregationTools } from '../tools/aggregation.tools.js';

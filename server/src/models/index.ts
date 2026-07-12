@@ -14,7 +14,7 @@ export { default as Payment } from './payment.model.js';
 export { default as Notification } from './notification.model.js';
 export { default as AuditLog } from "./auditLog.model.js";
 export { default as RefreshToken } from "./refreshtoken.model.js";
-export { default as AnalyticsDaily } from "./analyticsdaily.model.js";
+export { default as AnalyticsDaily } from "./analyticsDaily.model.js";
 export { default as ReviewAnalytics } from "./reviewanalytics.model.js";
 export { default as WebhookLog } from "./webhooklog.model.js";
 export { default as Subscription } from './subscription.model.js';

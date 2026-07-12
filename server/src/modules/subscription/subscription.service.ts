@@ -127,13 +127,11 @@ export class SubscriptionService {
       const existing = await SubscriptionPlanModel.collection.findOne({ slug: planData.slug });
       if (!existing) {
         await SubscriptionRepository.createPlan(planData as any);
-        console.log(`[SubscriptionService] Seeded default plan: ${planData.name}`);
       } else {
         await SubscriptionPlanModel.updateOne(
           { _id: existing._id },
           { $set: { ...planData, isDeleted: false, isActive: true } }
         );
-        console.log(`[SubscriptionService] Synchronized default plan: ${planData.name}`);
       }
     }
   }
@@ -214,7 +212,6 @@ export class SubscriptionService {
   ): Promise<IRestaurantSubscriptionDocument> {
     let subscription = await SubscriptionRepository.findSubscriptionByTenant(tenantId);
     if (!subscription) {
-      console.log(`[SubscriptionService] Automatically onboarding tenant ${tenantId} on lazy-request`);
       const restaurant = await Restaurant.findOne({ tenantId: new Types.ObjectId(tenantId) });
       const restaurantId = restaurant ? restaurant._id : new Types.ObjectId();
       subscription = await this.onboardTenant(tenantId, restaurantId, userId);
@@ -461,7 +458,6 @@ export class SubscriptionService {
         graceEndsAt,
       });
 
-      console.log(`[SubscriptionService] Transitioned tenant ${sub.tenantId} to GRACE_PERIOD`);
       // Trigger Event / Notification (e.g. In-App Alert: Subscription Expired, 7 Days Grace Started)
     }
 
@@ -477,7 +473,6 @@ export class SubscriptionService {
         status: SubscriptionStatus.EXPIRED,
       });
 
-      console.log(`[SubscriptionService] Locked tenant ${sub.tenantId} to EXPIRED (Read-Only)`);
       // Trigger Expiry Notification
     }
   }
@@ -504,6 +499,5 @@ export class SubscriptionService {
       });
     }
 
-    console.log(`[SubscriptionService] Monthly usage counters reset for all active tenants`);
   }
 }

@@ -134,7 +134,6 @@ export class VectorSyncService {
    */
   static async syncAll(lastSyncTime: Date): Promise<number> {
     let totalSynced = 0;
-    console.log(`[VectorSyncService] Beginning Vector Sync for items updated since: ${lastSyncTime.toISOString()}`);
 
     // Ensure Qdrant collection is prepared
     await QdrantService.ensureCollection();
@@ -148,7 +147,6 @@ export class VectorSyncService {
 
         if (docs.length === 0) continue;
 
-        console.log(`[VectorSyncService] Syncing ${docs.length} records for ${config.entityType}...`);
         const points: any[] = [];
 
         for (const doc of docs) {
@@ -188,7 +186,6 @@ export class VectorSyncService {
       }
     }
 
-    console.log(`[VectorSyncService] Sync finished. Total points synced: ${totalSynced}`);
     return totalSynced;
   }
 

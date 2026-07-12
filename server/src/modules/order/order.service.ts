@@ -9,7 +9,7 @@ import Variant from "../../models/variant.model.js";
 import Addon from "../../models/addon.model.js";
 import Inventory from "../../models/inventory.model.js";
 import Payment from "../../models/payment.model.js";
-import { OrderStatus, PaymentStatus, NotificationType } from "../../models/enums.js";
+import { OrderStatus, PaymentStatus, NotificationType, PaymentMethod } from "../../models/enums.js";
 import { NotificationService } from "../notification/notification.service.js";
 import { EventBusService } from "../../events/eventBus.js";
 import { WaiterTaskService } from "./waiter-task.service.js";
@@ -387,8 +387,7 @@ export class OrderService {
         // 1. Fetch all items in the order
         const items = await OrderItem.find({ orderId: order._id, isDeleted: false }).session(session);
 
-        // 2. Pre-validate stock for all items
-        const stockUpdates: Array<{ inventory: any; newQty: number; isLowStock: boolean }> = [];
+        // 2. Pre-validate and deduct stock atomically
         for (const item of items) {
           let inventory: any = await Inventory.findOne({
             menuItemId: item.menuItemId,
@@ -409,26 +408,33 @@ export class OrderService {
             inventory = newInventory;
           }
 
-          if (inventory.quantity < item.quantity) {
+          // Atomically decrement stock quantity if it's greater than or equal to requested amount
+          const updatedInventory = await Inventory.findOneAndUpdate(
+            {
+              _id: inventory._id,
+              quantity: { $gte: item.quantity },
+              isDeleted: false
+            },
+            {
+              $inc: { quantity: -item.quantity },
+              $set: { updatedBy: userId ? new Types.ObjectId(userId) : null }
+            },
+            { new: true, session }
+          );
+
+          if (!updatedInventory) {
             throw new Error(`Insufficient inventory for item: ${item.name}. Available: ${inventory.quantity}, Requested: ${item.quantity}`);
           }
 
-          const newQty = inventory.quantity - item.quantity;
-          const isLowStock = newQty <= inventory.threshold;
-          stockUpdates.push({ inventory, newQty, isLowStock });
-        }
-
-        // 3. Deduct stock for all items
-        for (const update of stockUpdates) {
-          await Inventory.updateOne(
-            { _id: update.inventory._id },
-            {
-              quantity: update.newQty,
-              isLowStock: update.isLowStock,
-              updatedBy: userId ? new Types.ObjectId(userId) : null,
-            },
-            { session }
-          );
+          // Dynamically recompute low stock status flag
+          const isLowStock = updatedInventory.quantity <= updatedInventory.threshold;
+          if (isLowStock !== updatedInventory.isLowStock) {
+            await Inventory.updateOne(
+              { _id: updatedInventory._id },
+              { $set: { isLowStock } },
+              { session }
+            );
+          }
         }
       } else if (newStatus === OrderStatus.PREPARING) {
         updateFields.preparedAt = new Date();
@@ -465,6 +471,9 @@ export class OrderService {
           updateFields.completedAt = new Date();
         }
 
+        // Automatically set order paymentStatus to SUCCESS
+        updateFields.paymentStatus = PaymentStatus.SUCCESS;
+
         // CUSTOMER STATISTICS updates (prevent double counting)
         if (currentStatus !== OrderStatus.DELIVERED && currentStatus !== OrderStatus.COMPLETED) {
           await Customer.updateOne(
@@ -472,6 +481,39 @@ export class OrderService {
             { $inc: { totalOrders: 1, totalSpent: order.totalAmount } },
             { session }
           );
+        }
+
+        // Auto-payment recording logic within transaction session
+        const existingPayment = await Payment.findOne({
+          orderId: order._id,
+          tenantId: order.tenantId,
+          isDeleted: false
+        }).session(session);
+
+        if (!existingPayment) {
+          let paymentMethod = PaymentMethod.CASH; // default offline
+          let gatewayRemark = "Auto-paid via offline order completion";
+
+          const isExternalChannel = ["SWIGGY", "ZOMATO", "ONLINE", "DELIVERY", "TAKEAWAY", "ONDC", "WHATSAPP"].includes(order.source);
+          if (isExternalChannel) {
+            paymentMethod = PaymentMethod.UPI; // default online channel
+            gatewayRemark = `Auto-paid via channel (${order.source}) delivery confirmation`;
+          }
+
+          const payment = new Payment({
+            tenantId: order.tenantId,
+            orderId: order._id,
+            transactionId: `TXN-AUTO-${order.orderNumber || order._id}`,
+            paymentMethod,
+            amount: order.totalAmount,
+            currency: "INR",
+            status: PaymentStatus.SUCCESS,
+            gatewayResponse: { remark: gatewayRemark },
+            createdBy: userId ? new Types.ObjectId(userId) : null,
+            updatedBy: userId ? new Types.ObjectId(userId) : null,
+          });
+
+          await payment.save({ session });
         }
       }
 

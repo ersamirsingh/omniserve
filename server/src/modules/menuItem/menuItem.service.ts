@@ -6,8 +6,27 @@ import Variant from "../../models/variant.model.js";
 import Addon from "../../models/addon.model.js";
 import { escapeRegex } from "../../utils/sanitize.utils.js";
 import { EventBusService } from "../../events/eventBus.js";
+import { CacheUtils } from "../../utils/cache.utils.js";
 
 export class MenuItemService {
+  /**
+   * Helper to invalidate cache keys for a tenant/outlet
+   */
+  private static async invalidateCache(tenantId: string, outletId: string, itemId?: string): Promise<void> {
+    try {
+      const promises: Promise<void>[] = [
+        CacheUtils.delPattern(`cache:menu_items:tenant:${tenantId}:outlet:${outletId}:*`),
+        CacheUtils.delPattern(`cache:menu_items:tenant:${tenantId}:outlet:all:*`)
+      ];
+      if (itemId) {
+        promises.push(CacheUtils.del(`cache:menu_item:details:${itemId}`));
+      }
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("[MenuItemService] Cache invalidation failed:", err);
+    }
+  }
+
   /**
    * Validate that:
    * 1. The outlet exists and belongs to the tenant.
@@ -67,6 +86,9 @@ export class MenuItemService {
 
     const saved = await menuItem.save();
     
+    // Invalidate menu items cache for the tenant & outlet
+    await this.invalidateCache(tenantId, saved.outletId.toString());
+
     await EventBusService.publishMenuChanged(
       tenantId,
       saved.outletId,
@@ -86,6 +108,16 @@ export class MenuItemService {
     tenantId: string,
     filters: { limit: number; skip: number; search?: string; categoryId?: string; outletId?: string }
   ): Promise<{ menuItems: IMenuItem[]; total: number }> {
+    const outletIdStr = filters.outletId || 'all';
+    const categoryIdStr = filters.categoryId || 'all';
+    const searchStr = filters.search ? encodeURIComponent(filters.search) : 'none';
+    const cacheKey = `cache:menu_items:tenant:${tenantId}:outlet:${outletIdStr}:cat:${categoryIdStr}:search:${searchStr}:limit:${filters.limit}:skip:${filters.skip}`;
+
+    const cached = await CacheUtils.get<{ menuItems: IMenuItem[]; total: number }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const query: any = {
       tenantId: new Types.ObjectId(tenantId),
       isDeleted: false,
@@ -114,7 +146,12 @@ export class MenuItemService {
 
     const total = await MenuItem.countDocuments(query);
 
-    return { menuItems, total };
+    const result = { menuItems, total };
+    
+    // Cache the result for 1 hour (3600 seconds)
+    await CacheUtils.set(cacheKey, result, 3600);
+
+    return result;
   }
 
   /**
@@ -124,6 +161,12 @@ export class MenuItemService {
     id: string,
     tenantId: string
   ): Promise<{ menuItem: IMenuItem; variants: any[]; addons: any[] } | null> {
+    const cacheKey = `cache:menu_item:details:${id}`;
+    const cached = await CacheUtils.get<{ menuItem: IMenuItem; variants: any[]; addons: any[] }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const menuItem = await MenuItem.findOne({
       _id: new Types.ObjectId(id),
       tenantId: new Types.ObjectId(tenantId),
@@ -147,11 +190,16 @@ export class MenuItemService {
       }).sort({ createdAt: 1 }),
     ]);
 
-    return {
+    const result = {
       menuItem,
       variants,
       addons,
     };
+
+    // Cache the result for 1 hour (3600 seconds)
+    await CacheUtils.set(cacheKey, result, 3600);
+
+    return result;
   }
 
   static async getMenuItemById(id: string, tenantId: string): Promise<IMenuItem | null> {
@@ -214,6 +262,12 @@ export class MenuItemService {
     );
 
     if (updated) {
+      // Invalidate cache for old and new outlets
+      await this.invalidateCache(tenantId, updated.outletId.toString(), id);
+      if (data.outletId && data.outletId !== updated.outletId.toString()) {
+        await this.invalidateCache(tenantId, data.outletId);
+      }
+
       await EventBusService.publishMenuChanged(
         tenantId,
         updated.outletId,
@@ -250,6 +304,9 @@ export class MenuItemService {
     );
 
     if (updated) {
+      // Invalidate cache
+      await this.invalidateCache(tenantId, updated.outletId.toString(), id);
+
       await EventBusService.publishMenuChanged(
         tenantId,
         updated.outletId,
@@ -319,6 +376,9 @@ export class MenuItemService {
     ]);
 
     if (deletedMenuItem) {
+      // Invalidate cache
+      await this.invalidateCache(tenantId, deletedMenuItem.outletId.toString(), id);
+
       await EventBusService.publishMenuChanged(
         tenantId,
         deletedMenuItem.outletId,

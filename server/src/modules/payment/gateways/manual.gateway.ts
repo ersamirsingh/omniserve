@@ -20,7 +20,6 @@ export class ManualGateway implements PaymentGateway {
   }
 
   async cancelSubscription(paymentSubscriptionId: string): Promise<void> {
-    console.log(`[ManualGateway] Cancelled manual subscription: ${paymentSubscriptionId}`);
   }
 
   async createInvoice(

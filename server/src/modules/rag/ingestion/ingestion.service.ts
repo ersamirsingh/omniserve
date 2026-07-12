@@ -37,7 +37,6 @@ export class IngestionService {
       }
 
       const lastSyncTime = forceFullReindex ? new Date(0) : state.lastSyncedAt;
-      console.log(`[IngestionService] Starting sync job. Last sync: ${lastSyncTime.toISOString()}`);
 
       await RAGSyncState.updateOne(
         { serviceName: 'RAG_CHATBOT_PIPELINE' },
@@ -60,7 +59,6 @@ export class IngestionService {
         }
       );
 
-      console.log(`[IngestionService] Sync completed. Vector: ${vectorSynced}, Graph transactions: ${graphSynced}`);
 
       return {
         success: true,
@@ -90,11 +88,9 @@ export class IngestionService {
    */
   static startScheduler(intervalMs = 300000): void {
     if (this.intervalId) {
-      console.log('[IngestionService] Scheduler already running.');
       return;
     }
 
-    console.log(`[IngestionService] Starting incremental sync scheduler, running every ${intervalMs / 1000}s`);
     this.intervalId = setInterval(async () => {
       try {
         await this.runIncrementalSync();
@@ -111,7 +107,6 @@ export class IngestionService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('[IngestionService] Stopped sync scheduler.');
     }
   }
 }

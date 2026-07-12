@@ -1,8 +1,10 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import http from "http";
 import { AuthService } from "../modules/auth/auth.service.js";
 import { TokenBlacklistService } from "../modules/auth/tokenblacklist.service.js";
 import { RealtimeEvent } from "../types/socket-events.js";
+import connectRedis from "../config/redis.js";
 
 export class RealtimeService {
   private static io: SocketIOServer | null = null;
@@ -16,6 +18,21 @@ export class RealtimeService {
         methods: ["GET", "POST"],
         credentials: true
       }
+    });
+
+    // Configure Redis Adapter for horizontal scaling
+    connectRedis().then((pubClient) => {
+      if (pubClient && pubClient.isOpen) {
+        const subClient = pubClient.duplicate();
+        subClient.connect().then(() => {
+          this.io?.adapter(createAdapter(pubClient, subClient));
+          console.log("[RealtimeService] Socket.IO Redis Adapter configured successfully.");
+        }).catch((err) => {
+          console.error("[RealtimeService] Failed to connect Redis subClient for adapter:", err);
+        });
+      }
+    }).catch((err) => {
+      console.warn("[RealtimeService] Failed to configure Redis Adapter (running in standalone mode):", err.message);
     });
 
     // Authentication middleware
@@ -61,20 +78,17 @@ export class RealtimeService {
     // Connection handler
     this.io.on("connection", (socket: Socket) => {
       const { tenantId, outletId, role, sessionId } = socket.data;
-      console.log(`[RealtimeService] New connection: SocketId=${socket.id}, TenantId=${tenantId}, OutletId=${outletId}, Role=${role}`);
 
       // 1. Join Outlet room automatically if tenantId, outletId exist and role is not CUSTOMER
       if (tenantId && outletId && role !== "CUSTOMER") {
         const outletRoom = `tenant:${tenantId}:outlet:${outletId}`;
         socket.join(outletRoom);
-        console.log(`[RealtimeService] Socket ${socket.id} joined room: ${outletRoom}`);
       }
 
       // 2. Join Session room automatically if guest has sessionId on handshake
       if (sessionId) {
         const sessionRoom = `session:${sessionId}`;
         socket.join(sessionRoom);
-        console.log(`[RealtimeService] Socket ${socket.id} joined room: ${sessionRoom}`);
       }
 
       // 3. Dynamic Room Join / Leave handlers
@@ -82,7 +96,6 @@ export class RealtimeService {
         if (data?.sessionId) {
           const sessionRoom = `session:${data.sessionId}`;
           socket.join(sessionRoom);
-          console.log(`[RealtimeService] Socket ${socket.id} joined session room: ${sessionRoom}`);
           socket.emit("joined_session", { sessionId: data.sessionId });
         }
       });
@@ -91,7 +104,6 @@ export class RealtimeService {
         if (data?.sessionId) {
           const sessionRoom = `session:${data.sessionId}`;
           socket.leave(sessionRoom);
-          console.log(`[RealtimeService] Socket ${socket.id} left session room: ${sessionRoom}`);
           socket.emit("left_session", { sessionId: data.sessionId });
         }
       });
@@ -100,7 +112,6 @@ export class RealtimeService {
         if (data?.outletId) {
           const kitchenRoom = `kitchen:${data.outletId}`;
           socket.join(kitchenRoom);
-          console.log(`[RealtimeService] Socket ${socket.id} joined kitchen room: ${kitchenRoom}`);
           socket.emit("joined_kitchen", { outletId: data.outletId });
         }
       });
@@ -109,13 +120,12 @@ export class RealtimeService {
         if (data?.outletId) {
           const kitchenRoom = `kitchen:${data.outletId}`;
           socket.leave(kitchenRoom);
-          console.log(`[RealtimeService] Socket ${socket.id} left kitchen room: ${kitchenRoom}`);
           socket.emit("left_kitchen", { outletId: data.outletId });
         }
       });
 
       socket.on("disconnect", () => {
-        console.log(`[RealtimeService] Disconnected: SocketId=${socket.id}`);
+        // No-op
       });
     });
 
@@ -136,7 +146,6 @@ export class RealtimeService {
     if (!this.io) return;
     const room = `tenant:${tenantId.toString()}:outlet:${outletId.toString()}`;
     this.io.to(room).emit(event, payload);
-    console.log(`[RealtimeService] Broadcast event '${event}' to outlet room '${room}'`);
   }
 
   /**
@@ -146,7 +155,6 @@ export class RealtimeService {
     if (!this.io) return;
     const room = `session:${sessionId.toString()}`;
     this.io.to(room).emit(event, payload);
-    console.log(`[RealtimeService] Broadcast event '${event}' to session room '${room}'`);
   }
 
   /**
@@ -156,6 +164,5 @@ export class RealtimeService {
     if (!this.io) return;
     const room = `kitchen:${outletId.toString()}`;
     this.io.to(room).emit(event, payload);
-    console.log(`[RealtimeService] Broadcast event '${event}' to kitchen room '${room}'`);
   }
 }

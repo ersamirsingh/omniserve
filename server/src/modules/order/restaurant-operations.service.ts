@@ -767,7 +767,6 @@ export class RestaurantOperationsService {
     });
 
     if (existingTask) {
-      console.log(`[RestaurantOperationsService] Pending task of type ${taskType} already exists for session ${sessionId}. Skipping duplicate creation.`);
       return existingTask;
     }
 
@@ -839,7 +838,6 @@ export class RestaurantOperationsService {
     });
 
     if (existingTask) {
-      console.log(`[RestaurantOperationsService] Food runner task already exists for order ${orderId}. Skipping duplicate creation.`);
       return existingTask;
     }
 
@@ -899,7 +897,6 @@ export class RestaurantOperationsService {
     });
 
     if (existingTask) {
-      console.log(`[RestaurantOperationsService] Cleaning task already exists for session ${sessionId}. Skipping duplicate creation.`);
       return existingTask;
     }
 
@@ -950,7 +947,6 @@ export class RestaurantOperationsService {
     });
 
     if (existingTask) {
-      console.log(`[RestaurantOperationsService] Bill delivery task already exists for session ${sessionId}. Skipping duplicate creation.`);
       return existingTask;
     }
 

@@ -24,7 +24,6 @@ export async function checkSlaBreaches(): Promise<void> {
         task.escalatedAt = now;
         await task.save();
 
-        console.log(`[WaiterTaskEscalationWorker] SLA breach detected on task ${task._id} (${task.taskType}). Elapsed: ${elapsed}ms, limit: ${task.slaLimitMs}ms. Escalating.`);
 
         // Publish event to the Transactional Outbox Event Bus
         await EventBusService.publishWaiterTaskEscalated(
@@ -55,7 +54,6 @@ export async function checkSlaBreaches(): Promise<void> {
  */
 export function startWaiterTaskEscalationWorker(intervalMs = 15000): void {
   if (checkerInterval) return;
-  console.log(`[WaiterTaskEscalationWorker] Starting background SLA escalation checker daemon (interval: ${intervalMs}ms)`);
   checkerInterval = setInterval(() => checkSlaBreaches(), intervalMs);
 }
 
@@ -66,6 +64,5 @@ export function stopWaiterTaskEscalationWorker(): void {
   if (checkerInterval) {
     clearInterval(checkerInterval);
     checkerInterval = null;
-    console.log(`[WaiterTaskEscalationWorker] Stopped background SLA escalation checker daemon`);
   }
 }

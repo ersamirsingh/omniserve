@@ -16,7 +16,6 @@ export class MockSwiggyConnector extends MockProviderConnector {
     syncType: SyncJobType,
     payload: unknown
   ): Promise<any> {
-    console.log(`[MockSwiggyConnector] Starting sync for event: ${event.eventType}, type: ${syncType}`);
 
     const syncJob = new SyncJob({
       tenantId,
@@ -74,7 +73,6 @@ export class MockSwiggyConnector extends MockProviderConnector {
         { upsert: true }
       );
 
-      console.log(`[MockSwiggyConnector] Sync success for event: ${event._id}`);
       return responsePayload;
     } catch (error: any) {
       console.error(`[MockSwiggyConnector] Sync failed for event ${event._id}: ${error.message}`);

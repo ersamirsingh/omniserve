@@ -137,7 +137,6 @@ export class RagController {
 
       // 1. Classify the user query
       const decision: IRouteDecision = await QueryRouter.classifyQuery(message, role);
-      console.log(`[RagController] Query: "${message}" | Classified as:`, decision);
 
       // 2. Enforce tenancy security boundary at data access layer
       const security = QueryRouter.enforceSecurityScope(req.user, decision.toolParams || {});

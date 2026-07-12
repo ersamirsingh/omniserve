@@ -75,6 +75,8 @@ export class PaymentService {
 
       const savedPayment = await payment.save({ session });
 
+      console.log(`[PaymentService] Payment processed: status=${savedPayment.status}, amount=${savedPayment.amount}, orderId=${savedPayment.orderId}, transactionId=${savedPayment.transactionId}`);
+
       // Synchronize Order paymentStatus
       await Order.updateOne(
         { _id: orderObjectId, tenantId: tenantObjectId },

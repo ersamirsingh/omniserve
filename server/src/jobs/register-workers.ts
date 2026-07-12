@@ -110,5 +110,4 @@ export function initWorkerRegistry(): void {
   workerRegistry.register("BILL_SPLIT_CREATED", realtimeSyncWorker);
   workerRegistry.register("BILL_SETTLED", realtimeSyncWorker);
 
-  console.log('[WorkerRegistry] Registered 38 background event sync workers.');
 }

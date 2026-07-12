@@ -14,7 +14,6 @@ export class ToolExecutor {
     const tenantId = securityScope.tenantId;
     const outletId = securityScope.outletId;
 
-    console.log(`[ToolExecutor] Executing aggregation tool: ${toolName} with scope:`, securityScope);
 
     switch (toolName) {
       case 'getRevenueByPeriod':

@@ -11,7 +11,6 @@ export class GraphSyncService {
    * @param {Date} lastSyncTime - Sync records updated after this date
    */
   static async syncAll(lastSyncTime: Date): Promise<number> {
-    console.log(`[GraphSyncService] Beginning Graph Sync for records updated since: ${lastSyncTime.toISOString()}`);
     let txCount = 0;
     const queries: INeo4jWriteQuery[] = [];
 
@@ -304,7 +303,6 @@ export class GraphSyncService {
       throw error;
     }
 
-    console.log(`[GraphSyncService] Sync finished. Total Cypher transactions: ${txCount}`);
     return txCount;
   }
 }

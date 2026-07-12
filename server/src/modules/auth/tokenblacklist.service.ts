@@ -27,7 +27,6 @@ export class TokenBlacklistService {
         })
       );
 
-      console.log(`Token blacklisted for ${expiresIn} seconds`);
     } catch (error) {
       console.error('Error adding token to blacklist:', error);
       throw error;
@@ -57,7 +56,6 @@ export class TokenBlacklistService {
 
       if (keys.length > 0) {
         await this.redisClient!.del(keys);
-        console.log(`Revoked ${keys.length} tokens for user ${userId}`);
       }
     } catch (error) {
       console.error('Error revoking user tokens:', error);
@@ -109,7 +107,6 @@ export class TokenBlacklistService {
 
       if (keys.length > 0) {
         await this.redisClient!.del(keys);
-        console.log(`Cleared ${keys.length} blacklisted tokens`);
       }
     } catch (error) {
       console.error('Error clearing blacklist:', error);

@@ -39,14 +39,12 @@ export async function inventorySyncWorker(event: IIntegrationEventQueue): Promis
   }
 
   if (connections.length === 0) {
-    console.log(`[InventorySyncWorker] No active channel connections found for tenant ${event.tenantId}, outlet ${event.outletId}`);
     return;
   }
 
   for (const connection of connections) {
     // Capability Guard
     if (connection.capabilities && connection.capabilities.inventorySync === false) {
-      console.log(`[InventorySyncWorker] Connection ${connection._id} (${connection.provider}) does not have inventorySync capability. Skipping.`);
       continue;
     }
 
@@ -57,13 +55,11 @@ export async function inventorySyncWorker(event: IIntegrationEventQueue): Promis
       connection.provider
     );
     if (isCircuitOpen) {
-      console.log(`[InventorySyncWorker] Circuit is OPEN for provider ${connection.provider} at outlet ${event.outletId}. Skipping connection.`);
       continue;
     }
 
     const connector = connectors[connection.provider];
     if (!connector) {
-      console.log(`[InventorySyncWorker] No connector implementation found for provider ${connection.provider}. Skipping.`);
       continue;
     }
 
