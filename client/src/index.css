@@ -193,12 +193,12 @@ body {
 /* ── Landing Page Scoped Styles & Animations ── */
 .landing-page {
   font-family: 'Inter', sans-serif;
-  background-color: #FAF8FF !important;
-  color: #000000 !important;
-  --on-surface: #000000 !important;
-  --color-on-surface: #000000 !important;
-  --on-background: #000000 !important;
-  --color-on-background: #000000 !important;
+  background-color: #FAF8FF;
+  color: #000000;
+  --on-surface: #000000;
+  --color-on-surface: #000000;
+  --on-background: #000000;
+  --color-on-background: #000000;
 
   /* Redefine surface containers as UrbanPiper style light slate/lavender */
   --surface-container-low: #f3f5f8;
@@ -216,23 +216,65 @@ body {
 
 /* Explicit background overrides to override Tailwind utilities */
 .landing-page .bg-surface-container-low {
-  background-color: #f3f5f8 !important;
+  background-color: #f3f5f8;
 }
 
 .landing-page .bg-surface-container {
-  background-color: #f7f6fc !important;
+  background-color: #f7f6fc;
 }
 
 .landing-page .bg-surface-container-high {
-  background-color: #e4e4e4 !important;
+  background-color: #e4e4e4;
 }
 
 .landing-page .bg-surface-container-highest {
-  background-color: #c8c8c8 !important;
+  background-color: #c8c8c8;
 }
 
 .landing-page .bg-background {
-  background-color: #ffffff !important;
+  background-color: #ffffff;
+}
+
+/* Dark mode overrides */
+.dark .landing-page {
+  background-color: #141316 !important;
+  color: #e6e1e5 !important;
+  --on-surface: #e6e1e5 !important;
+  --color-on-surface: #e6e1e5 !important;
+  --on-background: #e6e1e5 !important;
+  --color-on-background: #e6e1e5 !important;
+
+  --surface-container-low: #1c1b1e;
+  --color-surface-container-low: #1c1b1e;
+
+  --surface-container: #1b191c;
+  --color-surface-container: #1b191c;
+
+  --surface-container-high: #2b292d;
+  --color-surface-container-high: #2b292d;
+
+  --surface-container-highest: #363438;
+  --color-surface-container-highest: #363438;
+}
+
+.dark .landing-page .bg-surface-container-low {
+  background-color: #1c1b1e !important;
+}
+
+.dark .landing-page .bg-surface-container {
+  background-color: #1b191c !important;
+}
+
+.dark .landing-page .bg-surface-container-high {
+  background-color: #2b292d !important;
+}
+
+.dark .landing-page .bg-surface-container-highest {
+  background-color: #363438 !important;
+}
+
+.dark .landing-page .bg-background {
+  background-color: #141316 !important;
 }
 
 .landing-page .font-display-lg {
@@ -285,17 +327,35 @@ body {
   line-height: 1.4;
 }
 
+.landing-page .glass-card:not([class*="bg-"]) {
+  background: #ffffff;
+}
+
 .landing-page .glass-card {
-  background: #ffffff !important;
-  border: 1px solid #e4e8ef !important;
-  box-shadow: 0px 8px 24px rgba(62, 73, 95, 0.04) !important;
-  transition: all 0.3s ease !important;
+  border: 1px solid #e4e8ef;
+  box-shadow: 0px 8px 24px rgba(62, 73, 95, 0.04);
+  transition: all 0.3s ease;
 }
 
 .landing-page .glass-card:hover {
-  transform: translateY(-2px) scale(1.01) !important;
-  box-shadow: 0px 12px 30px rgba(99, 17, 244, 0.08) !important;
-  border-color: rgba(99, 17, 244, 0.2) !important;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0px 12px 30px rgba(99, 17, 244, 0.08);
+  border-color: rgba(99, 17, 244, 0.2);
+}
+
+.dark .landing-page .glass-card:not([class*="bg-"]) {
+  background: #181922 !important;
+}
+
+.dark .landing-page .glass-card {
+  border: 1px solid #282a39 !important;
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.2) !important;
+  color: #e6e1e5 !important;
+}
+
+.dark .landing-page .glass-card:hover {
+  box-shadow: 0px 12px 30px rgba(99, 17, 244, 0.15) !important;
+  border-color: rgba(147, 85, 255, 0.3) !important;
 }
 
 @keyframes float {
@@ -320,6 +380,16 @@ body {
 .landing-page .reveal.active {
   opacity: 1;
   transform: translateY(0);
+}
+
+@keyframes gradient-glow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.landing-page .bg-gradient-glow {
+  background-size: 200% 200%;
+  animation: gradient-glow 12s ease infinite;
 }
 
 /* ── Guest Ordering Scoped Styles ── */
