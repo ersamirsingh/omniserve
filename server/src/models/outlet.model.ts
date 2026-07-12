@@ -26,6 +26,7 @@ export interface IOutlet extends Document {
   operatingHours: IOperatingHours[];
   waiterTaskSlas?: Map<string, number>;
   status: UserStatus;
+  orderCancellationApproval?: 'WAITER' | 'MANAGER' | 'KITCHEN' | 'AUTO';
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -167,6 +168,14 @@ const outletSchema = new Schema<IOutlet>(
         message: 'Invalid outlet status: {VALUE}',
       },
       default: UserStatus.ACTIVE,
+    },
+    orderCancellationApproval: {
+      type: String,
+      enum: {
+        values: ['WAITER', 'MANAGER', 'KITCHEN', 'AUTO'],
+        message: 'Invalid cancellation approval type: {VALUE}'
+      },
+      default: 'WAITER'
     },
     createdBy: {
       type: Schema.Types.ObjectId,
