@@ -12,7 +12,7 @@
     "clean": "rm -rf dist",
     "seed": "tsx src/scripts/seed.ts",
     "test:dining": "tsx tests/e2e_dining_workflow.ts",
-    "test:acceptance": "tsx tests/acceptance/guest/guest-flow.test.ts && tsx tests/acceptance/online/online-flow.test.ts",
+    "test:acceptance": "tsx tests/acceptance/guest/guest-flow.test.ts && tsx tests/acceptance/online/online-flow.test.ts && tsx tests/acceptance/guest/phase9-features.test.ts",
     "test": "npm run test:acceptance"
   },
   "keywords": [
