@@ -6,7 +6,6 @@ interface SendMailOptions {
   subject: string;
   text: string;
   html: string;
-  replyTo?: string;
 }
 
 export class EmailService {
@@ -38,7 +37,6 @@ export class EmailService {
     await transporter.sendMail({
       from: process.env.SMTP_USER,
       to: options.to,
-      replyTo: options.replyTo,
       subject: options.subject,
       text: options.text,
       html: options.html,

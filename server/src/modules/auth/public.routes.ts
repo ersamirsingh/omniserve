@@ -3,9 +3,6 @@ import { PublicController } from "./public.controller.js";
 
 const publicRouter = Router();
 
-// Landing page contact/demo requests
-publicRouter.post("/contact", PublicController.submitContactRequest);
-
 // Retrieve public menu for an outlet slug
 publicRouter.get("/o/:outletSlug/menu", PublicController.getPublicMenu);
 

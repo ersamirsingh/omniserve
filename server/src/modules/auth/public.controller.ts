@@ -30,84 +30,8 @@ import { WaiterTaskService } from "../order/waiter-task.service.js";
 import Payment from "../../models/payment.model.js";
 import { PaymentMethod, PaymentStatus } from "../../models/enums.js";
 import { CouponService } from "../coupon/coupon.service.js";
-import { EmailService } from "../notification/email.service.js";
-
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "ajaygurjar78692@gmail.com";
-const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 export class PublicController {
-  /**
-   * POST /api/public/contact
-   * Sends landing page contact/demo requests to the enterprise team inbox.
-   */
-  static async submitContactRequest(req: Request, res: Response): Promise<void> {
-    try {
-      const firstName = String(req.body?.firstName || "").trim();
-      const lastName = String(req.body?.lastName || "").trim();
-      const email = String(req.body?.email || "").trim().toLowerCase();
-      const message = String(req.body?.message || "").trim();
-
-      if (!firstName || !email || !message) {
-        ApiResponseHandler.badRequest(res, "First name, email, and message are required");
-        return;
-      }
-
-      if (!EMAIL_REGEX.test(email)) {
-        ApiResponseHandler.badRequest(res, "Please provide a valid email address");
-        return;
-      }
-
-      if (firstName.length > 80 || lastName.length > 80 || email.length > 160 || message.length > 2000) {
-        ApiResponseHandler.badRequest(res, "Contact request is too long");
-        return;
-      }
-
-      const fullName = [firstName, lastName].filter(Boolean).join(" ");
-      const subject = `OmniServe demo request from ${fullName}`;
-      const text = [
-        "New OmniServe contact request",
-        "",
-        `Name: ${fullName}`,
-        `Email: ${email}`,
-        "",
-        "Message:",
-        message,
-      ].join("\n");
-
-      const html = `
-        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
-          <h2 style="margin:0 0 16px">New OmniServe contact request</h2>
-          <p><strong>Name:</strong> ${escapeHtml(fullName)}</p>
-          <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-          <p><strong>Message:</strong></p>
-          <p style="white-space:pre-line">${escapeHtml(message)}</p>
-        </div>
-      `;
-
-      await EmailService.sendMail({
-        to: CONTACT_EMAIL,
-        replyTo: email,
-        subject,
-        text,
-        html,
-      });
-
-      ApiResponseHandler.success(res, 200, "Contact request sent successfully");
-    } catch (error: any) {
-      console.error("Failed to send contact request", error);
-      ApiResponseHandler.internalError(res, "Failed to send contact request");
-    }
-  }
-
   /**
    * GET /api/public/o/:outletSlug/menu
    * Retrieves categories, items, variants, and addons for a slug
