@@ -7,7 +7,12 @@ import WaiterTask, { WaiterTaskType } from "../../models/waitertask.model.js";
 import QRSession from "../../models/qrsession.model.js";
 import Table from "../../models/table.model.js";
 import Order from "../../models/order.model.js";
+import OrderItem from "../../models/orderItem.model.js";
+import Inventory from "../../models/inventory.model.js";
 import OrderTimeline from "../../models/ordertimeline.model.js";
+import { OrderService } from "./order.service.js";
+import { BillingService } from "./billing.service.js";
+import { OrderStatus } from "../../models/enums.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 // Helper to map assistance action strings to typed WaiterTaskType
@@ -71,7 +76,7 @@ export class RestaurantOperationsService {
   static async executeOperation(command: {
     tenantId: string | Types.ObjectId;
     outletId: string | Types.ObjectId;
-    operationType: 'TRANSFER_TABLE' | 'MERGE_TABLE' | 'UNMERGE_TABLE' | 'MOVE_SEAT' | 'SWAP_SEAT' | 'ADD_SEAT' | 'REMOVE_SEAT' | 'CHANGE_GUEST_COUNT' | 'CHANGE_WAITER' | 'CLOSE_SESSION' | 'REQUEST_BILL' | 'START_CLEANING';
+    operationType: 'TRANSFER_TABLE' | 'MERGE_TABLE' | 'UNMERGE_TABLE' | 'MOVE_SEAT' | 'SWAP_SEAT' | 'ADD_SEAT' | 'REMOVE_SEAT' | 'CHANGE_GUEST_COUNT' | 'CHANGE_WAITER' | 'CLOSE_SESSION' | 'REQUEST_BILL' | 'START_CLEANING' | 'ACKNOWLEDGE_TASK' | 'START_TASK' | 'COMPLETE_TASK' | 'ESCALATE_TASK' | 'APPROVE_ORDER_CANCEL' | 'REJECT_ORDER_CANCEL';
     payload: any;
     triggeredById?: string | Types.ObjectId;
   }): Promise<IOperationResult> {
@@ -715,6 +720,168 @@ export class RestaurantOperationsService {
           if (task) {
             waiterTasksList.push(task._id.toString());
           }
+          break;
+        }
+
+        case 'ACKNOWLEDGE_TASK': {
+          const { taskId } = payload;
+          const task = await WaiterTaskService.acknowledgeTask(taskId, (command.triggeredById || new Types.ObjectId().toString()).toString());
+          if (task) {
+            affectedSessions.add(task.sessionId.toString());
+            waiterTasksList.push(task._id.toString());
+            const { RealtimeService } = await import("../../sockets/realtime.service.js");
+            RealtimeService.sendToSession(task.sessionId.toString(), "WAITER_TASK_ASSIGNED" as any, { taskId: task._id.toString(), status: "ACKNOWLEDGED", waiterId: task.assignedWaiterId });
+          }
+          break;
+        }
+
+        case 'START_TASK': {
+          const { taskId } = payload;
+          const task = await WaiterTaskService.startTaskProgress(taskId);
+          if (task) {
+            affectedSessions.add(task.sessionId.toString());
+            waiterTasksList.push(task._id.toString());
+            const { RealtimeService } = await import("../../sockets/realtime.service.js");
+            RealtimeService.sendToSession(task.sessionId.toString(), "WAITER_TASK_IN_PROGRESS" as any, { taskId: task._id.toString(), status: "IN_PROGRESS" });
+          }
+          break;
+        }
+
+        case 'COMPLETE_TASK': {
+          const { taskId } = payload;
+          const task = await WaiterTaskService.completeTask(taskId);
+          if (task) {
+            affectedSessions.add(task.sessionId.toString());
+            waiterTasksList.push(task._id.toString());
+            const { RealtimeService } = await import("../../sockets/realtime.service.js");
+            RealtimeService.sendToSession(task.sessionId.toString(), "WAITER_TASK_COMPLETED" as any, { taskId: task._id.toString(), status: "COMPLETED" });
+          }
+          break;
+        }
+
+        case 'ESCALATE_TASK': {
+          const { taskId } = payload;
+          const task = await WaiterTaskService.escalateTask(taskId);
+          if (task) {
+            affectedSessions.add(task.sessionId.toString());
+            waiterTasksList.push(task._id.toString());
+            const { RealtimeService } = await import("../../sockets/realtime.service.js");
+            RealtimeService.sendToSession(task.sessionId.toString(), "WAITER_TASK_ESCALATED" as any, { taskId: task._id.toString(), status: "ESCALATED" });
+          }
+          break;
+        }
+
+        case 'APPROVE_ORDER_CANCEL': {
+          const { taskId, reason } = payload;
+          const task = await WaiterTask.findOne({ _id: new Types.ObjectId(taskId), isDeleted: false });
+          if (!task) throw new Error(`Waiter task ${taskId} not found`);
+
+          const sessionId = task.sessionId;
+          let ordersToCancel = [];
+          if (task.associatedOrderId) {
+            const order = await Order.findOne({ _id: task.associatedOrderId, tenantId, isDeleted: false });
+            if (order) ordersToCancel.push(order);
+          } else {
+            ordersToCancel = await Order.find({
+              "diningContext.sessionId": sessionId,
+              tenantId,
+              orderStatus: { $in: [OrderStatus.PENDING, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY] },
+              isDeleted: false
+            });
+          }
+
+          // If a specific itemId is set in metadata (partial cancellation)
+          const cancelItemId = task.metadata?.itemId;
+          if (cancelItemId) {
+            const itemObjId = new Types.ObjectId(cancelItemId);
+            const orderItem = await OrderItem.findOne({ _id: itemObjId, tenantId, isDeleted: false });
+            if (orderItem) {
+              orderItem.status = "CANCELLED" as any;
+              await orderItem.save();
+
+              const parentOrder = await Order.findById(orderItem.orderId);
+              if (parentOrder) {
+                const siblingItems = await OrderItem.find({ orderId: parentOrder._id, status: { $ne: "CANCELLED" as any }, isDeleted: false });
+                const newSubtotal = siblingItems.reduce((sum, i) => sum + i.totalPrice, 0);
+                const newTax = parseFloat((newSubtotal * 0.05).toFixed(2));
+                const newTotal = newSubtotal + newTax;
+
+                parentOrder.subtotal = newSubtotal;
+                parentOrder.tax = newTax;
+                parentOrder.totalAmount = newTotal;
+                
+                if (siblingItems.length === 0) {
+                  parentOrder.orderStatus = OrderStatus.CANCELLED;
+                  parentOrder.cancelledAt = new Date();
+                  parentOrder.cancellationReason = reason || "All items cancelled";
+                }
+                await parentOrder.save();
+                affectedOrders.add(parentOrder._id.toString());
+              }
+
+              const parentOrderCurrentStatus = parentOrder?.orderStatus;
+              if (parentOrderCurrentStatus && [OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY].includes(parentOrderCurrentStatus)) {
+                const inventory = await Inventory.findOne({
+                  menuItemId: orderItem.menuItemId,
+                  outletId,
+                  tenantId,
+                  isDeleted: false
+                });
+                if (inventory) {
+                  const newQty = inventory.quantity + orderItem.quantity;
+                  await Inventory.updateOne({ _id: inventory._id }, { quantity: newQty, isLowStock: newQty <= inventory.threshold });
+                }
+              }
+
+              await OrderTimeline.create({
+                tenantId,
+                qrsessionId: sessionId,
+                orderId: orderItem.orderId,
+                status: "ORDER_UPDATED" as any,
+                notes: `Cancelled Item: ${orderItem.name}. Reason: ${reason || "Approved by staff"}`,
+                timestamp: new Date(),
+                audit: {
+                  ...(command.triggeredById && { triggeredById: new Types.ObjectId(command.triggeredById) })
+                }
+              });
+            }
+          } else {
+            for (const order of ordersToCancel) {
+              await OrderService.cancelOrder(order._id.toString(), tenantId.toString(), reason || "Cancellation approved by staff", command.triggeredById?.toString());
+              affectedOrders.add(order._id.toString());
+            }
+          }
+
+          task.status = "COMPLETED";
+          task.completedAt = new Date();
+          task.metadata = { ...(task.metadata || {}), approvalStatus: "APPROVED", approvalReason: reason || "Approved by staff" };
+          await task.save();
+
+          await BillingService.recalculateBillSession(tenantId, sessionId);
+
+          affectedSessions.add(sessionId.toString());
+          waiterTasksList.push(task._id.toString());
+
+          const { RealtimeService } = await import("../../sockets/realtime.service.js");
+          RealtimeService.sendToSession(sessionId.toString(), "ORDER_CANCEL_APPROVED" as any, { taskId: task._id.toString(), status: "APPROVED" });
+          break;
+        }
+
+        case 'REJECT_ORDER_CANCEL': {
+          const { taskId, reason } = payload;
+          const task = await WaiterTask.findOne({ _id: new Types.ObjectId(taskId), isDeleted: false });
+          if (!task) throw new Error(`Waiter task ${taskId} not found`);
+
+          task.status = "COMPLETED";
+          task.completedAt = new Date();
+          task.metadata = { ...(task.metadata || {}), approvalStatus: "REJECTED", rejectionReason: reason || "Rejected by staff" };
+          await task.save();
+
+          affectedSessions.add(task.sessionId.toString());
+          waiterTasksList.push(task._id.toString());
+
+          const { RealtimeService } = await import("../../sockets/realtime.service.js");
+          RealtimeService.sendToSession(task.sessionId.toString(), "ORDER_CANCEL_REJECTED" as any, { taskId: task._id.toString(), status: "REJECTED", reason });
           break;
         }
 

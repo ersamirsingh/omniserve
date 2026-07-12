@@ -54,5 +54,6 @@ publicRouter.get("/o/:outletSlug/coupons", PublicController.listOutletCoupons);
 // Guest Session details
 publicRouter.patch("/qr/guest/session", PublicController.updateGuestSession);
 publicRouter.post("/qr/guest/session/leave", PublicController.leaveGuestSession);
+publicRouter.post("/orders/:orderId/items/:itemId/cancel", PublicController.cancelOrderItem);
 
 export default publicRouter;
