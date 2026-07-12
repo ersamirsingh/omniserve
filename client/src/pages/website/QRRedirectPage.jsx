@@ -126,7 +126,7 @@ export default function QRRedirectPage() {
   // Welcome / Profile Setup Form Screen
   if (showWelcome && resolvedPayload) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-5 guest-ordering">
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-5 guest-ordering" style={{ colorScheme: 'light' }}>
         <div className="bg-white border border-zinc-100 rounded-3xl p-6 w-full max-w-md shadow-xl shadow-zinc-200/50 space-y-6">
           <div className="text-center space-y-3">
             <div className="w-14 h-14 bg-[#6311f4]/5 border border-[#6311f4]/10 rounded-2xl flex items-center justify-center mx-auto text-[#6311f4] text-2xl font-black">
@@ -149,7 +149,7 @@ export default function QRRedirectPage() {
               onChange={(e) => setGuestName(e.target.value)}
               required
               icon="person"
-              className="bg-zinc-50 border-zinc-100 text-zinc-900 text-xs focus:border-[#6311f4]"
+              className="!bg-white !text-zinc-900 !border-zinc-200 !placeholder-zinc-400 text-xs focus:!border-[#6311f4]"
             />
 
             <Input
@@ -159,7 +159,7 @@ export default function QRRedirectPage() {
               onChange={(e) => setGuestPhone(e.target.value)}
               icon="phone"
               type="tel"
-              className="bg-zinc-50 border-zinc-100 text-zinc-900 text-xs focus:border-[#6311f4]"
+              className="!bg-white !text-zinc-900 !border-zinc-200 !placeholder-zinc-400 text-xs focus:!border-[#6311f4]"
             />
 
             <div className="pt-2 flex gap-3">
