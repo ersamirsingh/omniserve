@@ -9,8 +9,11 @@ export const getPublicCategoriesApi = (outletSlug) =>
 export const getPublicMenuItemApi = (outletSlug, itemId) =>
   api.get(`/public/o/${outletSlug}/menu/${itemId}`);
 
-export const getCartApi = () =>
-  api.get("/public/cart");
+export const getCartApi = () => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.get("/public/cart", { headers });
+};
 
 export const createOrUpdateCartApi = (data) =>
   api.post("/public/cart", data);

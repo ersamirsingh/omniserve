@@ -457,7 +457,7 @@ export class PublicController {
    */
   static async requestQrAssistance(req: Request, res: Response): Promise<void> {
     try {
-      const { tableToken, action, seatNumber } = req.body;
+      const { tableToken, action, seatNumber, notes } = req.body;
 
       if (!tableToken || !action) {
         ApiResponseHandler.badRequest(res, "Missing tableToken or assistance action parameter");
@@ -471,7 +471,7 @@ export class PublicController {
         return;
       }
 
-      // 2. Resolve or create active session
+      // 2. Resolve active session
       let session = await QRSession.findOne({
         tableId: table._id,
         status: { $in: ["OPEN", "ACTIVE", "ORDERING", "DINING", "PAYMENT_PENDING", "ORDERED"] },
@@ -490,51 +490,72 @@ export class PublicController {
           seatNumber: seatNumber || null
         });
         await session.save();
-
-        // Update table operational status to OCCUPIED
         table.operationalStatus = "OCCUPIED";
         await table.save();
-
-        // Publish table occupied event
         await EventBusService.publishTableOccupied(
-          table.tenantId,
-          table.outletId,
-          table._id,
-          {
-            tableId: table._id.toString(),
-            tableNumber: table.tableNumber,
-            status: table.operationalStatus,
-            updatedAt: new Date()
-          },
+          table.tenantId, table.outletId, table._id,
+          { tableId: table._id.toString(), tableNumber: table.tableNumber, status: table.operationalStatus, updatedAt: new Date() },
           { correlationId: session.sessionToken }
         );
       }
 
-      // 3. Construct event payload and publish QR_ASSISTANCE_REQUESTED outbox event
-      const actionText = String(action).toUpperCase();
-      const payload = {
-        tenantId: table.tenantId.toString(),
-        outletId: table.outletId.toString(),
-        tableId: table._id.toString(),
-        sessionId: session._id.toString(),
-        assistanceType: actionText,
-        seatNumber: seatNumber || null,
-        createdAt: new Date()
+      // 3. Map guest action string to WaiterTaskType
+      const ACTION_MAP: Record<string, import("../../models/waitertask.model.js").WaiterTaskType> = {
+        NEED_WATER:   "WATER",
+        WATER:        "WATER",
+        NEED_SPOON:   "SPOON",
+        SPOON:        "SPOON",
+        NEED_TISSUE:  "TISSUE",
+        TISSUE:       "TISSUE",
+        NEED_BILL:    "BILL",
+        BILL:         "BILL",
+        CALL_WAITER:  "CUSTOM",
+        SERVE_FOOD:   "SERVE_FOOD",
+        CLEANING_REQUIRED: "CLEANING",
+        CLEANING:     "CLEANING",
       };
+      const taskType = ACTION_MAP[String(action).toUpperCase()] || "CUSTOM";
 
-      await EventBusService.publishQRAssistanceRequested(
+      // 4. Create WaiterTask document via WaiterTaskService
+      const waiterTask = await WaiterTaskService.createTask(
         table.tenantId,
         table.outletId,
         table._id,
-        payload,
-        { correlationId: session.sessionToken }
+        session._id,
+        taskType,
+        "GUEST_QR",
+        {
+          seatNumber: seatNumber || undefined,
+          priority: taskType === "BILL" ? "HIGH" : "MEDIUM",
+          metadata: { originalAction: String(action).toUpperCase(), notes: notes || undefined }
+        }
       );
 
-      ApiResponseHandler.success(res, 200, "Assistance request queued successfully", {
+      // 5. Emit socket event to outlet room so Waiter Console updates immediately
+      RealtimeService.sendToOutlet(
+        table.tenantId.toString(),
+        table.outletId.toString(),
+        "WAITER_TASK_CREATED" as any,
+        {
+          taskId:      waiterTask._id.toString(),
+          taskType,
+          tableId:     table._id.toString(),
+          tableNumber: table.tableNumber,
+          seatNumber:  seatNumber || null,
+          sessionId:   session._id.toString(),
+          status:      "CREATED",
+          priority:    taskType === "BILL" ? "HIGH" : "MEDIUM",
+          createdAt:   waiterTask.createdAt
+        }
+      );
+
+      ApiResponseHandler.success(res, 200, "Assistance request sent successfully", {
+        taskId:      waiterTask._id.toString(),
         tableNumber: table.tableNumber,
-        action: actionText,
-        seatNumber: seatNumber || null,
-        sessionId: session._id.toString()
+        action:      String(action).toUpperCase(),
+        taskType,
+        seatNumber:  seatNumber || null,
+        sessionId:   session._id.toString()
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to request assistance");
