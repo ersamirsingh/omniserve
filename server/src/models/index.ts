@@ -26,4 +26,5 @@ export { default as Table } from './table.model.js';
 export { default as QRSession } from './qrsession.model.js';
 export { default as OrderTimeline } from './ordertimeline.model.js';
 export { default as Coupon } from './coupon.model.js';
+export { default as GuestSession } from './guestsession.model.js';
 export * from './enums.js';

@@ -44,7 +44,15 @@ publicRouter.get("/orders/track/:orderId", PublicController.trackOrder);
 
 // QR Session Bill & Payments
 publicRouter.get("/qr/session/:sessionToken/bill", PublicController.getQrSessionBill);
+publicRouter.get("/qr/session/:sessionToken/guests", PublicController.getQrSessionGuests);
 publicRouter.post("/qr/session/:sessionToken/pay", PublicController.payQrSessionBill);
+publicRouter.post("/qr/session/:sessionToken/bill/split", PublicController.splitQrSessionBill);
+publicRouter.post("/qr/session/:sessionToken/feedback", PublicController.submitQrSessionFeedback);
 publicRouter.get("/o/:outletSlug/coupons/validate", PublicController.validateCoupon);
+publicRouter.get("/o/:outletSlug/coupons", PublicController.listOutletCoupons);
+
+// Guest Session details
+publicRouter.patch("/qr/guest/session", PublicController.updateGuestSession);
+publicRouter.post("/qr/guest/session/leave", PublicController.leaveGuestSession);
 
 export default publicRouter;
