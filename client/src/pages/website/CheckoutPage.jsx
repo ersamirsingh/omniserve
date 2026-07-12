@@ -1,501 +1,670 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getCartApi, checkoutCartApi } from "../../api/models/public.api";
+import { 
+  getQrSessionBillApi,
+  payQrSessionBillApi,
+  splitQrSessionBillApi,
+  submitQrSessionFeedbackApi
+} from "../../api/models/public.api";
 import Spinner from "../../components/ui/Spinner";
-import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
-import Select from "../../components/ui/Select";
+import { useSocket } from "../../context/SocketContext";
+import { 
+  HiOutlineChevronLeft,
+  HiOutlineCreditCard,
+  HiOutlineQrCode,
+  HiOutlineCheckBadge,
+  HiOutlineInboxArrowDown,
+  HiOutlineBanknotes,
+  HiOutlineArrowDownTray,
+  HiOutlineUsers,
+  HiOutlineHeart,
+  HiOutlineUser
+} from "react-icons/hi2";
 
 export default function CheckoutPage() {
   const { outletSlug } = useParams();
   const navigate = useNavigate();
+  const { lastMessage } = useSocket();
 
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState(null);
   const [error, setError] = useState(null);
-  const [checkingOut, setCheckingOut] = useState(false);
+  const [billData, setBillData] = useState(null);
 
-  // Form states
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  
-  const [fulfillmentType, setFulfillmentType] = useState(
-    localStorage.getItem("sessionToken") ? "DINE_IN" : "DELIVERY"
-  );
-  const [addressLine1, setAddressLine1] = useState("");
-  const [addressLine2, setAddressLine2] = useState("");
-  const [addressCity, setAddressCity] = useState("");
-  const [addressState, setAddressState] = useState("");
-  const [addressPincode, setAddressPincode] = useState("");
-  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  // Split billing states
+  const [splitMode, setSplitMode] = useState("NONE"); // 'NONE' | 'EQUAL' | 'BY_SEAT' | 'CUSTOM'
+  const [customSplits, setCustomSplits] = useState([]); // [{ seatNumber: 'Seat 1', amount: 100 }]
+  const [selectedSeatToPay, setSelectedSeatToPay] = useState(null); // seatNumber to pay for
 
-  const [paymentMode, setPaymentMode] = useState("COD");
+  // Payment states
+  const [paymentMode, setPaymentMode] = useState("UPI"); // 'UPI' | 'CARD' | 'CASH' | 'PAY_LATER'
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentResult, setPaymentResult] = useState(null); // 'SUCCESS' | 'FAILED' | 'REQUESTED'
+  const [transactionId, setTransactionId] = useState("");
 
-  // Coupon states
-  const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponDiscount, setCouponDiscount] = useState(0);
-  const [validatingCoupon, setValidatingCoupon] = useState(false);
-  const [couponError, setCouponError] = useState(null);
-  const [couponSuccess, setCouponSuccess] = useState(null);
+  // Feedback states
+  const [rating, setRating] = useState(5);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  // Tip contribution
+  const [tipAmount, setTipAmount] = useState(0);
+
+  const sessionToken = localStorage.getItem("sessionToken");
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+
+  const fetchBillDetails = async () => {
+    if (!sessionToken) return;
+    try {
+      const res = await getQrSessionBillApi(sessionToken);
+      setBillData(res.data.data);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load session billing");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    getCartApi()
-      .then((res) => {
-        setCart(res.data.data);
-        setError(null);
-      })
-      .catch((err) => {
-        setError(err.response?.data?.message || "Failed to load checkout details");
-      })
-      .finally(() => {
+    fetchBillDetails();
+  }, [sessionToken]);
+
+  // Listen to WebSocket events for real-time split/payment sync
+  useEffect(() => {
+    if (lastMessage) {
+      const { event, payload } = lastMessage;
+      if (
+        event === "BILL_SPLIT_CREATED" ||
+        event === "BILL_REQUESTED" ||
+        event === "BILL_SETTLED"
+      ) {
+        console.log("[CheckoutPage] Webhook sync received, refreshing bill...");
+        fetchBillDetails();
+      }
+    }
+  }, [lastMessage]);
+
+  // Handle split calculations on the backend
+  const handleApplySplitMode = async (mode) => {
+    if (!sessionToken || !billData?.billSession) return;
+    setLoading(true);
+
+    try {
+      let payload = { splitType: mode };
+      if (mode === "CUSTOM") {
+        // Initialize custom splits with equal distribution initially
+        const seatCount = billData.billSession.seats?.length || 1;
+        const equalShare = Number((grandTotalAmount / seatCount).toFixed(2));
+        const initSplits = (billData.billSession.seats || []).map((seat, idx) => ({
+          seatNumber: seat.seatNumber || `Seat ${idx + 1}`,
+          amount: idx === seatCount - 1 ? grandTotalAmount - equalShare * (seatCount - 1) : equalShare
+        }));
+        setCustomSplits(initSplits);
+        setSplitMode("CUSTOM");
         setLoading(false);
+        return;
+      }
+
+      const res = await splitQrSessionBillApi(sessionToken, payload);
+      setSplitMode(mode);
+      fetchBillDetails();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to apply split strategy");
+      setLoading(false);
+    }
+  };
+
+  // Submit custom split
+  const handleApplyCustomSplit = async () => {
+    const totalCustom = customSplits.reduce((sum, s) => sum + Number(s.amount), 0);
+    
+    // Allow minor decimal rounding difference (within ₹1)
+    if (Math.abs(totalCustom - grandTotalAmount) > 1) {
+      alert(`Total sum of custom splits (₹${totalCustom}) must equal the grand total bill (₹${grandTotalAmount})`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await splitQrSessionBillApi(sessionToken, {
+        splitType: "CUSTOM",
+        customSplits
       });
-  }, []);
+      fetchBillDetails();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to apply custom splits");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCustomSplitChange = (idx, amount) => {
+    const updated = [...customSplits];
+    updated[idx].amount = Number(amount) || 0;
+    setCustomSplits(updated);
+  };
+
+  // Initiate QR session bill payment
+  const handleProcessPayment = async () => {
+    if (!sessionToken) return;
+    setProcessingPayment(true);
+
+    try {
+      const payload = {
+        paymentMode,
+        tip: tipAmount,
+        seatNumber: selectedSeatToPay || undefined
+      };
+
+      const res = await payQrSessionBillApi(sessionToken, payload);
+      const data = res.data.data;
+
+      // Handle CASH payment requested case
+      if (paymentMode === "CASH") {
+        setPaymentResult("REQUESTED");
+      } else {
+        setPaymentResult("SUCCESS");
+        setTransactionId(`TXN-SIM-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Payment execution failed");
+      setPaymentResult("FAILED");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  // Submit feedback review
+  const handleFeedbackSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!sessionToken) return;
+
+    setSubmittingFeedback(true);
+    try {
+      await submitQrSessionFeedbackApi(sessionToken, {
+        rating,
+        reviewText: feedbackText
+      });
+      setFeedbackSubmitted(true);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save feedback");
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  // Download digital receipt printout
+  const handleDownloadReceipt = () => {
+    if (!billData || !billData.billSession) return;
+    const { billSession, items } = billData;
+
+    const receiptContent = `
+=========================================
+          DIGITAL RECEIPT
+=========================================
+Restaurant: ${outletSlug.toUpperCase()}
+Table: ${billData.table?.tableNumber || "N/A"}
+Transaction: ${transactionId}
+Date: ${new Date().toLocaleString()}
+-----------------------------------------
+Items Ordered:
+${items.map(item => `- ${item.name} (x${item.quantity}) : ₹${(item.price || 0) * item.quantity}`).join("\n")}
+-----------------------------------------
+Subtotal: ₹${billSession.subtotal}
+Taxes (5%): ₹${billSession.tax}
+Service Charge: ₹15
+Grand Total Paid: ₹${grandTotalAmount}
+Payment Method: ${paymentMode}
+=========================================
+Thank you for dining with us!
+=========================================
+    `;
+
+    const blob = new Blob([receiptContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Receipt-${transactionId || "Session"}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Pricing helper computations
+  const grandTotalAmount = useMemo(() => {
+    if (!billData?.billSession) return 0;
+    const sub = billData.billSession.subtotal || 0;
+    const tax = billData.billSession.tax || 0;
+    return sub + tax + 15; // subtotal + tax + service/packing fee
+  }, [billData]);
+
+  const payableAmountForActiveUser = useMemo(() => {
+    if (!billData?.billSession) return 0;
+    const { splits } = billData.billSession;
+    
+    // If table has active splits and a specific seat is chosen to pay
+    if (splits && splits.length > 0) {
+      if (selectedSeatToPay) {
+        const split = splits.find(s => s.seatNumber === selectedSeatToPay);
+        return split ? split.amount : 0;
+      }
+      // Default to the first unpaid split
+      const firstUnpaid = splits.find(s => !s.isPaid);
+      return firstUnpaid ? firstUnpaid.amount : 0;
+    }
+    return grandTotalAmount;
+  }, [billData, selectedSeatToPay, grandTotalAmount]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-        <Spinner size="lg" />
+      <div className="min-h-screen flex items-center justify-center bg-white text-zinc-900 guest-ordering">
+        <Spinner size="lg" className="text-[#6311f4]" />
       </div>
     );
   }
 
-  const items = cart?.items || [];
-  if (items.length === 0) {
+  if (error || !billData || !billData.billSession) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6">
-        <h2 className="text-xl font-bold mb-4">No Active Cart</h2>
-        <p className="text-zinc-400 mb-6">Your shopping cart is empty. Please add items before checking out.</p>
-        <Link to={`/public/w/${outletSlug}`}>
-          <Button variant="primary">Browse Menu</Button>
-        </Link>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-zinc-950 p-6 text-center space-y-4 guest-ordering">
+        <h2 className="text-lg font-black text-rose-500">No Outstanding Bill</h2>
+        <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+          There is no outstanding balance or active billing session for this table right now.
+        </p>
+        <button
+          onClick={() => navigate(`/public/w/${outletSlug}/menu`)}
+          className="px-6 py-2.5 bg-[#6311f4] text-white font-bold rounded-xl text-xs uppercase tracking-wider"
+        >
+          Back to Menu
+        </button>
       </div>
     );
   }
 
-  // Calculate pricing
-  let subtotal = 0;
-  items.forEach((item) => {
-    let itemPrice = item.menuItemId?.price || 0;
-    if (item.variantId) {
-      itemPrice = item.variantId.price || 0;
-    }
-    let addonsTotal = 0;
-    (item.addons || []).forEach((addon) => {
-      addonsTotal += (addon.addonId?.price || 0) * (addon.quantity || 1);
-    });
-    subtotal += (itemPrice + addonsTotal) * item.quantity;
-  });
+  const { billSession, items, table } = billData;
 
-  const tax = Number((subtotal * 0.05).toFixed(2));
-  const deliveryFee = fulfillmentType === "DELIVERY" ? 50 : 0;
-  const totalAmount = Math.max(0, Number((subtotal + tax + deliveryFee - couponDiscount).toFixed(2)));
+  // 1. Processing State
+  if (processingPayment) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center text-zinc-950 space-y-4 guest-ordering">
+        <Spinner size="lg" className="text-[#6311f4]" />
+        <div className="text-center space-y-1">
+          <h2 className="font-black text-base tracking-tight">Processing Payment...</h2>
+          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Please do not refresh or close this screen</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleApplyCoupon = async (e) => {
-    e?.preventDefault();
-    setCouponError("Promo coupons are not supported for storefront orders.");
-    setAppliedCoupon(null);
-    setCouponDiscount(0);
-  };
+  // 2. requested Cash / Settle Success State
+  if (paymentResult) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-5 guest-ordering">
+        <div className="bg-white border border-zinc-100 p-6 rounded-3xl max-w-md w-full text-center space-y-6 shadow-xl shadow-zinc-200/50">
+          {paymentResult === "REQUESTED" ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/5 border border-amber-500/15 flex items-center justify-center text-amber-500 text-4xl mx-auto animate-bounce-short">
+                <HiOutlineInboxArrowDown />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-xl font-black text-zinc-950 tracking-tight">Cash Settle Requested</h1>
+                <p className="text-xs text-zinc-500 leading-relaxed max-w-xs mx-auto">
+                  A waiter task has been dispatched. A waiter will visit <strong>Table {table?.tableNumber}</strong> shortly to collect cash payment of ₹{payableAmountForActiveUser}.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/5 border border-emerald-500/15 flex items-center justify-center text-emerald-500 text-4xl mx-auto animate-bounce-short">
+                <HiOutlineCheckBadge />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-xl font-black text-zinc-950 tracking-tight">Payment Settled!</h1>
+                <p className="text-xs text-zinc-500 leading-relaxed max-w-xs mx-auto">
+                  Your table payment of ₹{payableAmountForActiveUser} has been successfully settled.
+                </p>
+              </div>
 
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponDiscount(0);
-    setCouponSuccess(null);
-    setCouponError(null);
-    setCouponInput("");
-  };
+              {/* Digital Receipt breakdown */}
+              <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-left space-y-3">
+                <div className="flex justify-between items-center border-b border-zinc-200 pb-2">
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase">Digital Invoice</span>
+                  <span className="font-mono text-[9px] text-zinc-400 font-bold">{transactionId}</span>
+                </div>
+                <div className="space-y-1.5 text-xs font-bold text-zinc-600">
+                  <div className="flex justify-between">
+                    <span>Items Subtotal</span>
+                    <span className="text-zinc-900">₹{billSession.subtotal}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>GST (5%)</span>
+                    <span className="text-zinc-900">₹{billSession.tax}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Service Fee</span>
+                    <span className="text-zinc-900">₹15</span>
+                  </div>
+                  <div className="flex justify-between border-t border-zinc-200 pt-2 font-black text-zinc-900 text-sm">
+                    <span>Amount Paid</span>
+                    <span className="text-[#6311f4]">₹{payableAmountForActiveUser}</span>
+                  </div>
+                </div>
+              </div>
 
-  const handleCheckout = async (e) => {
-    e.preventDefault();
-    if (!customerName || !customerPhone) {
-      alert("Name and Phone number are required.");
-      return;
-    }
+              {/* Download Digital Receipt Actions */}
+              <button
+                onClick={handleDownloadReceipt}
+                className="w-full bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 font-black text-xs uppercase tracking-wider py-3 px-4 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <HiOutlineArrowDownTray className="w-4 h-4 text-[#6311f4]" />
+                <span>Download Receipt</span>
+              </button>
 
-    if (fulfillmentType === "DELIVERY" && (!addressLine1 || !addressCity || !addressState || !addressPincode)) {
-      alert("Delivery address details are required.");
-      return;
-    }
+              {/* Feedback and rating section */}
+              <div className="border-t border-zinc-100 pt-5 space-y-4">
+                {feedbackSubmitted ? (
+                  <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 flex items-center gap-2 text-emerald-700 text-xs font-bold justify-center">
+                    <HiOutlineHeart className="w-5 h-5" />
+                    <span>Thank you for your feedback!</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleFeedbackSubmit} className="space-y-3 text-left">
+                    <h3 className="font-extrabold text-xs text-zinc-800 text-center">Rate Your Dining Experience</h3>
+                    
+                    {/* Stars Selectors */}
+                    <div className="flex justify-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRating(star)}
+                          className={`text-2xl transition ${
+                            star <= rating ? "text-amber-500" : "text-zinc-200 hover:text-amber-400"
+                          }`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
 
-    setCheckingOut(true);
+                    <input
+                      type="text"
+                      placeholder="Share optional review comments..."
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      className="w-full bg-zinc-50 border border-zinc-100 text-zinc-900 placeholder-zinc-400 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#6311f4]/35"
+                    />
 
-    // Extract UTM attributes
-    const query = new URLSearchParams(window.location.search);
-    const utmSource = query.get("utm_source") || "";
-    const utmMedium = query.get("utm_medium") || "";
-    const utmCampaign = query.get("utm_campaign") || "";
-    const referrer = document.referrer || "";
+                    <button
+                      type="submit"
+                      disabled={submittingFeedback}
+                      className="w-full bg-zinc-950 hover:bg-zinc-800 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl transition"
+                    >
+                      {submittingFeedback ? "Submitting..." : "Submit Feedback"}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </>
+          )}
 
-    const payload = {
-      cartId: cart._id,
-      couponCode: appliedCoupon || undefined,
-      customer: {
-        name: customerName,
-        phone: customerPhone,
-        email: customerEmail || undefined,
-      },
-      fulfillment: {
-        type: fulfillmentType,
-        instructions: deliveryInstructions || undefined,
-        address: fulfillmentType === "DELIVERY" ? {
-          line1: addressLine1,
-          line2: addressLine2 || undefined,
-          city: addressCity,
-          state: addressState,
-          pincode: addressPincode,
-        } : undefined,
-      },
-      payment: {
-        mode: paymentMode,
-        status: paymentMode === "COD" ? "PENDING" : "SUCCESS",
-        transactionId: paymentMode === "ONLINE" ? `TXN-${Date.now()}` : undefined,
-      },
-      utmSource,
-      utmMedium,
-      utmCampaign,
-      referrer,
-    };
-
-    try {
-      const res = await checkoutCartApi(payload);
-      const orderId = res.data.data.processedOrder.internalOrderId;
-      
-      // Clear sessionToken only if not a dine-in QR session order
-      if (fulfillmentType !== "DINE_IN") {
-        localStorage.removeItem("sessionToken");
-      }
-
-      navigate(`/public/w/${outletSlug}/order-success?orderId=${orderId}`);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to place order");
-    } finally {
-      setCheckingOut(false);
-    }
-  };
+          <div className="pt-2 flex flex-col gap-2">
+            <Link to={`/public/w/${outletSlug}/menu`}>
+              <button className="w-full bg-[#6311f4] hover:bg-[#520dd4] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-lg shadow-[#6311f4]/15 active:scale-95 transition-all">
+                Return to Menu
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to={`/public/w/${outletSlug}/cart`} className="text-zinc-400 hover:text-white transition-all text-sm font-semibold flex items-center gap-2">
-            ← Back to Cart
-          </Link>
+    <div className="min-h-screen bg-zinc-50 text-zinc-950 flex flex-col guest-ordering pb-24 select-none">
+      {/* sticky navigation bar */}
+      <header className="bg-white border-b border-zinc-100/80 sticky top-0 z-40 px-4 py-3.5 flex items-center justify-between shadow-xs">
+        <Link 
+          to={`/public/w/${outletSlug}/menu`}
+          className="w-9 h-9 bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 rounded-xl flex items-center justify-center text-zinc-600 transition"
+        >
+          <HiOutlineChevronLeft className="w-5 h-5" />
+        </Link>
+        <div className="text-center">
+          <h1 className="font-black text-[14px] text-zinc-900 tracking-tight">Settle Bill</h1>
+          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Table {table?.tableNumber} • Settle Balance</p>
         </div>
-        <h1 className="font-bold text-lg text-white">Secure Checkout</h1>
-        <div className="w-20"></div>
+        <div className="w-9"></div>
       </header>
 
-      {/* Checkout Form Container */}
-      <form onSubmit={handleCheckout} className="flex-grow max-w-5xl w-full mx-auto p-6 flex flex-col md:flex-row gap-6">
-        <div className="flex-1 space-y-6">
-          {/* Customer Details */}
-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">1. Contact Information</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Full Name *</label>
-                <Input
-                  type="text"
-                  required
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Rahul Singh"
-                  className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                />
+      {/* Settle main catalog container */}
+      <div className="flex-grow max-w-xl w-full mx-auto p-4 space-y-4">
+        
+        {/* Bill Breakdown Items Summary */}
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-xs p-4 space-y-3">
+          <h3 className="font-black text-xs text-zinc-400 uppercase tracking-wider border-b border-zinc-100 pb-2">Table Orders</h3>
+          <div className="divide-y divide-zinc-50 max-h-36 overflow-y-auto space-y-2 pr-1.5">
+            {items.map((item) => (
+              <div key={item.name} className="pt-2 first:pt-0 flex justify-between text-xs font-bold text-zinc-700">
+                <span>{item.name} (x{item.quantity})</span>
+                <span className="text-zinc-900">₹{(item.price || 0) * item.quantity}</span>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Phone Number *</label>
-                <Input
-                  type="text"
-                  required
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="9876543210"
-                  className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Email Address (Optional)</label>
-                <Input
-                  type="email"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="rahul@example.com"
-                  className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Fulfillment details */}
-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">2. Delivery or Takeaway</h2>
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-2">Select Option</label>
-              <Select
-                value={fulfillmentType}
-                onChange={(e) => setFulfillmentType(e.target.value)}
-                options={[
-                  { value: "DELIVERY", label: "Home Delivery" },
-                  { value: "TAKEAWAY", label: "Takeaway / Self-Pickup" }
-                ]}
-                className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-              />
-            </div>
-
-            {fulfillmentType === "DELIVERY" && (
-              <div className="space-y-4 pt-2">
-                <div>
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Flat / House No. / Building Name *</label>
-                  <Input
-                    type="text"
-                    required
-                    value={addressLine1}
-                    onChange={(e) => setAddressLine1(e.target.value)}
-                    placeholder="Flat 302, Green Meadows"
-                    className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Street / Locality / Area</label>
-                  <Input
-                    type="text"
-                    value={addressLine2}
-                    onChange={(e) => setAddressLine2(e.target.value)}
-                    placeholder="Arera Colony"
-                    className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">City *</label>
-                    <Input
-                      type="text"
-                      required
-                      value={addressCity}
-                      onChange={(e) => setAddressCity(e.target.value)}
-                      placeholder="Bhopal"
-                      className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">State *</label>
-                    <Input
-                      type="text"
-                      required
-                      value={addressState}
-                      onChange={(e) => setAddressState(e.target.value)}
-                      placeholder="MP"
-                      className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Pincode *</label>
-                    <Input
-                      type="text"
-                      required
-                      value={addressPincode}
-                      onChange={(e) => setAddressPincode(e.target.value)}
-                      placeholder="462001"
-                      className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Rider Instructions</label>
-                  <Input
-                    type="text"
-                    value={deliveryInstructions}
-                    onChange={(e) => setDeliveryInstructions(e.target.value)}
-                    placeholder="Leave it at the gate / Call before arrival"
-                    className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
-                  />
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Payment Method */}
-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">3. Payment Method</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label
-                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
-                  paymentMode === "COD"
-                    ? "bg-indigo-500/10 border-indigo-600"
-                    : "bg-zinc-950 border-zinc-800 hover:border-zinc-700 text-zinc-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMode"
-                  value="COD"
-                  checked={paymentMode === "COD"}
-                  onChange={() => setPaymentMode("COD")}
-                  className="radio radio-xs radio-primary w-4 h-4 text-indigo-600 border-zinc-700 bg-zinc-800 focus:ring-indigo-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-white">Cash on Delivery (COD)</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">Pay with cash upon arrival</p>
-                </div>
-              </label>
-
-              <label
-                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
-                  paymentMode === "ONLINE"
-                    ? "bg-indigo-500/10 border-indigo-600"
-                    : "bg-zinc-950 border-zinc-800 hover:border-zinc-700 text-zinc-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMode"
-                  value="ONLINE"
-                  checked={paymentMode === "ONLINE"}
-                  onChange={() => setPaymentMode("ONLINE")}
-                  className="radio radio-xs radio-primary w-4 h-4 text-indigo-600 border-zinc-700 bg-zinc-800 focus:ring-indigo-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-white">Mock Net Banking / Cards</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">Simulate instant online payment</p>
-                </div>
-              </label>
-            </div>
-          </Card>
+            ))}
+          </div>
         </div>
 
-        {/* Order review sidebar */}
-        <div className="w-full md:w-90 shrink-0">
-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4 sticky top-24">
-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">Order Review</h2>
-            
-            {/* Items summary */}
-            <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2">
-              {items.map((item) => {
-                const menuItemName = item.menuItemId?.name || "Dish";
-                const variantName = item.variantId?.name || "";
-                const itemPrice = item.variantId?.price || item.menuItemId?.price || 0;
-                
-                let addonsTotal = 0;
-                (item.addons || []).forEach((addon) => {
-                  addonsTotal += (addon.addonId?.price || 0) * addon.quantity;
-                });
-                const totalItemPrice = (itemPrice + addonsTotal) * item.quantity;
+        {/* Split Billing Options block */}
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-xs p-4 space-y-4">
+          <div className="space-y-0.5">
+            <h3 className="font-extrabold text-xs text-zinc-800 tracking-tight">Split Options</h3>
+            <p className="text-[9px] text-zinc-400">Decide how you want to divide the outstanding table balance.</p>
+          </div>
 
-                return (
-                  <div key={item.menuItemId?._id || item.menuItemId} className="flex justify-between text-xs text-zinc-300">
-                    <div>
-                      <p className="font-semibold text-white">
-                        {menuItemName} {variantName && `(${variantName})`} <span className="text-zinc-500 text-xs">x{item.quantity}</span>
-                      </p>
-                      {item.addons && item.addons.length > 0 && (
-                        <p className="text-zinc-500 text-[10px] pl-1.5 mt-0.5">
-                          + {item.addons.map(a => a.addonId?.name || "Addon").join(", ")}
-                        </p>
-                      )}
-                    </div>
-                    <span className="font-bold">₹{totalItemPrice}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Coupon application container */}
-            <div className="border-t border-zinc-800 pt-3.5 space-y-2">
-              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block">Promo Coupon</label>
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between p-2.5 bg-indigo-500/10 border border-indigo-550/30 rounded-xl animate-fade-in">
-                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-400">
-                    🎟️ {appliedCoupon}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveCoupon}
-                    className="text-xs text-red-400 font-bold hover:underline cursor-pointer"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponInput}
-                    onChange={(e) => {
-                      setCouponInput(e.target.value.toUpperCase());
-                      setCouponError(null);
-                      setCouponSuccess(null);
-                    }}
-                    placeholder="e.g. SAVE50"
-                    className="flex-1 bg-zinc-950 border border-zinc-800 text-zinc-200 rounded-xl px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-indigo-500 placeholder:text-zinc-700"
-                  />
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    loading={validatingCoupon}
-                    onClick={handleApplyCoupon}
-                    className="px-4 py-2 text-xs"
-                  >
-                    Apply
-                  </Button>
-                </div>
-              )}
-              {couponError && <p className="text-[10px] text-red-500 font-medium pl-1 animate-fade-in">{couponError}</p>}
-              {couponSuccess && <p className="text-[10px] text-emerald-500 font-medium pl-1 animate-fade-in">{couponSuccess}</p>}
-            </div>
-
-            {/* Receipt calculation details */}
-            <div className="space-y-2 border-t border-zinc-800 pt-3.5 text-xs text-zinc-400">
-              <div className="flex justify-between">
-                <span>Items Subtotal</span>
-                <span className="text-zinc-200">₹{subtotal}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>GST/Taxes (5%)</span>
-                <span className="text-zinc-200">₹{tax}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Delivery Fee</span>
-                <span className="text-zinc-200">₹{deliveryFee}</span>
-              </div>
-              {couponDiscount > 0 && (
-                <div className="flex justify-between text-emerald-500 font-semibold animate-fade-in">
-                  <span>Coupon Discount</span>
-                  <span>-₹{couponDiscount}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-zinc-800 pt-3 font-bold text-base text-white">
-                <span>Total Payable</span>
-                <span className="text-indigo-400">₹{totalAmount}</span>
-              </div>
-            </div>
-
-            {/* Submit checkout button */}
-            <div className="pt-2">
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { id: "NONE", label: "Full Bill" },
+              { id: "EQUAL", label: "Equal" },
+              { id: "BY_SEAT", label: "By Seat" },
+              { id: "CUSTOM", label: "Custom" }
+            ].map((strategy) => (
               <button
-                type="submit"
-                disabled={checkingOut}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-sm flex items-center justify-center gap-2"
+                key={strategy.id}
+                onClick={() => handleApplySplitMode(strategy.id)}
+                className={`py-2 text-[10px] font-black uppercase tracking-wider border rounded-xl transition cursor-pointer ${
+                  splitMode === strategy.id 
+                    ? "bg-[#6311f4]/10 border-[#6311f4]/20 text-[#6311f4]" 
+                    : "bg-white border-zinc-100 text-zinc-600 hover:border-zinc-200"
+                }`}
               >
-                {checkingOut ? (
-                  <>
-                    <Spinner size="sm" />
-                    <span>Placing Order...</span>
-                  </>
-                ) : (
-                  <span>Place Order (₹{totalAmount})</span>
-                )}
+                {strategy.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Render custom splits input rows */}
+          {splitMode === "CUSTOM" && (
+            <div className="space-y-3 pt-3 border-t border-zinc-100">
+              <h4 className="font-extrabold text-xs text-zinc-800">Custom Splits Amount</h4>
+              <div className="space-y-2">
+                {customSplits.map((split, idx) => (
+                  <div key={split.seatNumber} className="flex items-center justify-between gap-3 bg-zinc-50 border border-zinc-100 rounded-xl p-2">
+                    <span className="text-xs font-bold text-zinc-700">{split.seatNumber}</span>
+                    <div className="w-24">
+                      <input
+                        type="number"
+                        value={split.amount}
+                        onChange={(e) => handleCustomSplitChange(idx, e.target.value)}
+                        className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1 text-xs text-right font-black focus:outline-none focus:border-[#6311f4]"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={handleApplyCustomSplit}
+                className="w-full bg-zinc-950 hover:bg-zinc-800 text-white font-black text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition"
+              >
+                Confirm Custom Distribution
               </button>
             </div>
-          </Card>
+          )}
+
+          {/* Render Multi-Guest active splits list */}
+          {billSession.splits && billSession.splits.length > 0 && (
+            <div className="space-y-2.5 pt-3 border-t border-zinc-100">
+              <h4 className="font-extrabold text-xs text-zinc-800">Seats Distribution</h4>
+              <div className="space-y-2">
+                {billSession.splits.map((split) => (
+                  <div 
+                    key={split.seatNumber}
+                    onClick={() => {
+                      if (!split.isPaid) setSelectedSeatToPay(split.seatNumber);
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                      selectedSeatToPay === split.seatNumber 
+                        ? "bg-[#6311f4]/5 border-[#6311f4]/25 shadow-xs" 
+                        : split.isPaid 
+                          ? "bg-emerald-500/5 border-emerald-500/10 opacity-70" 
+                          : "bg-zinc-50 border-zinc-100 hover:border-zinc-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HiOutlineUser className={`w-4 h-4 ${split.isPaid ? "text-emerald-500" : "text-zinc-400"}`} />
+                      <span className="text-xs font-black text-zinc-700">{split.seatNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-zinc-900">₹{split.amount}</span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        split.isPaid ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                      }`}>
+                        {split.isPaid ? "Paid" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </form>
+
+        {/* Settle Payment method selection */}
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-xs p-4 space-y-4">
+          <div className="space-y-0.5">
+            <h3 className="font-extrabold text-xs text-zinc-800 tracking-tight">Select Payment Method</h3>
+            <p className="text-[9px] text-zinc-400">Choose how you want to transact this payment.</p>
+          </div>
+
+          <div className="space-y-2">
+            {[
+              { id: "UPI", label: "Instant UPI QR Code", sub: "Scan dynamic QR via GPay, PhonePe", icon: <HiOutlineQrCode className="w-5 h-5" /> },
+              { id: "CARD", label: "Credit / Debit Cards", sub: "Visa, Mastercard, RuPay processed", icon: <HiOutlineCreditCard className="w-5 h-5" /> },
+              { id: "CASH", label: "Cash Settle at Counter", sub: "Request waiter to visit table to collect cash", icon: <HiOutlineBanknotes className="w-5 h-5 text-emerald-600" /> }
+            ].map((method) => (
+              <div
+                key={method.id}
+                onClick={() => setPaymentMode(method.id)}
+                className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  paymentMode === method.id 
+                    ? "bg-[#6311f4]/5 border-[#6311f4]/25" 
+                    : "bg-white border-zinc-100 hover:border-zinc-200"
+                }`}
+              >
+                <div className={`p-2.5 rounded-lg ${paymentMode === method.id ? "bg-[#6311f4]/10 text-[#6311f4]" : "bg-zinc-50 text-zinc-400"}`}>
+                  {method.icon}
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-zinc-800">{method.label}</h4>
+                  <p className="text-[9px] text-zinc-400 mt-0.5">{method.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* dynamic QR Code generation view */}
+          {paymentMode === "UPI" && (
+            <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-center space-y-3">
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Scan to Pay</span>
+              <div className="w-36 h-36 bg-white border border-zinc-200 rounded-2xl flex items-center justify-center mx-auto relative shadow-xs p-3">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=omniserve@bank%26pn=OmniServe%26am=${payableAmountForActiveUser}`} 
+                  alt="Payment QR" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <p className="text-[9px] text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                Scan this QR using your UPI app (GPay, PhonePe, Paytm) to transfer exactly <strong>₹{payableAmountForActiveUser}</strong>.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Tip selector block */}
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-xs p-4 space-y-3">
+          <h3 className="font-extrabold text-xs text-zinc-800 tracking-tight">Tip Staff</h3>
+          <div className="flex gap-2">
+            {[0, 20, 50, 100].map((tip) => (
+              <button
+                key={tip}
+                onClick={() => setTipAmount(tip)}
+                className={`flex-1 py-2 text-xs font-extrabold border rounded-xl transition ${
+                  tipAmount === tip 
+                    ? "bg-[#6311f4]/10 border-[#6311f4]/20 text-[#6311f4]" 
+                    : "bg-white border-zinc-100 text-zinc-600 hover:border-zinc-200"
+                }`}
+              >
+                {tip === 0 ? "No Tip" : `₹${tip}`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Settle breakdown breakdown */}
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-xs p-4 space-y-3">
+          <h3 className="font-black text-xs text-zinc-400 uppercase tracking-wider border-b border-zinc-100 pb-2">Bill Summary</h3>
+          <div className="space-y-2 text-xs font-bold text-zinc-600">
+            <div className="flex justify-between">
+              <span>Table Total Subtotal</span>
+              <span className="text-zinc-900">₹{billSession.subtotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>GST (5%)</span>
+              <span className="text-zinc-900">₹{billSession.tax}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Service Charge</span>
+              <span className="text-zinc-900">₹15</span>
+            </div>
+            {tipAmount > 0 && (
+              <div className="flex justify-between text-[#6311f4]">
+                <span>Tip Contribution</span>
+                <span>₹{tipAmount}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-zinc-100 pt-3 font-black text-sm text-zinc-900">
+              <span>Payable Amount</span>
+              <span className="text-[#6311f4] text-base">₹{payableAmountForActiveUser + tipAmount}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Sticky Bottom Pay CTA bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-100 p-4 z-40 shadow-md">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Payable Balance</p>
+            <p className="text-base font-black text-[#6311f4]">₹{payableAmountForActiveUser + tipAmount}</p>
+          </div>
+          <button
+            onClick={handleProcessPayment}
+            className="flex-1 bg-[#6311f4] hover:bg-[#520dd4] text-white font-black text-xs uppercase tracking-widest py-3.5 px-6 rounded-xl shadow-lg shadow-[#6311f4]/15 active:scale-97 transition-all flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <span>Confirm & Settle Bill →</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

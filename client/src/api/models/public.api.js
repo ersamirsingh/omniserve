@@ -30,8 +30,11 @@ export const checkoutCartApi = (data) =>
 export const trackOrderApi = (orderId) =>
   api.get(`/public/orders/track/${orderId}`);
 
-export const resolveQrCodeApi = (tableToken) =>
-  api.get(`/public/qr/resolve/${tableToken}`);
+export const resolveQrCodeApi = (tableToken, params) => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.get(`/public/qr/resolve/${tableToken}`, { params, headers });
+};
 
 export const requestQrAssistanceApi = (data) =>
   api.post("/public/qr/assist", data);
@@ -44,3 +47,30 @@ export const getQrSessionBillApi = (sessionToken) =>
 
 export const payQrSessionBillApi = (sessionToken, data) =>
   api.post(`/public/qr/session/${sessionToken}/pay`, data);
+
+export const updateGuestSessionApi = (data) => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.patch("/public/qr/guest/session", data, { headers });
+};
+
+export const leaveGuestSessionApi = () => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.post("/public/qr/guest/session/leave", {}, { headers });
+};
+
+export const listOutletCouponsApi = (outletSlug) =>
+  api.get(`/public/o/${outletSlug}/coupons`);
+
+export const validateCouponApi = (outletSlug, code, subtotal) =>
+  api.get(`/public/o/${outletSlug}/coupons/validate`, { params: { code, subtotal } });
+
+export const splitQrSessionBillApi = (sessionToken, data) =>
+  api.post(`/public/qr/session/${sessionToken}/bill/split`, data);
+
+export const submitQrSessionFeedbackApi = (sessionToken, data) =>
+  api.post(`/public/qr/session/${sessionToken}/feedback`, data);
+
+export const getQrSessionGuestsApi = (sessionToken) =>
+  api.get(`/public/qr/session/${sessionToken}/guests`);
