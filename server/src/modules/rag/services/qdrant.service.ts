@@ -37,7 +37,6 @@ export class QdrantService {
 
     try {
       clientInstance = new QdrantClient({ url, apiKey });
-      console.log('[QdrantService] Initialized client for url:', url);
     } catch (error: any) {
       console.error('[QdrantService] Failed to initialize client, falling back to MOCK:', error.message);
       clientInstance = this.createMockClient();
@@ -50,7 +49,6 @@ export class QdrantService {
    * Creates a mock client for environment flexibility when Qdrant is not active.
    */
   private static createMockClient(): any {
-    console.log('[QdrantService] Mock client activated.');
     const mockStore = new Map<string, IQdrantPoint[]>();
     return {
       isMock: true,
@@ -67,7 +65,6 @@ export class QdrantService {
         return { status: 'acknowledged' };
       },
       search: async (collectionName: string, { vector, filter, limit = 5 }: any) => {
-        console.log(`[Qdrant Mock Search] Searching collection ${collectionName} with limit ${limit}`);
         const list = mockStore.get(collectionName) || [];
         return list
           .filter(pt => {
@@ -109,7 +106,6 @@ export class QdrantService {
             distance: 'Cosine',
           },
         });
-        console.log(`[QdrantService] Created collection: ${collectionName}`);
       }
     } catch (error: any) {
       console.error('[QdrantService] Error ensuring collection exists:', error.message);

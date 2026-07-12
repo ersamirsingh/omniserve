@@ -26,7 +26,6 @@ export class Neo4jService {
 
     try {
       driverInstance = neo4j.driver(uri, neo4j.auth.basic(user, password));
-      console.log('[Neo4jService] Neo4j driver initialized for URI:', uri);
     } catch (error: any) {
       console.error('[Neo4jService] Failed to initialize Neo4j driver, falling back to MOCK:', error.message);
       driverInstance = this.createMockDriver();
@@ -39,12 +38,10 @@ export class Neo4jService {
    * Creates a mock driver for environment flexibility.
    */
   private static createMockDriver(): any {
-    console.log('[Neo4jService] Mock driver activated.');
     return {
       isMock: true,
       session: () => ({
         run: async (query: string, params?: Record<string, any>) => {
-          console.log(`[Neo4j Mock Cypher] Executed: ${query.substring(0, 100)}...`, params);
           return {
             records: [],
           };

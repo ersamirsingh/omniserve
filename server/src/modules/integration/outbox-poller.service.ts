@@ -12,7 +12,6 @@ export class OutboxPollerService {
    */
   static start(pollIntervalMs = 5000): void {
     if (this.pollInterval) return;
-    console.log(`[OutboxPollerService] Starting outbox poller on nodeId: ${this.nodeId} (interval: ${pollIntervalMs}ms)`);
     
     // Poll loop
     this.pollInterval = setInterval(() => this.poll(), pollIntervalMs);
@@ -33,7 +32,6 @@ export class OutboxPollerService {
       clearInterval(this.recoveryInterval);
       this.recoveryInterval = null;
     }
-    console.log(`[OutboxPollerService] Stopped outbox poller`);
   }
 
   /**
@@ -63,10 +61,27 @@ export class OutboxPollerService {
         .limit(10); // Batch size 10
 
       for (const event of events) {
-        // Double-check status is still pending/failed (prevent race conditions)
-        const freshEvent = await IntegrationEventQueue.findById(event._id);
-        if (freshEvent && (freshEvent.status === "PENDING" || freshEvent.status === "FAILED")) {
-          await SyncEngineService.processEvent(freshEvent, this.nodeId);
+        // Atomically claim the event so no other node handles it concurrently
+        const claimedEvent = await IntegrationEventQueue.findOneAndUpdate(
+          {
+            _id: event._id,
+            status: event.status, // Ensure status has not changed in the database
+            ...(event.status === "FAILED" ? { nextRetryAt: event.nextRetryAt } : {})
+          },
+          {
+            $set: {
+              status: "PROCESSING",
+              processingNodeId: this.nodeId,
+              processingStartedAt: now,
+              startedAt: now
+            }
+          },
+          { new: true }
+        );
+
+        if (claimedEvent) {
+          // Process the claimed event
+          await SyncEngineService.processEvent(claimedEvent, this.nodeId);
         }
       }
     } catch (error: any) {
@@ -98,7 +113,6 @@ export class OutboxPollerService {
       );
 
       if (result.modifiedCount > 0) {
-        console.log(`[OutboxPollerService] Poller safety recovery reset ${result.modifiedCount} stuck event(s) back to PENDING.`);
       }
     } catch (error: any) {
       console.error(`[OutboxPollerService] Error in poller safety recovery job: ${error.message}`);

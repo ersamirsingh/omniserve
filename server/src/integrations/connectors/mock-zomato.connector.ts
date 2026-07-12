@@ -16,7 +16,6 @@ export class MockZomatoConnector extends MockProviderConnector {
     syncType: SyncJobType,
     payload: unknown
   ): Promise<any> {
-    console.log(`[MockZomatoConnector] Starting sync for event: ${event.eventType}, type: ${syncType}`);
 
     const syncJob = new SyncJob({
       tenantId,
@@ -74,7 +73,6 @@ export class MockZomatoConnector extends MockProviderConnector {
         { upsert: true }
       );
 
-      console.log(`[MockZomatoConnector] Sync success for event: ${event._id}`);
       return responsePayload;
     } catch (error: any) {
       console.error(`[MockZomatoConnector] Sync failed for event ${event._id}: ${error.message}`);

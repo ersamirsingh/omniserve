@@ -4,7 +4,6 @@ import { RealtimeEvent } from "../types/socket-events.js";
 
 export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise<void> {
   const { eventType, tenantId, outletId, payload, correlationId } = event;
-  console.log(`[RealtimeSyncWorker] Processing event: ${eventType} for tenant=${tenantId}`);
 
   // Base socket message payload envelope
   const messagePayload = {
@@ -124,6 +123,5 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
       break;
 
     default:
-      console.log(`[RealtimeSyncWorker] No socket room routing defined for event type: ${eventType}`);
   }
 }

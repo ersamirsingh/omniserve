@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import AnalyticsDaily, { IAnalyticsDaily } from "../../models/analyticsdaily.model.js";
+import AnalyticsDaily, { IAnalyticsDaily } from "../../models/analyticsDaily.model.js";
 import Restaurant from "../../models/restaurant.model.js";
 import Subscription from "../../models/subscription.model.js";
 import User from "../../models/user.model.js";

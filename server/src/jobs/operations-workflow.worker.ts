@@ -7,7 +7,6 @@ export async function operationsWorkflowWorker(event: IIntegrationEventQueue): P
   const { eventType, tenantId, outletId, payload } = event;
   if (!outletId) return;
 
-  console.log(`[OperationsWorkflowWorker] Processing operational event: ${eventType}`);
 
   try {
     switch (eventType) {

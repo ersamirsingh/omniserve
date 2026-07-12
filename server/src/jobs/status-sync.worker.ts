@@ -39,14 +39,12 @@ export async function statusSyncWorker(event: IIntegrationEventQueue): Promise<v
   }
 
   if (connections.length === 0) {
-    console.log(`[StatusSyncWorker] No active channel connections found for tenant ${event.tenantId}, outlet ${event.outletId}`);
     return;
   }
 
   for (const connection of connections) {
     // Capability Guard
     if (connection.capabilities && connection.capabilities.statusSync === false) {
-      console.log(`[StatusSyncWorker] Connection ${connection._id} (${connection.provider}) does not have statusSync capability. Skipping.`);
       continue;
     }
 
@@ -57,13 +55,11 @@ export async function statusSyncWorker(event: IIntegrationEventQueue): Promise<v
       connection.provider
     );
     if (isCircuitOpen) {
-      console.log(`[StatusSyncWorker] Circuit is OPEN for provider ${connection.provider} at outlet ${event.outletId}. Skipping connection.`);
       continue;
     }
 
     const connector = connectors[connection.provider];
     if (!connector) {
-      console.log(`[StatusSyncWorker] No connector implementation found for provider ${connection.provider}. Skipping.`);
       continue;
     }
 

@@ -5,7 +5,13 @@ const connectToMongoDB = async (): Promise<void> => {
    if(!process.env.MONGO_URI) {
       throw new Error("MongoDB environment variables are missing");
    }
-   await mongoose.connect(process.env.MONGO_URI as string);
+   await mongoose.connect(process.env.MONGO_URI as string, {
+      maxPoolSize: 100,
+      minPoolSize: 10,
+      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 5000,
+      heartbeatFrequencyMS: 10000,
+   });
    console.log('MongoDB connected');
    
    // Explicitly opt in to destructive index repair instead of doing DDL on every boot.

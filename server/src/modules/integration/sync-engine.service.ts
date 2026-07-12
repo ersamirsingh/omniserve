@@ -92,7 +92,6 @@ export class SyncEngineService {
    * Main entry point to process a single event outbox document
    */
   static async processEvent(event: IIntegrationEventQueue, nodeId = "node-default"): Promise<void> {
-    console.log(`[SyncEngineService] Processing event ${event._id} (${event.eventType})`);
 
     const startedAt = new Date();
     event.status = "PROCESSING";
@@ -128,9 +127,8 @@ export class SyncEngineService {
       const processingTime = processedAt.getTime() - startedAt.getTime();
       const e2eTime = processedAt.getTime() - event.queuedAt.getTime();
 
-      console.log(
-        `[SyncEngineService] Event ${event._id} processed successfully. Latencies: QueueWait=${queueWaitTime}ms, Processing=${processingTime}ms, E2E=${e2eTime}ms`
-      );
+//         `[SyncEngineService] Event ${event._id} processed successfully. Latencies: QueueWait=${queueWaitTime}ms, Processing=${processingTime}ms, E2E=${e2eTime}ms`
+//       );
     } catch (error: any) {
       console.error(`[SyncEngineService] Error processing event ${event._id}: ${error.message}`);
 
@@ -149,7 +147,6 @@ export class SyncEngineService {
         // Exponential backoff: 2^retryCount * 2 seconds (e.g. 4s, 8s, 16s)
         const backoffMs = Math.pow(2, nextRetryCount) * 2000;
         event.nextRetryAt = new Date(Date.now() + backoffMs);
-        console.log(`[SyncEngineService] Event ${event._id} failed. Retrying at ${event.nextRetryAt.toISOString()}`);
       }
 
       await event.save();

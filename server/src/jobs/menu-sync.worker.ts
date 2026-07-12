@@ -39,14 +39,12 @@ export async function menuSyncWorker(event: IIntegrationEventQueue): Promise<voi
   }
 
   if (connections.length === 0) {
-    console.log(`[MenuSyncWorker] No active channel connections found for tenant ${event.tenantId}, outlet ${event.outletId}`);
     return;
   }
 
   for (const connection of connections) {
     // Capability Guard
     if (connection.capabilities && connection.capabilities.menuSync === false) {
-      console.log(`[MenuSyncWorker] Connection ${connection._id} (${connection.provider}) does not have menuSync capability. Skipping.`);
       continue;
     }
 
@@ -57,13 +55,11 @@ export async function menuSyncWorker(event: IIntegrationEventQueue): Promise<voi
       connection.provider
     );
     if (isCircuitOpen) {
-      console.log(`[MenuSyncWorker] Circuit is OPEN for provider ${connection.provider} at outlet ${event.outletId}. Skipping connection.`);
       continue;
     }
 
     const connector = connectors[connection.provider];
     if (!connector) {
-      console.log(`[MenuSyncWorker] No connector implementation found for provider ${connection.provider}. Skipping.`);
       continue;
     }
 

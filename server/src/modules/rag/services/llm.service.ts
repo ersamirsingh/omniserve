@@ -16,12 +16,14 @@ export class LlmService {
     if (genAIInstance) return genAIInstance;
 
     const apiKey = RAG_CONFIG.gemini.apiKey;
+    console.log(apiKey);
     if (!apiKey) {
       console.warn('[LlmService] GEMINI_API_KEY is missing. Operating in MOCK mode.');
       return null;
     }
 
     genAIInstance = new GoogleGenerativeAI(apiKey);
+    console.log('[LlmService] Google Generative AI (Gemini) client initialized successfully.');
     return genAIInstance;
   }
 
@@ -37,7 +39,7 @@ export class LlmService {
     }
 
     try {
-      const model = ai.getGenerativeModel({ model: 'text-embedding-004' });
+      const model = ai.getGenerativeModel({ model: 'gemini-embedding-001' });
       const result = await model.embedContent(text);
       if (result.embedding && result.embedding.values) {
         return result.embedding.values;
