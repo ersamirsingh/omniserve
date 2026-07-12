@@ -1,7 +1,10 @@
 import api from "../axios";
 
-export const getPublicMenuApi = (outletSlug, params) =>
-  api.get(`/public/o/${outletSlug}/menu`, { params });
+export const getPublicMenuApi = (outletSlug, params) => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.get(`/public/o/${outletSlug}/menu`, { params, headers });
+};
 
 export const getPublicCategoriesApi = (outletSlug) =>
   api.get(`/public/o/${outletSlug}/categories`);

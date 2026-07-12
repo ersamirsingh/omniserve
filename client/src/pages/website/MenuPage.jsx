@@ -81,12 +81,8 @@ export default function MenuPage() {
         const payload = res.data.data;
         setData(payload);
         
-        // Show welcome overlay if guest details are defaults
-        if (payload.guestSession && payload.guestSession.name === "Guest") {
-          setShowWelcome(true);
-        } else {
-          setShowWelcome(false);
-        }
+        // Do not auto-show welcome overlay on menu page anymore (handled in QRRedirectPage)
+        setShowWelcome(false);
         setError(null);
       })
       .catch((err) => {

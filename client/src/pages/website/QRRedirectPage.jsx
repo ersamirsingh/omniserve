@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { resolveQrCodeApi } from '../../api/models/public.api';
+import { resolveQrCodeApi, updateGuestSessionApi } from '../../api/models/public.api';
 import Spinner from '../../components/ui/Spinner';
+import Input from '../../components/ui/Input';
 import { HiOutlineExclamationTriangle, HiOutlineUsers, HiOutlineSparkles } from 'react-icons/hi2';
 
 export default function QRRedirectPage() {
@@ -11,6 +12,13 @@ export default function QRRedirectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [promptData, setPromptData] = useState(null);
+
+  // Profile Prompt Overlay states
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [updatingGuest, setUpdatingGuest] = useState(false);
+  const [resolvedPayload, setResolvedPayload] = useState(null);
 
   const handleResolve = (action = null) => {
     setLoading(true);
@@ -24,7 +32,7 @@ export default function QRRedirectPage() {
           return;
         }
 
-        const { outletSlug, sessionToken, outletId, guestSessionToken } = data;
+        const { outletSlug, sessionToken, outletId, guestSessionToken, guestSession } = data;
         
         // Save tokens
         localStorage.setItem('sessionToken', sessionToken);
@@ -32,13 +40,56 @@ export default function QRRedirectPage() {
         localStorage.setItem('guestSessionToken', guestSessionToken);
         localStorage.setItem('tableToken', tableToken);
         
-        // Redirect to the public website menu
-        navigate(`/public/w/${outletSlug}/menu`);
+        // Check if name is default "Guest" to ask for details first
+        if (!guestSession || guestSession.name === "Guest") {
+          setResolvedPayload(data);
+          setShowWelcome(true);
+          setLoading(false);
+        } else {
+          // Profile already setup, navigate straight to the menu page
+          navigate(`/public/w/${outletSlug}/menu`);
+        }
       })
       .catch((err) => {
         setError(err.response?.data?.message || 'Failed to resolve QR Code scan');
         setLoading(false);
       });
+  };
+
+  const handleWelcomeSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!guestName.trim()) return;
+
+    setUpdatingGuest(true);
+    try {
+      await updateGuestSessionApi({
+        name: guestName.trim(),
+        phone: guestPhone.trim() || undefined
+      });
+      setShowWelcome(false);
+      navigate(`/public/w/${resolvedPayload.outletSlug}/menu`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save your details");
+    } finally {
+      setUpdatingGuest(false);
+    }
+  };
+
+  const handleWelcomeSkip = async () => {
+    setUpdatingGuest(true);
+    try {
+      await updateGuestSessionApi({
+        name: "Guest",
+        phone: "Unknown"
+      });
+      setShowWelcome(false);
+      navigate(`/public/w/${resolvedPayload.outletSlug}/menu`);
+    } catch (err) {
+      setShowWelcome(false);
+      navigate(`/public/w/${resolvedPayload.outletSlug}/menu`);
+    } finally {
+      setUpdatingGuest(false);
+    }
   };
 
   useEffect(() => {
@@ -68,6 +119,68 @@ export default function QRRedirectPage() {
       <div className="min-h-screen bg-white flex flex-col items-center justify-center text-zinc-950 space-y-3 guest-ordering">
         <Spinner size="lg" className="text-[#6311f4]" />
         <h1 className="text-xs font-bold tracking-wider uppercase text-zinc-400">Loading Menu & Session...</h1>
+      </div>
+    );
+  }
+
+  // Welcome / Profile Setup Form Screen
+  if (showWelcome && resolvedPayload) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-5 guest-ordering">
+        <div className="bg-white border border-zinc-100 rounded-3xl p-6 w-full max-w-md shadow-xl shadow-zinc-200/50 space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-14 h-14 bg-[#6311f4]/5 border border-[#6311f4]/10 rounded-2xl flex items-center justify-center mx-auto text-[#6311f4] text-2xl font-black">
+              OS
+            </div>
+            <div>
+              <h2 className="font-black text-xl text-zinc-950 tracking-tight">Welcome to {resolvedPayload.outletName}</h2>
+              <p className="text-[11px] text-zinc-500 mt-0.5">{resolvedPayload.outletAddress || 'Table Self-Ordering'}</p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 bg-[#6311f4]/5 border border-[#6311f4]/10 px-3 py-1 rounded-full text-[#6311f4] text-[10px] font-extrabold uppercase tracking-wider">
+              Table {resolvedPayload.tableNumber || 'N/A'} • {resolvedPayload.diningAreaName || 'Dine-In'}
+            </div>
+          </div>
+
+          <form onSubmit={handleWelcomeSubmit} className="space-y-4">
+            <Input
+              label="Your Name"
+              placeholder="Enter your name (e.g. John)"
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              required
+              icon="person"
+              className="bg-zinc-50 border-zinc-100 text-zinc-900 text-xs focus:border-[#6311f4]"
+            />
+
+            <Input
+              label="Phone Number (Optional)"
+              placeholder="Enter phone number"
+              value={guestPhone}
+              onChange={(e) => setGuestPhone(e.target.value)}
+              icon="phone"
+              type="tel"
+              className="bg-zinc-50 border-zinc-100 text-zinc-900 text-xs focus:border-[#6311f4]"
+            />
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={handleWelcomeSkip}
+                disabled={updatingGuest}
+                className="flex-1 bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 text-zinc-500 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl transition-all cursor-pointer"
+              >
+                Skip
+              </button>
+              <button
+                type="submit"
+                disabled={updatingGuest || !guestName.trim()}
+                className="flex-1 bg-[#6311f4] hover:bg-[#520dd4] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-lg shadow-[#6311f4]/15 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {updatingGuest ? 'Joining...' : 'Start Ordering'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     );
   }

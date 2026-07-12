@@ -127,6 +127,15 @@ export class PublicController {
         }),
       ]);
 
+      const clientGuestToken = req.headers["x-guest-session-token"];
+      let guestSession = null;
+      if (clientGuestToken) {
+        guestSession = await mongoose.model("GuestSession").findOne({
+          guestSessionToken: String(clientGuestToken),
+          status: "ACTIVE"
+        });
+      }
+
       ApiResponseHandler.success(res, 200, "Public menu retrieved successfully", {
         outlet: {
           id: outlet._id,
@@ -138,6 +147,14 @@ export class PublicController {
         menuItems,
         variants,
         addons,
+        ...(guestSession && {
+          guestSession: {
+            name: guestSession.name,
+            role: guestSession.role,
+            seatNumber: guestSession.seatNumber,
+            guestCount: guestSession.guestCount
+          }
+        })
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to retrieve public menu");
@@ -251,6 +268,15 @@ export class PublicController {
         }),
       ]);
 
+      const clientGuestToken = req.headers["x-guest-session-token"];
+      let guestSession = null;
+      if (clientGuestToken) {
+        guestSession = await mongoose.model("GuestSession").findOne({
+          guestSessionToken: String(clientGuestToken),
+          status: "ACTIVE"
+        });
+      }
+
       ApiResponseHandler.success(res, 200, "Table specific menu retrieved successfully", {
         outlet: {
           id: outlet._id,
@@ -273,6 +299,14 @@ export class PublicController {
         menuItems,
         variants,
         addons,
+        ...(guestSession && {
+          guestSession: {
+            name: guestSession.name,
+            role: guestSession.role,
+            seatNumber: guestSession.seatNumber,
+            guestCount: guestSession.guestCount
+          }
+        })
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to retrieve table menu");
