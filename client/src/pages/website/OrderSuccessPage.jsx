@@ -1,44 +1,89 @@
-import React from "react";
+import React, { useState } from "react";
 import { useSearchParams, useParams, Link } from "react-router-dom";
-import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
+
+const NEXT_STEPS = [
+  { label: "Accepted", desc: "Kitchen confirms your order" },
+  { label: "Preparing", desc: "Your food is cooked fresh" },
+  { label: "Ready", desc: "Served hot, right on time" },
+];
 
 export default function OrderSuccessPage() {
   const { outletSlug } = useParams();
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("orderId");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!orderId) return;
+    navigator.clipboard?.writeText(orderId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">
-      <Card className="bg-zinc-900 border-zinc-800 p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-2xl">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-3xl mx-auto">
-          ✓
+    <div className="min-h-screen bg-background text-on-background flex items-center justify-center p-6 font-sans">
+      <Card className="bg-surface-container border border-border-base p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-[0_20px_60px_-20px_color-mix(in_srgb,var(--color-brand-accent)_25%,transparent)]">
+        <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-green opacity-25" />
+          <div className="relative w-16 h-16 rounded-full bg-success-green/10 border border-success-green/30 flex items-center justify-center text-success-green text-3xl animate-scale-in">
+            ✓
+          </div>
         </div>
-        
+
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-white">Order Placed Successfully!</h1>
-          <p className="text-sm text-zinc-400">
-            Thank you for ordering. Your order has been registered in the kitchen pipeline.
+          <h1 className="text-2xl font-bold text-on-background font-hanken">Order Placed!</h1>
+          <p className="text-sm text-on-surface-variant">
+            Thank you for ordering. Your order has been sent straight to the kitchen.
           </p>
         </div>
 
         {orderId && (
-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 text-left space-y-1.5">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider block">Order ID</span>
-            <span className="font-mono text-sm font-bold text-zinc-200 block break-all">{orderId}</span>
-          </div>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="w-full bg-surface-container-low border border-border-base rounded-2xl p-4 text-left space-y-1.5 hover:border-primary/40 transition-colors"
+            title="Tap to copy order ID"
+          >
+            <span className="text-xs text-on-surface-variant uppercase tracking-wider block">Order ID</span>
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-mono text-sm font-bold text-on-surface break-all">{orderId}</span>
+              <span className={`text-xs shrink-0 font-semibold ${copied ? "text-success-green" : "text-on-surface-variant"}`}>
+                {copied ? "✓ Copied" : "⧉ Copy"}
+              </span>
+            </span>
+          </button>
         )}
 
-        <div className="pt-4 flex flex-col gap-3">
+        {/* What happens next preview */}
+        <div className="flex items-center justify-between px-1">
+          {NEXT_STEPS.map((step, i) => (
+            <React.Fragment key={step.label}>
+              <div className="flex flex-col items-center gap-1.5 w-16">
+                <span className="text-[10px] font-bold text-on-surface-variant">{i + 1}</span>
+                <span className="text-[11px] font-semibold text-on-surface text-center leading-tight">{step.label}</span>
+              </div>
+              {i < NEXT_STEPS.length - 1 && <div className="flex-1 h-px bg-border-base mt-3" />}
+            </React.Fragment>
+          ))}
+        </div>
+
+        <div className="pt-2 flex flex-col gap-3">
           {orderId && (
             <Link to={`/public/w/${outletSlug}/track/${orderId}`}>
-              <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-sm">
+              <button
+                type="button"
+                className="w-full bg-primary-fixed hover:brightness-95 text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm"
+              >
                 Track Live Progress
               </button>
             </Link>
           )}
           <Link to={`/public/w/${outletSlug}`}>
-            <button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-4 rounded-xl transition-all text-sm">
+            <button
+              type="button"
+              className="w-full bg-surface-container-low border border-border-base hover:bg-surface-container-high text-on-surface font-bold py-3 px-4 rounded-xl transition-colors text-sm"
+            >
               Back to Menu
             </button>
           </Link>

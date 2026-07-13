@@ -1,0 +1,3107 @@
+diff --git a/client/src/pages/website/CartPage.jsx b/client/src/pages/website/CartPage.jsx
+index 2f0a898..95ee674 100644
+--- a/client/src/pages/website/CartPage.jsx
++++ b/client/src/pages/website/CartPage.jsx
+@@ -5,6 +5,11 @@ import Spinner from "../../components/ui/Spinner";
+ import Button from "../../components/ui/Button";
+ import Card from "../../components/ui/Card";
+ 
++const formatINR = (amount) => {
++  const n = Number(amount) || 0;
++  return `₹${n.toLocaleString("en-IN")}`;
++};
++
+ export default function CartPage() {
+   const { outletSlug } = useParams();
+   const navigate = useNavigate();
+@@ -36,6 +41,7 @@ export default function CartPage() {
+   const handleUpdateQty = async (item, delta) => {
+     if (!cart) return;
+     const newQty = item.quantity + delta;
++    if (newQty < 1) return;
+     setUpdatingItemId(`${item.menuItemId._id || item.menuItemId}-${item.variantId?._id || ""}`);
+ 
+     try {
+@@ -75,12 +81,29 @@ export default function CartPage() {
+ 
+   if (loading && !cart) {
+     return (
+-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
++      <div className="min-h-screen flex items-center justify-center bg-background text-on-background">
+         <Spinner size="lg" />
+       </div>
+     );
+   }
+ 
++  if (error && !cart) {
++    return (
++      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-on-background p-6 font-sans">
++        <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center text-2xl mb-5">
++          ⚠️
++        </div>
++        <h2 className="text-xl font-semibold mb-2 font-hanken">Couldn't load your cart</h2>
++        <p className="text-on-surface-variant text-sm mb-7 text-center max-w-xs">{error}</p>
++        <Link to={`/public/w/${outletSlug}`}>
++          <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
++            Browse Menu
++          </Button>
++        </Link>
++      </div>
++    );
++  }
++
+   const items = cart?.items || [];
+ 
+   // Calculate pricing
+@@ -102,20 +125,21 @@ export default function CartPage() {
+   const totalAmount = subtotal + tax + deliveryFee;
+ 
+   return (
+-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
++    <div className="min-h-screen bg-background text-on-background flex flex-col font-sans">
+       {/* Header */}
+-      <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+-        <div className="flex items-center gap-3">
+-          <Link to={`/public/w/${outletSlug}`} className="text-zinc-400 hover:text-white transition-all text-sm font-semibold flex items-center gap-2">
+-            ← Back to Menu
+-          </Link>
+-        </div>
+-        <h1 className="font-bold text-lg text-white">Your Shopping Cart</h1>
+-        <div className="w-20"></div>
++      <header className="border-b border-border-base bg-background/90 backdrop-blur sticky top-0 z-40 px-5 py-4 flex items-center justify-between">
++        <Link
++          to={`/public/w/${outletSlug}`}
++          className="text-on-surface-variant hover:text-on-surface transition-colors text-sm font-semibold flex items-center gap-2"
++        >
++          ← Back to Menu
++        </Link>
++        <h1 className="font-semibold text-lg text-on-background font-hanken">Your Cart</h1>
++        <div className="w-24" />
+       </header>
+ 
+       {/* Main Content */}
+-      <div className="flex-grow max-w-4xl w-full mx-auto p-6 flex flex-col md:flex-row gap-6">
++      <div className="flex-grow max-w-4xl w-full mx-auto p-5 flex flex-col md:flex-row gap-6">
+         {/* Cart items list */}
+         <div className="flex-1 flex flex-col gap-4">
+           {items.map((item) => {
+@@ -128,25 +152,26 @@ export default function CartPage() {
+             return (
+               <Card
+                 key={key}
+-                className="bg-zinc-900 border-zinc-800 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl relative"
++                className="bg-surface-container border border-border-base p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl relative"
+               >
+                 {isUpdating && (
+-                  <div className="absolute inset-0 bg-zinc-950/40 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
++                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+                     <Spinner size="sm" />
+                   </div>
+                 )}
+                 <div>
+-                  <h3 className="font-bold text-white text-base">
+-                    {menuItemName} {variantName && <span className="text-zinc-400 font-normal">({variantName})</span>}
++                  <h3 className="font-semibold text-on-surface text-base font-sans">
++                    {menuItemName}{" "}
++                    {variantName && <span className="text-on-surface-variant font-normal">({variantName})</span>}
+                   </h3>
+-                  <p className="text-sm font-bold text-indigo-400 mt-1">₹{itemPrice}</p>
+-                  
++                  <p className="text-sm font-bold text-primary mt-1 tabular-nums">{formatINR(itemPrice)}</p>
++
+                   {/* Addons List */}
+                   {item.addons && item.addons.length > 0 && (
+-                    <div className="mt-2 pl-3 border-l-2 border-zinc-800 space-y-0.5">
++                    <div className="mt-2 pl-3 border-l-2 border-border-base space-y-0.5">
+                       {item.addons.map((a) => (
+-                        <p key={a.addonId?._id || a.addonId} className="text-xs text-zinc-400">
+-                          + {a.addonId?.name || "Addon"} (x{a.quantity}) : ₹{(a.addonId?.price || 0) * a.quantity}
++                        <p key={a.addonId?._id || a.addonId} className="text-xs text-on-surface-variant">
++                          + {a.addonId?.name || "Addon"} (x{a.quantity}) : {formatINR((a.addonId?.price || 0) * a.quantity)}
+                         </p>
+                       ))}
+                     </div>
+@@ -154,25 +179,32 @@ export default function CartPage() {
+ 
+                   {/* Notes */}
+                   {item.notes && (
+-                    <p className="text-xs text-zinc-500 italic mt-2">
+-                      Note: "{item.notes}"
+-                    </p>
++                    <p className="text-xs text-on-surface-variant italic mt-2">Note: "{item.notes}"</p>
+                   )}
+                 </div>
+ 
+                 <div className="flex items-center gap-6 self-end sm:self-center">
+                   {/* Quantity Actions */}
+-                  <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl p-1">
++                  <div className="flex items-center gap-2 bg-surface-container-low border border-border-base rounded-xl p-1">
+                     <button
++                      type="button"
+                       onClick={() => handleUpdateQty(item, -1)}
+-                      className="w-8 h-8 flex items-center justify-center hover:bg-zinc-800 text-zinc-400 font-bold rounded-lg transition-all"
++                      disabled={item.quantity <= 1}
++                      title={item.quantity <= 1 ? "Use the bin icon to remove this item" : "Decrease quantity"}
++                      className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                     >
+-                      -
++                      −
+                     </button>
+-                    <span className="font-bold text-sm text-zinc-100 w-5 text-center">{item.quantity}</span>
++                    <span
++                      key={item.quantity}
++                      className="font-bold text-sm text-on-surface w-5 text-center tabular-nums animate-scale-in"
++                    >
++                      {item.quantity}
++                    </span>
+                     <button
++                      type="button"
+                       onClick={() => handleUpdateQty(item, 1)}
+-                      className="w-8 h-8 flex items-center justify-center hover:bg-zinc-800 text-zinc-400 font-bold rounded-lg transition-all"
++                      className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded-lg transition-colors"
+                     >
+                       +
+                     </button>
+@@ -180,9 +212,11 @@ export default function CartPage() {
+ 
+                   {/* Remove Button */}
+                   <button
++                    type="button"
+                     onClick={() => handleRemoveItem(item)}
+-                    className="p-2 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded-xl transition-all"
++                    className="p-2 hover:bg-error/10 text-on-surface-variant hover:text-error rounded-xl transition-colors"
+                     title="Remove item"
++                    aria-label={`Remove ${menuItemName} from cart`}
+                   >
+                     🗑️
+                   </button>
+@@ -192,10 +226,13 @@ export default function CartPage() {
+           })}
+ 
+           {items.length === 0 && (
+-            <div className="py-16 text-center text-zinc-500">
+-              <p className="mb-6">Your shopping cart is currently empty.</p>
++            <div className="py-20 flex flex-col items-center text-center gap-4">
++              <span className="text-4xl">🛒</span>
++              <p className="text-on-surface-variant text-sm">Your cart is empty right now.</p>
+               <Link to={`/public/w/${outletSlug}`}>
+-                <Button variant="primary">Browse Menu</Button>
++                <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
++                  Browse Menu
++                </Button>
+               </Link>
+             </div>
+           )}
+@@ -204,30 +241,33 @@ export default function CartPage() {
+         {/* Pricing Summary Sidepanel */}
+         {items.length > 0 && (
+           <div className="w-full md:w-80 shrink-0">
+-            <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
+-              <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">Bill Details</h2>
+-              <div className="space-y-2 text-sm text-zinc-400">
++            <Card className="bg-surface-container border border-border-base p-5 rounded-2xl space-y-4 sticky top-24">
++              <h2 className="text-base font-semibold text-on-background font-hanken border-b border-border-base pb-3">
++                Bill Details
++              </h2>
++              <div className="space-y-2 text-sm text-on-surface-variant">
+                 <div className="flex justify-between">
+                   <span>Subtotal</span>
+-                  <span className="text-zinc-200">₹{subtotal}</span>
++                  <span className="text-on-surface tabular-nums">{formatINR(subtotal)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span>GST/Taxes (5%)</span>
+-                  <span className="text-zinc-200">₹{tax}</span>
++                  <span className="text-on-surface tabular-nums">{formatINR(tax)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span>Delivery Fee</span>
+-                  <span className="text-zinc-200">₹{deliveryFee}</span>
++                  <span className="text-on-surface tabular-nums">{formatINR(deliveryFee)}</span>
+                 </div>
+-                <div className="flex justify-between border-t border-zinc-800 pt-3 font-bold text-base text-white">
++                <div className="flex justify-between border-t border-border-base pt-3 font-bold text-base text-on-background">
+                   <span>To Pay</span>
+-                  <span className="text-indigo-400">₹{totalAmount}</span>
++                  <span className="text-primary tabular-nums">{formatINR(totalAmount)}</span>
+                 </div>
+               </div>
+               <div className="pt-2">
+                 <button
++                  type="button"
+                   onClick={() => navigate(`/public/w/${outletSlug}/checkout`)}
+-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-sm"
++                  className="w-full bg-primary-fixed hover:brightness-95 text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm"
+                 >
+                   Proceed to Checkout
+                 </button>
+@@ -238,4 +278,4 @@ export default function CartPage() {
+       </div>
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/client/src/pages/website/CheckoutPage.jsx b/client/src/pages/website/CheckoutPage.jsx
+index 03f10ea..ec7dec2 100644
+--- a/client/src/pages/website/CheckoutPage.jsx
++++ b/client/src/pages/website/CheckoutPage.jsx
+@@ -7,6 +7,11 @@ import Card from "../../components/ui/Card";
+ import Input from "../../components/ui/Input";
+ import Select from "../../components/ui/Select";
+ 
++const formatINR = (amount) => {
++  const n = Number(amount) || 0;
++  return `₹${n.toLocaleString("en-IN")}`;
++};
++
+ export default function CheckoutPage() {
+   const { outletSlug } = useParams();
+   const navigate = useNavigate();
+@@ -16,14 +21,15 @@ export default function CheckoutPage() {
+   const [error, setError] = useState(null);
+   const [checkingOut, setCheckingOut] = useState(false);
+ 
++  const hasTableSession =
++    !!localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-");
++
+   // Form states
+   const [customerName, setCustomerName] = useState("");
+   const [customerPhone, setCustomerPhone] = useState("");
+   const [customerEmail, setCustomerEmail] = useState("");
+-  
+-  const [fulfillmentType, setFulfillmentType] = useState(
+-    localStorage.getItem("sessionToken") ? "DINE_IN" : "DELIVERY"
+-  );
++
++  const [fulfillmentType, setFulfillmentType] = useState(hasTableSession ? "DINE_IN" : "DELIVERY");
+   const [addressLine1, setAddressLine1] = useState("");
+   const [addressLine2, setAddressLine2] = useState("");
+   const [addressCity, setAddressCity] = useState("");
+@@ -57,7 +63,7 @@ export default function CheckoutPage() {
+ 
+   if (loading) {
+     return (
+-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
++      <div className="min-h-screen flex items-center justify-center bg-background text-on-background">
+         <Spinner size="lg" />
+       </div>
+     );
+@@ -66,11 +72,15 @@ export default function CheckoutPage() {
+   const items = cart?.items || [];
+   if (items.length === 0) {
+     return (
+-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6">
+-        <h2 className="text-xl font-bold mb-4">No Active Cart</h2>
+-        <p className="text-zinc-400 mb-6">Your shopping cart is empty. Please add items before checking out.</p>
++      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-on-background p-6 font-sans">
++        <h2 className="text-xl font-semibold mb-3 font-hanken">No Active Cart</h2>
++        <p className="text-on-surface-variant mb-7 text-center max-w-xs">
++          Your cart is empty. Please add items before checking out.
++        </p>
+         <Link to={`/public/w/${outletSlug}`}>
+-          <Button variant="primary">Browse Menu</Button>
++          <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
++            Browse Menu
++          </Button>
+         </Link>
+       </div>
+     );
+@@ -94,6 +104,13 @@ export default function CheckoutPage() {
+   const deliveryFee = fulfillmentType === "DELIVERY" ? 50 : 0;
+   const totalAmount = Math.max(0, Number((subtotal + tax + deliveryFee - couponDiscount).toFixed(2)));
+ 
++  const fulfillmentOptions = hasTableSession
++    ? [{ value: "DINE_IN", label: "Dine In (This Table)" }]
++    : [
++        { value: "DELIVERY", label: "Home Delivery" },
++        { value: "TAKEAWAY", label: "Takeaway / Self-Pickup" },
++      ];
++
+   const handleApplyCoupon = async (e) => {
+     e?.preventDefault();
+     setCouponError("Promo coupons are not supported for storefront orders.");
+@@ -141,13 +158,16 @@ export default function CheckoutPage() {
+       fulfillment: {
+         type: fulfillmentType,
+         instructions: deliveryInstructions || undefined,
+-        address: fulfillmentType === "DELIVERY" ? {
+-          line1: addressLine1,
+-          line2: addressLine2 || undefined,
+-          city: addressCity,
+-          state: addressState,
+-          pincode: addressPincode,
+-        } : undefined,
++        address:
++          fulfillmentType === "DELIVERY"
++            ? {
++                line1: addressLine1,
++                line2: addressLine2 || undefined,
++                city: addressCity,
++                state: addressState,
++                pincode: addressPincode,
++              }
++            : undefined,
+       },
+       payment: {
+         mode: paymentMode,
+@@ -163,7 +183,7 @@ export default function CheckoutPage() {
+     try {
+       const res = await checkoutCartApi(payload);
+       const orderId = res.data.data.processedOrder.internalOrderId;
+-      
++
+       // Clear sessionToken only if not a dine-in QR session order
+       if (fulfillmentType !== "DINE_IN") {
+         localStorage.removeItem("sessionToken");
+@@ -178,157 +198,203 @@ export default function CheckoutPage() {
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
++    <div className="min-h-screen bg-background text-on-background flex flex-col font-sans">
+       {/* Header */}
+-      <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+-        <div className="flex items-center gap-3">
+-          <Link to={`/public/w/${outletSlug}/cart`} className="text-zinc-400 hover:text-white transition-all text-sm font-semibold flex items-center gap-2">
+-            ← Back to Cart
+-          </Link>
+-        </div>
+-        <h1 className="font-bold text-lg text-white">Secure Checkout</h1>
+-        <div className="w-20"></div>
++      <header className="border-b border-border-base bg-background/90 backdrop-blur sticky top-0 z-40 px-5 py-4 flex items-center justify-between">
++        <Link
++          to={`/public/w/${outletSlug}/cart`}
++          className="text-on-surface-variant hover:text-on-surface transition-colors text-sm font-semibold flex items-center gap-2"
++        >
++          ← Back to Cart
++        </Link>
++        <h1 className="font-semibold text-lg text-on-background font-hanken">Secure Checkout</h1>
++        <div className="w-24" />
+       </header>
+ 
+       {/* Checkout Form Container */}
+-      <form onSubmit={handleCheckout} className="flex-grow max-w-5xl w-full mx-auto p-6 flex flex-col md:flex-row gap-6">
++      <form onSubmit={handleCheckout} className="flex-grow max-w-5xl w-full mx-auto p-5 flex flex-col md:flex-row gap-6">
+         <div className="flex-1 space-y-6">
+           {/* Customer Details */}
+-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
+-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">1. Contact Information</h2>
++          <Card className="bg-surface-container border border-border-base p-5 rounded-2xl space-y-4">
++            <h2 className="text-base font-semibold text-on-background font-hanken border-b border-border-base pb-3">
++              1. Contact Information
++            </h2>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div>
+-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Full Name *</label>
++                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                  Full Name *
++                </label>
+                 <Input
+                   type="text"
+                   required
+                   value={customerName}
+                   onChange={(e) => setCustomerName(e.target.value)}
+                   placeholder="Rahul Singh"
+-                  className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                  className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                 />
+               </div>
+               <div>
+-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Phone Number *</label>
++                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                  Phone Number *
++                </label>
+                 <Input
+                   type="text"
+                   required
+                   value={customerPhone}
+                   onChange={(e) => setCustomerPhone(e.target.value)}
+                   placeholder="9876543210"
+-                  className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                  className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                 />
+               </div>
+               <div className="sm:col-span-2">
+-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Email Address (Optional)</label>
++                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                  Email Address (Optional)
++                </label>
+                 <Input
+                   type="email"
+                   value={customerEmail}
+                   onChange={(e) => setCustomerEmail(e.target.value)}
+                   placeholder="rahul@example.com"
+-                  className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                  className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                 />
+               </div>
+             </div>
+           </Card>
+ 
+           {/* Fulfillment details */}
+-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
+-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">2. Delivery or Takeaway</h2>
+-            <div>
+-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-2">Select Option</label>
+-              <Select
+-                value={fulfillmentType}
+-                onChange={(e) => setFulfillmentType(e.target.value)}
+-                options={[
+-                  { value: "DELIVERY", label: "Home Delivery" },
+-                  { value: "TAKEAWAY", label: "Takeaway / Self-Pickup" }
+-                ]}
+-                className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
+-              />
+-            </div>
++          <Card className="bg-surface-container border border-border-base p-5 rounded-2xl space-y-4">
++            <h2 className="text-base font-semibold text-on-background font-hanken border-b border-border-base pb-3">
++              2. {hasTableSession ? "Dine-In Order" : "Delivery or Takeaway"}
++            </h2>
++            {!hasTableSession && (
++              <div>
++                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
++                  Select Option
++                </label>
++                <Select
++                  value={fulfillmentType}
++                  onChange={(e) => setFulfillmentType(e.target.value)}
++                  options={fulfillmentOptions}
++                  className="bg-surface-container-low border-border-base text-on-surface rounded-xl"
++                />
++              </div>
++            )}
++            {hasTableSession && (
++              <p className="text-sm text-on-surface-variant">
++                Your order will be served directly to your table. No delivery details needed.
++              </p>
++            )}
+ 
+             {fulfillmentType === "DELIVERY" && (
+               <div className="space-y-4 pt-2">
+                 <div>
+-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Flat / House No. / Building Name *</label>
++                  <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                    Flat / House No. / Building Name *
++                  </label>
+                   <Input
+                     type="text"
+                     required
+                     value={addressLine1}
+                     onChange={(e) => setAddressLine1(e.target.value)}
+                     placeholder="Flat 302, Green Meadows"
+-                    className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                    className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                   />
+                 </div>
+                 <div>
+-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Street / Locality / Area</label>
++                  <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                    Street / Locality / Area
++                  </label>
+                   <Input
+                     type="text"
+                     value={addressLine2}
+                     onChange={(e) => setAddressLine2(e.target.value)}
+                     placeholder="Arera Colony"
+-                    className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                    className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                   />
+                 </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                   <div>
+-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">City *</label>
++                    <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                      City *
++                    </label>
+                     <Input
+                       type="text"
+                       required
+                       value={addressCity}
+                       onChange={(e) => setAddressCity(e.target.value)}
+                       placeholder="Bhopal"
+-                      className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                      className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                     />
+                   </div>
+                   <div>
+-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">State *</label>
++                    <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                      State *
++                    </label>
+                     <Input
+                       type="text"
+                       required
+                       value={addressState}
+                       onChange={(e) => setAddressState(e.target.value)}
+                       placeholder="MP"
+-                      className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                      className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                     />
+                   </div>
+                   <div>
+-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Pincode *</label>
++                    <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                      Pincode *
++                    </label>
+                     <Input
+                       type="text"
+                       required
+                       value={addressPincode}
+                       onChange={(e) => setAddressPincode(e.target.value)}
+                       placeholder="462001"
+-                      className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                      className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                     />
+                   </div>
+                 </div>
+                 <div>
+-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Rider Instructions</label>
++                  <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                    Rider Instructions
++                  </label>
+                   <Input
+                     type="text"
+                     value={deliveryInstructions}
+                     onChange={(e) => setDeliveryInstructions(e.target.value)}
+                     placeholder="Leave it at the gate / Call before arrival"
+-                    className="bg-zinc-950 border-zinc-800 text-zinc-200 rounded-xl"
++                    className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
+                   />
+                 </div>
+               </div>
+             )}
++
++            {fulfillmentType === "TAKEAWAY" && (
++              <div className="pt-2">
++                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
++                  Notes for the kitchen (optional)
++                </label>
++                <Input
++                  type="text"
++                  value={deliveryInstructions}
++                  onChange={(e) => setDeliveryInstructions(e.target.value)}
++                  placeholder="Pack it in two boxes / no cutlery, etc."
++                  className="bg-surface-container-low border-border-base text-on-surface focus:border-primary rounded-xl"
++                />
++              </div>
++            )}
+           </Card>
+ 
+           {/* Payment Method */}
+-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4">
+-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">3. Payment Method</h2>
++          <Card className="bg-surface-container border border-border-base p-5 rounded-2xl space-y-4">
++            <h2 className="text-base font-semibold text-on-background font-hanken border-b border-border-base pb-3">
++              3. Payment Method
++            </h2>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <label
+-                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
++                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${
+                   paymentMode === "COD"
+-                    ? "bg-indigo-500/10 border-indigo-600"
+-                    : "bg-zinc-950 border-zinc-800 hover:border-zinc-700 text-zinc-300"
++                    ? "bg-primary/10 border-primary"
++                    : "bg-surface-container-low border-border-base hover:border-on-surface-variant/40 text-on-surface"
+                 }`}
+               >
+                 <input
+@@ -337,19 +403,19 @@ export default function CheckoutPage() {
+                   value="COD"
+                   checked={paymentMode === "COD"}
+                   onChange={() => setPaymentMode("COD")}
+-                  className="radio radio-xs radio-primary w-4 h-4 text-indigo-600 border-zinc-700 bg-zinc-800 focus:ring-indigo-500"
++                  className="w-4 h-4 accent-primary"
+                 />
+                 <div>
+-                  <p className="text-sm font-bold text-white">Cash on Delivery (COD)</p>
+-                  <p className="text-xs text-zinc-400 mt-0.5">Pay with cash upon arrival</p>
++                  <p className="text-sm font-semibold text-on-surface">Cash on Delivery (COD)</p>
++                  <p className="text-xs text-on-surface-variant mt-0.5">Pay with cash upon arrival</p>
+                 </div>
+               </label>
+ 
+               <label
+-                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
++                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${
+                   paymentMode === "ONLINE"
+-                    ? "bg-indigo-500/10 border-indigo-600"
+-                    : "bg-zinc-950 border-zinc-800 hover:border-zinc-700 text-zinc-300"
++                    ? "bg-primary/10 border-primary"
++                    : "bg-surface-container-low border-border-base hover:border-on-surface-variant/40 text-on-surface"
+                 }`}
+               >
+                 <input
+@@ -358,11 +424,11 @@ export default function CheckoutPage() {
+                   value="ONLINE"
+                   checked={paymentMode === "ONLINE"}
+                   onChange={() => setPaymentMode("ONLINE")}
+-                  className="radio radio-xs radio-primary w-4 h-4 text-indigo-600 border-zinc-700 bg-zinc-800 focus:ring-indigo-500"
++                  className="w-4 h-4 accent-primary"
+                 />
+                 <div>
+-                  <p className="text-sm font-bold text-white">Mock Net Banking / Cards</p>
+-                  <p className="text-xs text-zinc-400 mt-0.5">Simulate instant online payment</p>
++                  <p className="text-sm font-semibold text-on-surface">Mock Net Banking / Cards</p>
++                  <p className="text-xs text-on-surface-variant mt-0.5">Simulate instant online payment</p>
+                 </div>
+               </label>
+             </div>
+@@ -370,17 +436,19 @@ export default function CheckoutPage() {
+         </div>
+ 
+         {/* Order review sidebar */}
+-        <div className="w-full md:w-90 shrink-0">
+-          <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl space-y-4 sticky top-24">
+-            <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">Order Review</h2>
+-            
++        <div className="w-full md:w-[22rem] shrink-0">
++          <Card className="bg-surface-container border border-border-base p-5 rounded-2xl space-y-4 sticky top-24">
++            <h2 className="text-base font-semibold text-on-background font-hanken border-b border-border-base pb-3">
++              Order Review
++            </h2>
++
+             {/* Items summary */}
+             <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2">
+               {items.map((item) => {
+                 const menuItemName = item.menuItemId?.name || "Dish";
+                 const variantName = item.variantId?.name || "";
+                 const itemPrice = item.variantId?.price || item.menuItemId?.price || 0;
+-                
++
+                 let addonsTotal = 0;
+                 (item.addons || []).forEach((addon) => {
+                   addonsTotal += (addon.addonId?.price || 0) * addon.quantity;
+@@ -388,35 +456,38 @@ export default function CheckoutPage() {
+                 const totalItemPrice = (itemPrice + addonsTotal) * item.quantity;
+ 
+                 return (
+-                  <div key={item.menuItemId?._id || item.menuItemId} className="flex justify-between text-xs text-zinc-300">
++                  <div key={item.menuItemId?._id || item.menuItemId} className="flex justify-between text-xs text-on-surface">
+                     <div>
+-                      <p className="font-semibold text-white">
+-                        {menuItemName} {variantName && `(${variantName})`} <span className="text-zinc-500 text-xs">x{item.quantity}</span>
++                      <p className="font-semibold text-on-surface">
++                        {menuItemName} {variantName && `(${variantName})`}{" "}
++                        <span className="text-on-surface-variant text-xs">x{item.quantity}</span>
+                       </p>
+                       {item.addons && item.addons.length > 0 && (
+-                        <p className="text-zinc-500 text-[10px] pl-1.5 mt-0.5">
+-                          + {item.addons.map(a => a.addonId?.name || "Addon").join(", ")}
++                        <p className="text-on-surface-variant text-[10px] pl-1.5 mt-0.5">
++                          + {item.addons.map((a) => a.addonId?.name || "Addon").join(", ")}
+                         </p>
+                       )}
+                     </div>
+-                    <span className="font-bold">₹{totalItemPrice}</span>
++                    <span className="font-bold tabular-nums">{formatINR(totalItemPrice)}</span>
+                   </div>
+                 );
+               })}
+             </div>
+ 
+             {/* Coupon application container */}
+-            <div className="border-t border-zinc-800 pt-3.5 space-y-2">
+-              <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block">Promo Coupon</label>
++            <div className="border-t border-border-base pt-3.5 space-y-2">
++              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">
++                Promo Coupon
++              </label>
+               {appliedCoupon ? (
+-                <div className="flex items-center justify-between p-2.5 bg-indigo-500/10 border border-indigo-550/30 rounded-xl animate-fade-in">
+-                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-400">
++                <div className="flex items-center justify-between p-2.5 bg-primary/10 border border-primary/30 rounded-xl animate-fade-in">
++                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-primary">
+                     🎟️ {appliedCoupon}
+                   </div>
+                   <button
+                     type="button"
+                     onClick={handleRemoveCoupon}
+-                    className="text-xs text-red-400 font-bold hover:underline cursor-pointer"
++                    className="text-xs text-error font-bold hover:underline cursor-pointer"
+                   >
+                     Remove
+                   </button>
+@@ -432,7 +503,7 @@ export default function CheckoutPage() {
+                       setCouponSuccess(null);
+                     }}
+                     placeholder="e.g. SAVE50"
+-                    className="flex-1 bg-zinc-950 border border-zinc-800 text-zinc-200 rounded-xl px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-indigo-500 placeholder:text-zinc-700"
++                    className="flex-1 bg-surface-container-low border border-border-base text-on-surface rounded-xl px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-primary placeholder:text-on-surface-variant/60"
+                   />
+                   <Button
+                     type="button"
+@@ -440,39 +511,41 @@ export default function CheckoutPage() {
+                     size="sm"
+                     loading={validatingCoupon}
+                     onClick={handleApplyCoupon}
+-                    className="px-4 py-2 text-xs"
++                    className="px-4 py-2 text-xs bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none"
+                   >
+                     Apply
+                   </Button>
+                 </div>
+               )}
+-              {couponError && <p className="text-[10px] text-red-500 font-medium pl-1 animate-fade-in">{couponError}</p>}
+-              {couponSuccess && <p className="text-[10px] text-emerald-500 font-medium pl-1 animate-fade-in">{couponSuccess}</p>}
++              {couponError && <p className="text-[10px] text-error font-medium pl-1 animate-fade-in">{couponError}</p>}
++              {couponSuccess && (
++                <p className="text-[10px] text-success-green font-medium pl-1 animate-fade-in">{couponSuccess}</p>
++              )}
+             </div>
+ 
+             {/* Receipt calculation details */}
+-            <div className="space-y-2 border-t border-zinc-800 pt-3.5 text-xs text-zinc-400">
++            <div className="space-y-2 border-t border-border-base pt-3.5 text-xs text-on-surface-variant">
+               <div className="flex justify-between">
+                 <span>Items Subtotal</span>
+-                <span className="text-zinc-200">₹{subtotal}</span>
++                <span className="text-on-surface tabular-nums">{formatINR(subtotal)}</span>
+               </div>
+               <div className="flex justify-between">
+                 <span>GST/Taxes (5%)</span>
+-                <span className="text-zinc-200">₹{tax}</span>
++                <span className="text-on-surface tabular-nums">{formatINR(tax)}</span>
+               </div>
+               <div className="flex justify-between">
+                 <span>Delivery Fee</span>
+-                <span className="text-zinc-200">₹{deliveryFee}</span>
++                <span className="text-on-surface tabular-nums">{formatINR(deliveryFee)}</span>
+               </div>
+               {couponDiscount > 0 && (
+-                <div className="flex justify-between text-emerald-500 font-semibold animate-fade-in">
++                <div className="flex justify-between text-success-green font-semibold animate-fade-in">
+                   <span>Coupon Discount</span>
+-                  <span>-₹{couponDiscount}</span>
++                  <span>-{formatINR(couponDiscount)}</span>
+                 </div>
+               )}
+-              <div className="flex justify-between border-t border-zinc-800 pt-3 font-bold text-base text-white">
++              <div className="flex justify-between border-t border-border-base pt-3 font-bold text-base text-on-background">
+                 <span>Total Payable</span>
+-                <span className="text-indigo-400">₹{totalAmount}</span>
++                <span className="text-primary tabular-nums">{formatINR(totalAmount)}</span>
+               </div>
+             </div>
+ 
+@@ -481,7 +554,7 @@ export default function CheckoutPage() {
+               <button
+                 type="submit"
+                 disabled={checkingOut}
+-                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-sm flex items-center justify-center gap-2"
++                className="w-full bg-primary-fixed hover:brightness-95 disabled:bg-surface-container-high disabled:text-on-surface-variant text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm flex items-center justify-center gap-2"
+               >
+                 {checkingOut ? (
+                   <>
+@@ -489,7 +562,7 @@ export default function CheckoutPage() {
+                     <span>Placing Order...</span>
+                   </>
+                 ) : (
+-                  <span>Place Order (₹{totalAmount})</span>
++                  <span>Place Order ({formatINR(totalAmount)})</span>
+                 )}
+               </button>
+             </div>
+@@ -498,4 +571,4 @@ export default function CheckoutPage() {
+       </form>
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/client/src/pages/website/MenuPage.jsx b/client/src/pages/website/MenuPage.jsx
+index 53f487b..85b9a63 100644
+--- a/client/src/pages/website/MenuPage.jsx
++++ b/client/src/pages/website/MenuPage.jsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useState } from "react";
++import React, { useEffect, useMemo, useRef, useState } from "react";
+ import { useParams, Link, useNavigate } from "react-router-dom";
+ import { getPublicMenuApi, createOrUpdateCartApi } from "../../api/models/public.api";
+ import Spinner from "../../components/ui/Spinner";
+@@ -7,6 +7,11 @@ import Card from "../../components/ui/Card";
+ import Input from "../../components/ui/Input";
+ import Modal from "../../components/ui/Modal";
+ 
++const formatINR = (amount) => {
++  const n = Number(amount) || 0;
++  return `₹${n.toLocaleString("en-IN")}`;
++};
++
+ export default function MenuPage() {
+   const { outletSlug } = useParams();
+   const navigate = useNavigate();
+@@ -17,8 +22,9 @@ export default function MenuPage() {
+   const [searchQuery, setSearchQuery] = useState("");
+   const [selectedCategory, setSelectedCategory] = useState("all");
+   const [selectedItem, setSelectedItem] = useState(null);
++  const [cartAddedCount, setCartAddedCount] = useState(0);
+ 
+-  // Modal Item config states
++  // Modal item config states
+   const [itemVariants, setItemVariants] = useState([]);
+   const [itemAddons, setItemAddons] = useState([]);
+   const [selectedVariantId, setSelectedVariantId] = useState("");
+@@ -26,6 +32,11 @@ export default function MenuPage() {
+   const [itemQuantity, setItemQuantity] = useState(1);
+   const [itemNotes, setItemNotes] = useState("");
+   const [addingToCart, setAddingToCart] = useState(false);
++  const [justAdded, setJustAdded] = useState(false);
++
++  const sectionRefs = useRef({});
++  const suppressObserver = useRef(false);
++  const suppressTimeout = useRef(null);
+ 
+   // Generate session token if not exists
+   useEffect(() => {
+@@ -53,47 +64,142 @@ export default function MenuPage() {
+       });
+   }, [outletSlug]);
+ 
++  const outlet = data?.outlet;
++  const categories = data?.categories || [];
++  const menuItems = data?.menuItems || [];
++  const variants = data?.variants || [];
++  const addons = data?.addons || [];
++  const table = data?.table;
++
++  const isSearching = searchQuery.trim().length > 0;
++
++  const itemCountByCategory = useMemo(() => {
++    const map = {};
++    menuItems.forEach((item) => {
++      map[item.categoryId] = (map[item.categoryId] || 0) + 1;
++    });
++    return map;
++  }, [menuItems]);
++
++  const categoriesWithItems = useMemo(
++    () => categories.filter((cat) => (itemCountByCategory[cat._id] || 0) > 0),
++    [categories, itemCountByCategory]
++  );
++
++  const groupedSections = useMemo(
++    () =>
++      categoriesWithItems.map((cat) => ({
++        ...cat,
++        items: menuItems.filter((item) => item.categoryId === cat._id),
++      })),
++    [categoriesWithItems, menuItems]
++  );
++
++  const searchResults = useMemo(() => {
++    if (!isSearching) return [];
++    const q = searchQuery.toLowerCase();
++    return menuItems.filter((item) => item.name.toLowerCase().includes(q));
++  }, [isSearching, searchQuery, menuItems]);
++
++  // Track which category section is in view to keep the pill rail in sync
++  // while the guest scrolls through the menu.
++  useEffect(() => {
++    if (isSearching || groupedSections.length === 0) return;
++
++    const observer = new IntersectionObserver(
++      (entries) => {
++        if (suppressObserver.current) return;
++        const visible = entries.filter((e) => e.isIntersecting);
++        if (visible.length === 0) return;
++        const top = visible.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b));
++        const catId = top.target.getAttribute("data-category-id");
++        if (catId) setSelectedCategory(catId);
++      },
++      { rootMargin: "-136px 0px -65% 0px", threshold: 0 }
++    );
++
++    Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el));
++    return () => observer.disconnect();
++  }, [isSearching, groupedSections]);
++
++  const handleCategoryClick = (catId) => {
++    setSelectedCategory(catId);
++    if (isSearching) return;
++
++    suppressObserver.current = true;
++    if (suppressTimeout.current) clearTimeout(suppressTimeout.current);
++
++    if (catId === "all") {
++      window.scrollTo({ top: 0, behavior: "smooth" });
++    } else {
++      const el = sectionRefs.current[catId];
++      if (el) {
++        const y = el.getBoundingClientRect().top + window.scrollY - 128;
++        window.scrollTo({ top: y, behavior: "smooth" });
++      }
++    }
++
++    suppressTimeout.current = setTimeout(() => {
++      suppressObserver.current = false;
++    }, 700);
++  };
++
+   if (loading) {
+     return (
+-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
+-        <Spinner size="lg" />
++      <div className="min-h-screen bg-background">
++        <div className="border-b border-border-base bg-surface-container-low/80 px-5 py-4 flex items-center gap-3">
++          <div className="w-11 h-11 rounded-2xl bg-surface-container-high animate-pulse" />
++          <div className="flex-1 space-y-2">
++            <div className="h-4 w-32 bg-surface-container-high rounded animate-pulse" />
++            <div className="h-3 w-20 bg-surface-container-high rounded animate-pulse" />
++          </div>
++        </div>
++        <div className="flex gap-2 px-5 py-4 overflow-hidden">
++          {[0, 1, 2, 3].map((i) => (
++            <div key={i} className="h-9 w-24 shrink-0 rounded-full bg-surface-container animate-pulse" />
++          ))}
++        </div>
++        <div className="px-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
++          {[0, 1, 2, 3, 4, 5].map((i) => (
++            <div key={i} className="h-40 rounded-2xl bg-surface-container animate-pulse" />
++          ))}
++        </div>
+       </div>
+     );
+   }
+ 
+   if (error || !data) {
+     return (
+-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6">
+-        <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
+-        <p className="text-zinc-400 mb-6">{error || "Something went wrong"}</p>
++      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-on-background p-6 font-sans">
++        <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center text-2xl mb-5">
++          ⚠️
++        </div>
++        <h2 className="text-xl font-semibold mb-2 font-hanken">Couldn't load the menu</h2>
++        <p className="text-on-surface-variant text-sm mb-7 text-center max-w-xs">
++          {error || "Something went wrong on our end."}
++        </p>
+         <Link to="/login">
+-          <Button variant="primary">Return to Admin Login</Button>
++          <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
++            Return to Admin Login
++          </Button>
+         </Link>
+       </div>
+     );
+   }
+ 
+-  const { outlet, categories, menuItems, variants, addons } = data;
+-
+-  // Filter items
+-  const filteredItems = menuItems.filter((item) => {
+-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+-    const matchesCategory = selectedCategory === "all" || item.categoryId === selectedCategory;
+-    return matchesSearch && matchesCategory;
+-  });
+-
+   const handleOpenItemConfig = (item) => {
+     setSelectedItem(item);
+     const activeVariants = variants.filter((v) => v.menuItemId === item._id);
+     const activeAddons = addons.filter((a) => a.menuItemId === item._id);
+-    
++
+     setItemVariants(activeVariants);
+     setItemAddons(activeAddons);
+-    
++
+     setSelectedVariantId(activeVariants[0]?._id || "");
+     setSelectedAddons({});
+     setItemQuantity(1);
+     setItemNotes("");
++    setJustAdded(false);
+   };
+ 
+   const handleToggleAddon = (addonId) => {
+@@ -164,8 +270,10 @@ export default function MenuPage() {
+ 
+     try {
+       await createOrUpdateCartApi(finalPayload);
++      setJustAdded(true);
++      setCartAddedCount((c) => c + itemQuantity);
++      await new Promise((resolve) => setTimeout(resolve, 380));
+       setSelectedItem(null);
+-      // Redirect to cart
+       navigate(`/public/w/${outletSlug}/cart`);
+     } catch (err) {
+       alert(err.response?.data?.message || "Failed to add item to cart");
+@@ -174,118 +282,242 @@ export default function MenuPage() {
+     }
+   };
+ 
+-  return (
+-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+-      {/* Brand Header */}
+-      <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+-        <div className="flex items-center gap-3">
+-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center font-bold text-white text-lg">
+-            FM
+-          </div>
+-          <div>
+-            <h1 className="font-bold text-lg text-white">{outlet.name}</h1>
+-            <p className="text-xs text-zinc-400">{outlet.address || "Website Ordering"}</p>
++  const showTableSessionFab =
++    localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-");
++
++  const renderItemCard = (item) => (
++    <Card
++      key={item._id}
++      onClick={() => handleOpenItemConfig(item)}
++      className="group bg-surface-container border border-border-base hover:border-primary/50 cursor-pointer transition-all duration-200 p-4 flex flex-col justify-between min-h-[168px] rounded-2xl hover:shadow-[0_8px_24px_-8px_color-mix(in_srgb,var(--color-brand-accent)_20%,transparent)] active:scale-[0.98]"
++    >
++      <div>
++        <div className="flex items-start justify-between gap-2 mb-1.5">
++          <div className="flex items-center gap-2 min-w-0">
++            {typeof item.isVeg === "boolean" && (
++              <span
++                className={`shrink-0 w-3.5 h-3.5 border-2 rounded-[3px] flex items-center justify-center ${
++                  item.isVeg ? "border-success-green" : "border-error"
++                }`}
++                aria-label={item.isVeg ? "Vegetarian" : "Non-vegetarian"}
++              >
++                <span className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-success-green" : "bg-error"}`} />
++              </span>
++            )}
++            <h3 className="font-semibold text-on-surface text-[15px] leading-snug truncate font-sans">
++              {item.name}
++            </h3>
+           </div>
+         </div>
+-        <div className="flex items-center gap-4">
+-          <Link to={`/public/w/${outletSlug}/cart`} className="relative p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-all">
+-            🛒 <span className="text-xs font-semibold text-zinc-300">View Cart</span>
+-          </Link>
++
++        {(item.isBestseller || item.isNew || item.isChefSpecial) && (
++          <div className="flex flex-wrap gap-1.5 mb-2">
++            {item.isBestseller && (
++              <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary bg-tertiary/10 px-2 py-0.5 rounded-md">
++                Bestseller
++              </span>
++            )}
++            {item.isChefSpecial && (
++              <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
++                Chef's Pick
++              </span>
++            )}
++            {item.isNew && (
++              <span className="text-[10px] font-bold uppercase tracking-wider text-secondary bg-secondary-container px-2 py-0.5 rounded-md">
++                New
++              </span>
++            )}
++          </div>
++        )}
++
++        <p className="text-[13px] text-on-surface-variant line-clamp-2 leading-relaxed">
++          {item.description || "Fresh and prepared with premium ingredients."}
++        </p>
++
++        {(typeof item.rating === "number" || item.prepTimeMinutes) && (
++          <div className="flex items-center gap-3 mt-2 text-[11px] text-on-surface-variant">
++            {typeof item.rating === "number" && (
++              <span className="flex items-center gap-1">
++                <span className="text-tertiary">★</span> {item.rating.toFixed(1)}
++              </span>
++            )}
++            {item.prepTimeMinutes && <span>{item.prepTimeMinutes} min</span>}
++          </div>
++        )}
++      </div>
++
++      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border-base/70">
++        <span className="text-base font-bold text-on-surface font-sans tabular-nums">
++          {formatINR(item.price)}
++        </span>
++        <span className="text-xs font-bold text-on-primary-fixed bg-primary-fixed group-hover:brightness-95 px-3 py-1.5 rounded-lg transition-all">
++          Add +
++        </span>
++      </div>
++    </Card>
++  );
++
++  return (
++    <div className="min-h-screen bg-background text-on-background flex flex-col font-sans">
++      {/* Header */}
++      <header className="border-b border-border-base bg-background/90 backdrop-blur sticky top-0 z-40 px-5 py-3.5 flex items-center justify-between gap-3">
++        <div className="flex items-center gap-3 min-w-0">
++          {outlet?.logoUrl ? (
++            <img
++              src={outlet.logoUrl}
++              alt={outlet.name}
++              className="w-11 h-11 rounded-2xl object-cover border border-border-base"
++            />
++          ) : (
++            <div className="w-11 h-11 shrink-0 rounded-2xl bg-[color-mix(in_srgb,var(--color-brand-accent)_100%,transparent)] flex items-center justify-center font-bold text-white text-lg font-hanken">
++              {outlet?.name?.charAt(0) || "F"}
++            </div>
++          )}
++          <div className="min-w-0">
++            <h1 className="font-semibold text-[17px] text-on-background truncate font-hanken">
++              {outlet?.name}
++            </h1>
++            <div className="flex items-center gap-2 text-xs text-on-surface-variant truncate">
++              {table?.number && <span className="text-primary font-semibold">Table {table.number}</span>}
++              {table?.number && (outlet?.cuisine || outlet?.address) && <span>·</span>}
++              {outlet?.cuisine && <span className="truncate">{outlet.cuisine}</span>}
++              {!outlet?.cuisine && outlet?.address && <span className="truncate">{outlet.address}</span>}
++              {typeof outlet?.rating === "number" && (
++                <>
++                  <span>·</span>
++                  <span className="flex items-center gap-0.5 shrink-0">
++                    <span className="text-tertiary">★</span> {outlet.rating.toFixed(1)}
++                  </span>
++                </>
++              )}
++            </div>
++          </div>
+         </div>
++
++        <Link
++          to={`/public/w/${outletSlug}/cart`}
++          className="relative shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-surface-container hover:bg-surface-container-high border border-border-base rounded-xl transition-colors"
++        >
++          <span className="text-base">🛒</span>
++          <span className="text-xs font-semibold text-on-surface hidden sm:inline">Cart</span>
++          {cartAddedCount > 0 && (
++            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full bg-error text-on-error">
++              {cartAddedCount}
++            </span>
++          )}
++        </Link>
+       </header>
+ 
+-      {/* Main Container */}
+-      <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row gap-6 p-6">
+-        {/* Sidebar categories navigation */}
+-        <aside className="w-full md:w-64 shrink-0 flex flex-col gap-2">
+-          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-2 px-3">Categories</h2>
++      {/* Sticky category rail */}
++      {!isSearching && groupedSections.length > 0 && (
++        <div className="sticky top-[65px] z-30 bg-background/95 backdrop-blur border-b border-border-base px-5 py-2.5 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+           <button
+-            onClick={() => setSelectedCategory("all")}
+-            className={`w-full text-left px-4 py-3 rounded-xl transition-all font-medium text-sm ${
++            type="button"
++            onClick={() => handleCategoryClick("all")}
++            className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-colors ${
+               selectedCategory === "all"
+-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+-                : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300"
++                ? "bg-primary-fixed text-on-primary-fixed"
++                : "bg-surface-container text-on-surface-variant border border-border-base hover:text-on-surface hover:bg-surface-container-high"
+             }`}
+           >
+-            All Items
++            All
+           </button>
+-          {categories.map((cat) => (
++          {groupedSections.map((cat) => (
+             <button
++              type="button"
+               key={cat._id}
+-              onClick={() => setSelectedCategory(cat._id)}
+-              className={`w-full text-left px-4 py-3 rounded-xl transition-all font-medium text-sm ${
++              onClick={() => handleCategoryClick(cat._id)}
++              className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                 selectedCategory === cat._id
+-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+-                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300"
++                  ? "bg-primary-fixed text-on-primary-fixed"
++                  : "bg-surface-container text-on-surface-variant border border-border-base hover:text-on-surface hover:bg-surface-container-high"
+               }`}
+             >
+               {cat.name}
++              <span className={selectedCategory === cat._id ? "opacity-70" : "opacity-50"}>
++                {itemCountByCategory[cat._id]}
++              </span>
+             </button>
+           ))}
+-        </aside>
+-
+-        {/* Catalog Menu grid */}
+-        <main className="flex-1 flex flex-col gap-6">
+-          {/* Search bar */}
+-          <div className="w-full max-w-md">
+-            <Input
+-              type="text"
+-              placeholder="Search dishes..."
+-              value={searchQuery}
+-              onChange={(e) => setSearchQuery(e.target.value)}
+-              className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder-zinc-500 rounded-xl"
+-            />
+-          </div>
++        </div>
++      )}
+ 
+-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+-            {filteredItems.map((item) => (
+-              <Card
+-                key={item._id}
+-                onClick={() => handleOpenItemConfig(item)}
+-                className="bg-zinc-900 border-zinc-800 hover:border-indigo-500/40 cursor-pointer hover:shadow-xl transition-all p-5 flex flex-col justify-between min-h-[160px]"
+-              >
+-                <div>
+-                  <h3 className="font-semibold text-zinc-100 text-base mb-1">{item.name}</h3>
+-                  <p className="text-xs text-zinc-400 line-clamp-2 mb-3">
+-                    {item.description || "Fresh and prepared with premium ingredients."}
+-                  </p>
+-                </div>
+-                <div className="flex items-center justify-between mt-auto">
+-                  <span className="text-lg font-bold text-white">₹{item.price}</span>
+-                  <span className="text-xs font-medium text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg">
+-                    Add +
+-                  </span>
+-                </div>
+-              </Card>
+-            ))}
++      {/* Main content */}
++      <div className="flex-1 max-w-3xl w-full mx-auto px-5 py-5 flex flex-col gap-6">
++        {/* Search */}
++        <div className="relative">
++          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm pointer-events-none">
++            ⌕
++          </span>
++          <Input
++            type="text"
++            placeholder="Search dishes..."
++            value={searchQuery}
++            onChange={(e) => setSearchQuery(e.target.value)}
++            aria-label="Search dishes"
++            className="bg-surface-container border-border-base text-on-surface placeholder-on-surface-variant focus:border-primary rounded-xl pl-9 w-full"
++          />
++        </div>
+ 
+-            {filteredItems.length === 0 && (
+-              <div className="col-span-full py-12 text-center text-zinc-500">
+-                No items found matching the selected filters.
++        {isSearching ? (
++          <div className="flex flex-col gap-4">
++            <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
++              {searchResults.length} result{searchResults.length === 1 ? "" : "s"} for "{searchQuery}"
++            </p>
++            {searchResults.length > 0 ? (
++              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
++                {searchResults.map(renderItemCard)}
++              </div>
++            ) : (
++              <div className="py-16 flex flex-col items-center text-center gap-3">
++                <span className="text-3xl">🔍</span>
++                <p className="text-sm text-on-surface-variant">No dishes match "{searchQuery}".</p>
++                <button
++                  type="button"
++                  onClick={() => setSearchQuery("")}
++                  className="text-xs font-semibold text-primary hover:underline"
++                >
++                  Clear search
++                </button>
+               </div>
+             )}
+           </div>
+-        </main>
++        ) : groupedSections.length === 0 ? (
++          <div className="py-16 flex flex-col items-center text-center gap-3">
++            <span className="text-3xl">🍽️</span>
++            <p className="text-sm text-on-surface-variant">The menu isn't set up yet. Please check back soon.</p>
++          </div>
++        ) : (
++          groupedSections.map((cat) => (
++            <section
++              key={cat._id}
++              data-category-id={cat._id}
++              ref={(el) => (sectionRefs.current[cat._id] = el)}
++              className="scroll-mt-32"
++            >
++              <div className="flex items-baseline justify-between mb-3">
++                <h2 className="text-lg font-semibold text-on-background font-hanken">{cat.name}</h2>
++                <span className="text-xs text-on-surface-variant">{cat.items.length} items</span>
++              </div>
++              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{cat.items.map(renderItemCard)}</div>
++            </section>
++          ))
++        )}
+       </div>
+ 
+       {/* Item Customizer Modal */}
+       {selectedItem && (
+-        <Modal
+-          isOpen={!!selectedItem}
+-          onClose={() => setSelectedItem(null)}
+-          title={selectedItem.name}
+-          size="md"
+-        >
+-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 text-zinc-200">
++        <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} title={selectedItem.name} size="md">
++          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 text-on-surface font-sans">
+             {/* Price */}
+             <div>
+-              <span className="text-xs text-zinc-400 uppercase tracking-wider block mb-1">Base Price</span>
+-              <span className="text-2xl font-bold text-white">₹{selectedItem.price}</span>
++              <span className="text-xs text-on-surface-variant uppercase tracking-wider block mb-1">Base Price</span>
++              <span className="text-2xl font-bold text-on-surface tabular-nums">{formatINR(selectedItem.price)}</span>
+             </div>
+ 
+             {/* Description */}
+             {selectedItem.description && (
+-              <p className="text-sm text-zinc-400 bg-zinc-950 p-3 rounded-xl border border-zinc-800/60">
++              <p className="text-sm text-on-surface-variant bg-surface-container-low p-3 rounded-xl border border-border-base">
+                 {selectedItem.description}
+               </p>
+             )}
+@@ -293,12 +525,12 @@ export default function MenuPage() {
+             {/* Variants */}
+             {itemVariants.length > 0 && (
+               <div>
+-                <h4 className="text-sm font-semibold text-zinc-300 mb-3 uppercase tracking-wider">Choose Variant</h4>
++                <h4 className="text-sm font-semibold text-on-surface mb-3 uppercase tracking-wider">Choose Variant</h4>
+                 <div className="space-y-2">
+                   {itemVariants.map((v) => (
+                     <label
+                       key={v._id}
+-                      className="flex items-center justify-between p-3.5 bg-zinc-900 border border-zinc-800 rounded-xl cursor-pointer hover:border-indigo-500/30 transition-all"
++                      className="flex items-center justify-between p-3.5 bg-surface-container border border-border-base rounded-xl cursor-pointer hover:border-primary/40 transition-colors"
+                     >
+                       <div className="flex items-center gap-3">
+                         <input
+@@ -307,11 +539,11 @@ export default function MenuPage() {
+                           value={v._id}
+                           checked={selectedVariantId === v._id}
+                           onChange={() => setSelectedVariantId(v._id)}
+-                          className="radio radio-xs radio-primary w-4 h-4 text-indigo-600 border-zinc-700 bg-zinc-800 focus:ring-indigo-500"
++                          className="w-4 h-4 accent-primary"
+                         />
+                         <span className="text-sm font-medium">{v.name}</span>
+                       </div>
+-                      <span className="text-sm font-bold">₹{v.price}</span>
++                      <span className="text-sm font-bold tabular-nums">{formatINR(v.price)}</span>
+                     </label>
+                   ))}
+                 </div>
+@@ -321,7 +553,7 @@ export default function MenuPage() {
+             {/* Addons */}
+             {itemAddons.length > 0 && (
+               <div>
+-                <h4 className="text-sm font-semibold text-zinc-300 mb-3 uppercase tracking-wider">Add Extra Addons</h4>
++                <h4 className="text-sm font-semibold text-on-surface mb-3 uppercase tracking-wider">Add Extra Addons</h4>
+                 <div className="space-y-2">
+                   {itemAddons.map((a) => {
+                     const isSelected = !!selectedAddons[a._id];
+@@ -330,31 +562,35 @@ export default function MenuPage() {
+                     return (
+                       <div
+                         key={a._id}
+-                        className="flex items-center justify-between p-3.5 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-indigo-500/30 transition-all"
++                        className="flex items-center justify-between p-3.5 bg-surface-container border border-border-base rounded-xl hover:border-primary/40 transition-colors"
+                       >
+                         <div className="flex items-center gap-3">
+                           <input
+                             type="checkbox"
+                             checked={isSelected}
+                             onChange={() => handleToggleAddon(a._id)}
+-                            className="checkbox checkbox-xs checkbox-primary w-4 h-4 text-indigo-600 border-zinc-700 bg-zinc-800 rounded focus:ring-indigo-500"
++                            className="w-4 h-4 accent-primary rounded"
+                           />
+                           <span className="text-sm font-medium">{a.name}</span>
+                         </div>
+                         <div className="flex items-center gap-4">
+-                          <span className="text-sm font-bold text-zinc-300">₹{a.price}</span>
++                          <span className="text-sm font-bold text-on-surface-variant tabular-nums">{formatINR(a.price)}</span>
+                           {isSelected && (
+-                            <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-lg p-1">
++                            <div className="flex items-center gap-2 bg-surface-container-low border border-border-base rounded-lg p-1">
+                               <button
++                                type="button"
+                                 onClick={() => handleAddonQty(a._id, -1)}
+-                                className="w-6 h-6 flex items-center justify-center hover:bg-zinc-800 text-zinc-400 font-bold rounded"
++                                className="w-6 h-6 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded"
++                                aria-label={`Decrease ${a.name} quantity`}
+                               >
+-                                -
++                                −
+                               </button>
+                               <span className="text-xs font-bold w-4 text-center">{qty}</span>
+                               <button
++                                type="button"
+                                 onClick={() => handleAddonQty(a._id, 1)}
+-                                className="w-6 h-6 flex items-center justify-center hover:bg-zinc-800 text-zinc-400 font-bold rounded"
++                                className="w-6 h-6 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded"
++                                aria-label={`Increase ${a.name} quantity`}
+                               >
+                                 +
+                               </button>
+@@ -369,19 +605,23 @@ export default function MenuPage() {
+             )}
+ 
+             {/* Quantity */}
+-            <div className="flex items-center justify-between border-t border-zinc-800/80 pt-4">
+-              <span className="text-sm font-semibold text-zinc-300">Quantity</span>
+-              <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-1.5">
++            <div className="flex items-center justify-between border-t border-border-base pt-4">
++              <span className="text-sm font-semibold text-on-surface">Quantity</span>
++              <div className="flex items-center gap-3 bg-surface-container border border-border-base rounded-xl p-1.5">
+                 <button
+-                  onClick={() => setItemQuantity(q => Math.max(1, q - 1))}
+-                  className="w-8 h-8 flex items-center justify-center hover:bg-zinc-800 text-zinc-300 font-bold rounded-lg"
++                  type="button"
++                  onClick={() => setItemQuantity((q) => Math.max(1, q - 1))}
++                  className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface font-bold rounded-lg"
++                  aria-label="Decrease quantity"
+                 >
+-                  -
++                  −
+                 </button>
+-                <span className="font-bold w-6 text-center text-sm">{itemQuantity}</span>
++                <span className="font-bold w-6 text-center text-sm tabular-nums">{itemQuantity}</span>
+                 <button
+-                  onClick={() => setItemQuantity(q => q + 1)}
+-                  className="w-8 h-8 flex items-center justify-center hover:bg-zinc-800 text-zinc-300 font-bold rounded-lg"
++                  type="button"
++                  onClick={() => setItemQuantity((q) => q + 1)}
++                  className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface font-bold rounded-lg"
++                  aria-label="Increase quantity"
+                 >
+                   +
+                 </button>
+@@ -390,21 +630,23 @@ export default function MenuPage() {
+ 
+             {/* Notes */}
+             <div>
+-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-2">Special instructions</label>
++              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
++                Special instructions
++              </label>
+               <textarea
+                 value={itemNotes}
+                 onChange={(e) => setItemNotes(e.target.value)}
+                 placeholder="No onions, extra spicy, etc."
+-                className="textarea textarea-bordered w-full bg-zinc-900 border border-zinc-800 text-zinc-200 placeholder-zinc-500 rounded-xl p-3.5 text-sm focus:outline-none focus:border-indigo-500 h-20 resize-none"
++                className="w-full bg-surface-container border border-border-base text-on-surface placeholder-on-surface-variant rounded-xl p-3.5 text-sm focus:outline-none focus:border-primary h-20 resize-none"
+               />
+             </div>
+ 
+             {/* Submit button */}
+-            <div className="pt-4 border-t border-zinc-800/80 flex items-center gap-3">
++            <div className="pt-4 border-t border-border-base flex items-center gap-3 sticky bottom-0 bg-background -mx-2 px-2 pb-1">
+               <Button
+                 variant="secondary"
+                 onClick={() => setSelectedItem(null)}
+-                className="flex-1 bg-zinc-900 border-zinc-800 text-zinc-300"
++                className="flex-1 bg-surface-container border border-border-base text-on-surface"
+               >
+                 Cancel
+               </Button>
+@@ -412,25 +654,35 @@ export default function MenuPage() {
+                 variant="primary"
+                 onClick={handleAddToCart}
+                 disabled={addingToCart}
+-                className="flex-1 shadow-lg shadow-indigo-600/20"
++                className="flex-1 bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-bold disabled:opacity-70"
+               >
+-                {addingToCart ? "Adding..." : "Add to Cart"}
++                {justAdded ? "Added ✓" : addingToCart ? "Adding..." : `Add ${itemQuantity} to Cart · ${formatINR(
++                  (selectedItem.price +
++                    (itemVariants.find((v) => v._id === selectedVariantId)?.price || 0) +
++                    Object.entries(selectedAddons).reduce((sum, [addonId, qty]) => {
++                      const addon = itemAddons.find((a) => a._id === addonId);
++                      return sum + (addon?.price || 0) * qty;
++                    }, 0)) * itemQuantity
++                )}`}
+               </Button>
+             </div>
+           </div>
+         </Modal>
+       )}
+ 
+-      {localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-") && (
+-        <div className="fixed bottom-6 right-6 z-50">
++      {showTableSessionFab && (
++        <div className="fixed bottom-6 right-5 z-50">
+           <Link to={`/public/w/${outletSlug}/table-session`}>
+-            <button className="bg-gradient-to-r from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 text-white font-extrabold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 text-xs uppercase tracking-wider border border-indigo-400/20 transition-all cursor-pointer">
++            <button
++              type="button"
++              className="bg-[color-mix(in_srgb,var(--color-brand-accent)_100%,transparent)] hover:brightness-110 text-white font-extrabold px-5 py-3.5 rounded-full shadow-[0_10px_28px_-8px_color-mix(in_srgb,var(--color-brand-accent)_45%,transparent)] flex items-center gap-2 text-xs uppercase tracking-wider transition-all cursor-pointer"
++            >
+               <span>🍽️</span>
+-              <span>Table Bill & Pay</span>
++              <span>Table Bill &amp; Pay</span>
+             </button>
+           </Link>
+         </div>
+       )}
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/client/src/pages/website/OrderSuccessPage.jsx b/client/src/pages/website/OrderSuccessPage.jsx
+index 4584e90..a8b303c 100644
+--- a/client/src/pages/website/OrderSuccessPage.jsx
++++ b/client/src/pages/website/OrderSuccessPage.jsx
+@@ -1,44 +1,89 @@
+-import React from "react";
++import React, { useState } from "react";
+ import { useSearchParams, useParams, Link } from "react-router-dom";
+-import Button from "../../components/ui/Button";
+ import Card from "../../components/ui/Card";
+ 
++const NEXT_STEPS = [
++  { label: "Accepted", desc: "Kitchen confirms your order" },
++  { label: "Preparing", desc: "Your food is cooked fresh" },
++  { label: "Ready", desc: "Served hot, right on time" },
++];
++
+ export default function OrderSuccessPage() {
+   const { outletSlug } = useParams();
+   const [searchParams] = useSearchParams();
+   const orderId = searchParams.get("orderId");
++  const [copied, setCopied] = useState(false);
++
++  const handleCopy = () => {
++    if (!orderId) return;
++    navigator.clipboard?.writeText(orderId);
++    setCopied(true);
++    setTimeout(() => setCopied(false), 1500);
++  };
+ 
+   return (
+-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">
+-      <Card className="bg-zinc-900 border-zinc-800 p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-2xl">
+-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-3xl mx-auto">
+-          ✓
++    <div className="min-h-screen bg-background text-on-background flex items-center justify-center p-6 font-sans">
++      <Card className="bg-surface-container border border-border-base p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-[0_20px_60px_-20px_color-mix(in_srgb,var(--color-brand-accent)_25%,transparent)]">
++        <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
++          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-green opacity-25" />
++          <div className="relative w-16 h-16 rounded-full bg-success-green/10 border border-success-green/30 flex items-center justify-center text-success-green text-3xl animate-scale-in">
++            ✓
++          </div>
+         </div>
+-        
++
+         <div className="space-y-2">
+-          <h1 className="text-2xl font-bold text-white">Order Placed Successfully!</h1>
+-          <p className="text-sm text-zinc-400">
+-            Thank you for ordering. Your order has been registered in the kitchen pipeline.
++          <h1 className="text-2xl font-bold text-on-background font-hanken">Order Placed!</h1>
++          <p className="text-sm text-on-surface-variant">
++            Thank you for ordering. Your order has been sent straight to the kitchen.
+           </p>
+         </div>
+ 
+         {orderId && (
+-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 text-left space-y-1.5">
+-            <span className="text-xs text-zinc-500 uppercase tracking-wider block">Order ID</span>
+-            <span className="font-mono text-sm font-bold text-zinc-200 block break-all">{orderId}</span>
+-          </div>
++          <button
++            type="button"
++            onClick={handleCopy}
++            className="w-full bg-surface-container-low border border-border-base rounded-2xl p-4 text-left space-y-1.5 hover:border-primary/40 transition-colors"
++            title="Tap to copy order ID"
++          >
++            <span className="text-xs text-on-surface-variant uppercase tracking-wider block">Order ID</span>
++            <span className="flex items-center justify-between gap-2">
++              <span className="font-mono text-sm font-bold text-on-surface break-all">{orderId}</span>
++              <span className={`text-xs shrink-0 font-semibold ${copied ? "text-success-green" : "text-on-surface-variant"}`}>
++                {copied ? "✓ Copied" : "⧉ Copy"}
++              </span>
++            </span>
++          </button>
+         )}
+ 
+-        <div className="pt-4 flex flex-col gap-3">
++        {/* What happens next preview */}
++        <div className="flex items-center justify-between px-1">
++          {NEXT_STEPS.map((step, i) => (
++            <React.Fragment key={step.label}>
++              <div className="flex flex-col items-center gap-1.5 w-16">
++                <span className="text-[10px] font-bold text-on-surface-variant">{i + 1}</span>
++                <span className="text-[11px] font-semibold text-on-surface text-center leading-tight">{step.label}</span>
++              </div>
++              {i < NEXT_STEPS.length - 1 && <div className="flex-1 h-px bg-border-base mt-3" />}
++            </React.Fragment>
++          ))}
++        </div>
++
++        <div className="pt-2 flex flex-col gap-3">
+           {orderId && (
+             <Link to={`/public/w/${outletSlug}/track/${orderId}`}>
+-              <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-sm">
++              <button
++                type="button"
++                className="w-full bg-primary-fixed hover:brightness-95 text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm"
++              >
+                 Track Live Progress
+               </button>
+             </Link>
+           )}
+           <Link to={`/public/w/${outletSlug}`}>
+-            <button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-4 rounded-xl transition-all text-sm">
++            <button
++              type="button"
++              className="w-full bg-surface-container-low border border-border-base hover:bg-surface-container-high text-on-surface font-bold py-3 px-4 rounded-xl transition-colors text-sm"
++            >
+               Back to Menu
+             </button>
+           </Link>
+@@ -46,4 +91,4 @@ export default function OrderSuccessPage() {
+       </Card>
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/client/src/pages/website/OrderTrackingPage.jsx b/client/src/pages/website/OrderTrackingPage.jsx
+index 13e2fec..8a27976 100644
+--- a/client/src/pages/website/OrderTrackingPage.jsx
++++ b/client/src/pages/website/OrderTrackingPage.jsx
+@@ -5,12 +5,35 @@ import Spinner from "../../components/ui/Spinner";
+ import Button from "../../components/ui/Button";
+ import Card from "../../components/ui/Card";
+ 
++const formatINR = (amount) => {
++  const n = Number(amount) || 0;
++  return `₹${n.toLocaleString("en-IN")}`;
++};
++
++const STATUS_STEPS = [
++  { key: "PENDING", label: "Placed", desc: "Successfully queued in store records" },
++  { key: "ACCEPTED", label: "Accepted", desc: "Kitchen staff has confirmed the receipt" },
++  { key: "PREPARING", label: "Preparing", desc: "Your food is currently being cooked" },
++  { key: "READY", label: "Ready", desc: "Food is packed and hot at the counter" },
++  { key: "DELIVERED", label: "Delivered", desc: "Enjoy your delicious meal!" },
++];
++
++const formatElapsed = (fromDate) => {
++  const diffMs = Date.now() - new Date(fromDate).getTime();
++  const mins = Math.max(0, Math.floor(diffMs / 60000));
++  if (mins < 1) return "just now";
++  if (mins < 60) return `${mins}m ago`;
++  const hrs = Math.floor(mins / 60);
++  return `${hrs}h ${mins % 60}m ago`;
++};
++
+ export default function OrderTrackingPage() {
+   const { outletSlug, orderId } = useParams();
+ 
+   const [loading, setLoading] = useState(true);
+   const [data, setData] = useState(null);
+   const [error, setError] = useState(null);
++  const [copied, setCopied] = useState(false);
+ 
+   const fetchTracking = () => {
+     trackOrderApi(orderId)
+@@ -32,9 +55,15 @@ export default function OrderTrackingPage() {
+     return () => clearInterval(interval);
+   }, [orderId]);
+ 
++  const handleCopyOrderId = (value) => {
++    navigator.clipboard?.writeText(value);
++    setCopied(true);
++    setTimeout(() => setCopied(false), 1500);
++  };
++
+   if (loading && !data) {
+     return (
+-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
++      <div className="min-h-screen flex items-center justify-center bg-background text-on-background">
+         <Spinner size="lg" />
+       </div>
+     );
+@@ -42,11 +71,18 @@ export default function OrderTrackingPage() {
+ 
+   if (error || !data) {
+     return (
+-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6">
+-        <h2 className="text-xl font-bold text-red-500 mb-4">Error</h2>
+-        <p className="text-zinc-400 mb-6">{error || "Failed to retrieve tracking details"}</p>
++      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-on-background p-6 font-sans">
++        <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center text-2xl mb-5">
++          ⚠️
++        </div>
++        <h2 className="text-xl font-semibold mb-2 font-hanken">Couldn't load tracking</h2>
++        <p className="text-on-surface-variant mb-7 text-center max-w-xs">
++          {error || "Failed to retrieve tracking details"}
++        </p>
+         <Link to={`/public/w/${outletSlug}`}>
+-          <Button variant="primary">Return to Menu</Button>
++          <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
++            Return to Menu
++          </Button>
+         </Link>
+       </div>
+     );
+@@ -54,176 +90,208 @@ export default function OrderTrackingPage() {
+ 
+   const { order, timeline } = data;
+   const currentStatus = order.status;
++  const isCancelled = currentStatus === "CANCELLED";
++  const isDelivered = currentStatus === "DELIVERED";
+ 
+-  // Status mapping indices
+-  const statusSteps = ["PENDING", "ACCEPTED", "PREPARING", "READY", "DELIVERED"];
+-  const currentStepIndex = statusSteps.indexOf(currentStatus);
++  const statusKeys = STATUS_STEPS.map((s) => s.key);
++  const currentStepIndex = statusKeys.indexOf(currentStatus);
+ 
+-  const getStepStatus = (stepName) => {
+-    const idx = statusSteps.indexOf(stepName);
+-    if (currentStatus === "CANCELLED") return "cancelled";
++  const getStepStatus = (stepKey) => {
++    const idx = statusKeys.indexOf(stepKey);
++    if (isCancelled) return "cancelled";
+     if (idx === -1) return "upcoming";
+     if (idx < currentStepIndex) return "completed";
+     if (idx === currentStepIndex) return "active";
+     return "upcoming";
+   };
+ 
+-  const getStepTime = (stepName) => {
+-    const record = timeline.find((t) => t.status === stepName);
+-    return record ? new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
++  const getStepTime = (stepKey) => {
++    const record = timeline.find((t) => t.status === stepKey);
++    return record
++      ? new Date(record.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
++      : "";
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
++    <div className="min-h-screen bg-background text-on-background flex flex-col font-sans">
+       {/* Header */}
+-      <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+-        <Link to={`/public/w/${outletSlug}`} className="text-zinc-400 hover:text-white transition-all text-sm font-semibold flex items-center gap-2">
++      <header className="border-b border-border-base bg-background/90 backdrop-blur sticky top-0 z-40 px-5 py-4 flex items-center justify-between">
++        <Link
++          to={`/public/w/${outletSlug}`}
++          className="text-on-surface-variant hover:text-on-surface transition-colors text-sm font-semibold flex items-center gap-2"
++        >
+           ← Menu
+         </Link>
+-        <h1 className="font-bold text-lg text-white">Order Tracking</h1>
+-        <button onClick={fetchTracking} className="text-xs text-zinc-400 hover:text-white border border-zinc-800 rounded-lg px-2.5 py-1">
++        <div className="flex items-center gap-1.5">
++          <h1 className="font-semibold text-lg text-on-background font-hanken">Order Tracking</h1>
++          {!isCancelled && !isDelivered && (
++            <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success-green ml-1">
++              <span className="relative flex h-2 w-2">
++                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-green opacity-75" />
++                <span className="relative inline-flex rounded-full h-2 w-2 bg-success-green" />
++              </span>
++              Live
++            </span>
++          )}
++        </div>
++        <button
++          type="button"
++          onClick={fetchTracking}
++          className="text-xs text-on-surface-variant hover:text-on-surface border border-border-base hover:bg-surface-container rounded-lg px-2.5 py-1.5 transition-colors"
++        >
+           ↻ Refresh
+         </button>
+       </header>
+ 
+-      {/* Main progress bar */}
+-      <div className="flex-grow max-w-2xl w-full mx-auto p-6 space-y-6">
++      <div className="flex-grow max-w-2xl w-full mx-auto p-5 space-y-5">
+         {/* Order details header card */}
+-        <Card className="bg-zinc-900 border-zinc-800 p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
++        <Card className="bg-surface-container border border-border-base p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+           <div>
+-            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">Order Number</span>
+-            <span className="text-lg font-bold text-white block mt-0.5">{order.orderNumber}</span>
++            <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block">Order Number</span>
++            <button
++              type="button"
++              onClick={() => handleCopyOrderId(order.orderNumber)}
++              className="text-lg font-bold text-on-surface block mt-0.5 hover:text-primary transition-colors"
++              title="Copy order number"
++            >
++              {order.orderNumber} {copied ? <span className="text-xs text-success-green align-middle">✓ copied</span> : <span className="text-xs text-on-surface-variant align-middle">⧉</span>}
++            </button>
++            <span className="text-[11px] text-on-surface-variant block mt-1">
++              Placed {formatElapsed(order.createdAt)}
++            </span>
+           </div>
+           <div>
+-            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">Fulfillment Total</span>
+-            <span className="text-lg font-bold text-indigo-400 block mt-0.5">₹{order.totalAmount}</span>
++            <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block">Total</span>
++            <span className="text-lg font-bold text-primary block mt-0.5 tabular-nums">{formatINR(order.totalAmount)}</span>
+           </div>
+           <div>
+-            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">Current Status</span>
+-            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg block mt-1 w-fit uppercase ${
+-              currentStatus === "CANCELLED"
+-                ? "bg-red-500/10 text-red-400"
+-                : currentStatus === "DELIVERED"
+-                ? "bg-emerald-500/10 text-emerald-400"
+-                : "bg-indigo-500/10 text-indigo-400"
+-            }`}>
++            <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block">Status</span>
++            <span
++              className={`text-xs font-bold px-2.5 py-1 rounded-lg block mt-1 w-fit uppercase ${
++                isCancelled
++                  ? "bg-error-container text-on-error-container"
++                  : isDelivered
++                  ? "bg-success-green/10 text-success-green"
++                  : "bg-primary/10 text-primary"
++              }`}
++            >
+               {currentStatus}
+             </span>
+           </div>
+         </Card>
+ 
+-        {/* Timeline Log timeline */}
+-        <Card className="bg-zinc-900 border-zinc-800 p-6 rounded-2xl">
+-          <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-4 mb-6">Kitchen Activity Timeline</h2>
+-          
+-          <div className="relative border-l border-zinc-800 ml-4 pl-6 space-y-8">
+-            {/* Step 1: Placed */}
+-            <div className="relative">
+-              <span className={`absolute -left-[31px] top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+-                getStepStatus("PENDING") === "completed" || getStepStatus("PENDING") === "active"
+-                  ? "bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/30"
+-                  : getStepStatus("PENDING") === "cancelled"
+-                  ? "bg-red-500 border-red-500"
+-                  : "bg-zinc-900 border-zinc-800"
+-              }`} />
+-              <div className="flex justify-between items-start">
+-                <div>
+-                  <h3 className="font-semibold text-white text-sm">Order Placed</h3>
+-                  <p className="text-xs text-zinc-500 mt-0.5">Successfully queued in store records</p>
+-                </div>
+-                <span className="text-xs text-zinc-400 font-mono font-medium">{getStepTime("PENDING") || new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+-              </div>
+-            </div>
+-
+-            {/* Step 2: Accepted */}
+-            <div className="relative">
+-              <span className={`absolute -left-[31px] top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+-                getStepStatus("ACCEPTED") === "completed" || getStepStatus("ACCEPTED") === "active"
+-                  ? "bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/30"
+-                  : getStepStatus("ACCEPTED") === "cancelled"
+-                  ? "bg-red-500 border-red-500"
+-                  : "bg-zinc-900 border-zinc-800"
+-              }`} />
+-              <div className="flex justify-between items-start">
+-                <div>
+-                  <h3 className="font-semibold text-white text-sm">Accepted by Store</h3>
+-                  <p className="text-xs text-zinc-500 mt-0.5">Kitchen staff has confirmed the receipt</p>
+-                </div>
+-                <span className="text-xs text-zinc-400 font-mono font-medium">{getStepTime("ACCEPTED")}</span>
+-              </div>
++        {isCancelled ? (
++          <Card className="bg-error-container/40 border border-error/30 p-6 rounded-2xl flex items-start gap-4">
++            <span className="w-10 h-10 shrink-0 rounded-full bg-error text-on-error flex items-center justify-center font-bold">
++              ✕
++            </span>
++            <div>
++              <h3 className="font-semibold text-on-error-container text-base font-hanken">Order Cancelled</h3>
++              <p className="text-sm text-on-error-container/80 mt-1">
++                Reason: "{timeline.find((t) => t.status === "CANCELLED")?.notes || "Store cancellation"}"
++              </p>
++              <p className="text-xs text-on-error-container/60 mt-2">{getStepTime("CANCELLED")}</p>
+             </div>
+-
+-            {/* Step 3: Preparing */}
+-            <div className="relative">
+-              <span className={`absolute -left-[31px] top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+-                getStepStatus("PREPARING") === "completed" || getStepStatus("PREPARING") === "active"
+-                  ? "bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/30"
+-                  : getStepStatus("PREPARING") === "cancelled"
+-                  ? "bg-red-500 border-red-500"
+-                  : "bg-zinc-900 border-zinc-800"
+-              }`} />
+-              <div className="flex justify-between items-start">
+-                <div>
+-                  <h3 className="font-semibold text-white text-sm">Dishes in Preparation</h3>
+-                  <p className="text-xs text-zinc-500 mt-0.5">Your food is currently being cooked</p>
+-                </div>
+-                <span className="text-xs text-zinc-400 font-mono font-medium">{getStepTime("PREPARING")}</span>
++          </Card>
++        ) : (
++          <>
++            {/* Live horizontal progress stepper */}
++            <Card className="bg-surface-container border border-border-base p-5 sm:p-6 rounded-2xl">
++              <div className="flex items-start justify-between">
++                {STATUS_STEPS.map((step, i) => {
++                  const status = getStepStatus(step.key);
++                  return (
++                    <React.Fragment key={step.key}>
++                      <div className="flex flex-col items-center gap-2 w-16">
++                        <div className="relative flex items-center justify-center h-7 w-7">
++                          {status === "active" && (
++                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-40" />
++                          )}
++                          <span
++                            className={`relative flex items-center justify-center h-7 w-7 rounded-full border-2 text-xs font-bold transition-colors ${
++                              status === "completed"
++                                ? "bg-primary-fixed border-primary-fixed text-on-primary-fixed"
++                                : status === "active"
++                                ? "bg-primary-fixed border-primary-fixed text-on-primary-fixed"
++                                : "bg-surface-container-low border-border-base text-on-surface-variant"
++                            }`}
++                          >
++                            {status === "completed" ? "✓" : i + 1}
++                          </span>
++                        </div>
++                        <span
++                          className={`text-[10px] font-semibold text-center leading-tight ${
++                            status === "upcoming" ? "text-on-surface-variant" : "text-on-surface"
++                          }`}
++                        >
++                          {step.label}
++                        </span>
++                      </div>
++                      {i < STATUS_STEPS.length - 1 && (
++                        <div className="flex-1 h-0.5 mt-3.5 rounded-full overflow-hidden bg-surface-container-high">
++                          <div
++                            className="h-full bg-primary-fixed transition-all duration-500"
++                            style={{ width: i < currentStepIndex ? "100%" : "0%" }}
++                          />
++                        </div>
++                      )}
++                    </React.Fragment>
++                  );
++                })}
+               </div>
+-            </div>
++            </Card>
+ 
+-            {/* Step 4: Ready */}
+-            <div className="relative">
+-              <span className={`absolute -left-[31px] top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+-                getStepStatus("READY") === "completed" || getStepStatus("READY") === "active"
+-                  ? "bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-600/30"
+-                  : getStepStatus("READY") === "cancelled"
+-                  ? "bg-red-500 border-red-500"
+-                  : "bg-zinc-900 border-zinc-800"
+-              }`} />
+-              <div className="flex justify-between items-start">
+-                <div>
+-                  <h3 className="font-semibold text-white text-sm">Ready for Delivery / Takeaway</h3>
+-                  <p className="text-xs text-zinc-500 mt-0.5">Food is packed and hot at the counter</p>
+-                </div>
+-                <span className="text-xs text-zinc-400 font-mono font-medium">{getStepTime("READY")}</span>
+-              </div>
+-            </div>
++            {/* Detailed activity timeline */}
++            <Card className="bg-surface-container border border-border-base p-6 rounded-2xl">
++              <h2 className="text-base font-semibold text-on-background font-hanken border-b border-border-base pb-4 mb-6">
++                Kitchen Activity Timeline
++              </h2>
+ 
+-            {/* Step 5: Delivered */}
+-            {currentStatus !== "CANCELLED" ? (
+-              <div className="relative">
+-                <span className={`absolute -left-[31px] top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+-                  getStepStatus("DELIVERED") === "active"
+-                    ? "bg-emerald-500 border-emerald-500 shadow-md shadow-emerald-500/30"
+-                    : "bg-zinc-900 border-zinc-800"
+-                }`} />
+-                <div className="flex justify-between items-start">
+-                  <div>
+-                    <h3 className="font-semibold text-white text-sm">Delivered / Handed Over</h3>
+-                    <p className="text-xs text-zinc-500 mt-0.5">Enjoy your delicious meals!</p>
+-                  </div>
+-                  <span className="text-xs text-zinc-400 font-mono font-medium">{getStepTime("DELIVERED")}</span>
+-                </div>
+-              </div>
+-            ) : (
+-              <div className="relative text-red-400">
+-                <span className="absolute -left-[31px] top-1 w-4.5 h-4.5 rounded-full bg-red-500 border-2 border-red-500 shadow-md shadow-red-500/30 flex items-center justify-center text-white text-[10px] font-bold">
+-                  ✕
+-                </span>
+-                <div className="flex justify-between items-start">
+-                  <div>
+-                    <h3 className="font-semibold text-red-400 text-sm">Order Cancelled</h3>
+-                    <p className="text-xs text-red-500/80 mt-0.5">
+-                      Reason: "{timeline.find((t) => t.status === "CANCELLED")?.notes || "Store cancellation"}"
+-                    </p>
+-                  </div>
+-                  <span className="text-xs text-red-400 font-mono font-medium">{getStepTime("CANCELLED")}</span>
+-                </div>
++              <div className="relative border-l border-border-base ml-4 pl-6 space-y-8">
++                {STATUS_STEPS.map((step) => {
++                  const status = getStepStatus(step.key);
++                  const isActive = status === "active";
++                  const isDone = status === "completed";
++                  return (
++                    <div key={step.key} className="relative">
++                      <span className="absolute -left-[31px] top-1 flex items-center justify-center h-[18px] w-[18px]">
++                        {isActive && (
++                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-50" />
++                        )}
++                        <span
++                          className={`relative w-full h-full rounded-full border-2 ${
++                            isDone || isActive
++                              ? "bg-primary-fixed border-primary-fixed"
++                              : "bg-surface-container-low border-border-base"
++                          }`}
++                        />
++                      </span>
++                      <div className="flex justify-between items-start gap-3">
++                        <div>
++                          <h3
++                            className={`font-semibold text-sm ${
++                              status === "upcoming" ? "text-on-surface-variant" : "text-on-surface"
++                            }`}
++                          >
++                            {step.key === "PENDING" ? "Order Placed" : step.label === "Ready" ? "Ready for Delivery / Takeaway" : step.label === "Delivered" ? "Delivered / Handed Over" : step.label === "Preparing" ? "Dishes in Preparation" : "Accepted by Store"}
++                          </h3>
++                          <p className="text-xs text-on-surface-variant mt-0.5">{step.desc}</p>
++                        </div>
++                        <span className="text-xs text-on-surface-variant font-mono font-medium whitespace-nowrap">
++                          {step.key === "PENDING"
++                            ? getStepTime("PENDING") ||
++                              new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
++                            : getStepTime(step.key)}
++                        </span>
++                      </div>
++                    </div>
++                  );
++                })}
+               </div>
+-            )}
+-          </div>
+-        </Card>
++            </Card>
++          </>
++        )}
+       </div>
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/client/src/pages/website/QRRedirectPage.jsx b/client/src/pages/website/QRRedirectPage.jsx
+index 41fb3eb..f37378c 100644
+--- a/client/src/pages/website/QRRedirectPage.jsx
++++ b/client/src/pages/website/QRRedirectPage.jsx
+@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
+ import { useParams, useNavigate } from 'react-router-dom';
+ import { resolveQrCodeApi } from '../../api/models/public.api';
+ import Spinner from '../../components/ui/Spinner';
+-import { HiOutlineExclamationTriangle } from 'react-icons/hi2';
++import { HiOutlineExclamationTriangle, HiOutlineQrCode } from 'react-icons/hi2';
+ 
+ export default function QRRedirectPage() {
+   const { tableToken } = useParams();
+@@ -15,11 +15,11 @@ export default function QRRedirectPage() {
+     resolveQrCodeApi(tableToken)
+       .then((res) => {
+         const { outletSlug, sessionToken, outletId } = res.data.data;
+-        
++
+         // Save QR Session Token & Outlet ID in localStorage
+         localStorage.setItem('sessionToken', sessionToken);
+         localStorage.setItem('selectedOutletId', outletId);
+-        
++
+         // Redirect to the public website menu
+         navigate(`/public/w/${outletSlug}/menu`);
+       })
+@@ -30,13 +30,16 @@ export default function QRRedirectPage() {
+ 
+   if (error) {
+     return (
+-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-zinc-100 text-center space-y-4">
+-        <HiOutlineExclamationTriangle className="text-5xl text-rose-500 animate-bounce" />
+-        <h1 className="text-xl font-bold">QR Code Scan Failed</h1>
+-        <p className="text-zinc-400 max-w-sm text-sm leading-relaxed">{error}</p>
++      <div className="min-h-screen bg-background bg-pattern flex flex-col items-center justify-center p-6 text-on-background text-center space-y-4 font-sans">
++        <div className="w-16 h-16 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center">
++          <HiOutlineExclamationTriangle className="text-3xl" />
++        </div>
++        <h1 className="text-xl font-semibold font-hanken">QR Code Scan Failed</h1>
++        <p className="text-on-surface-variant max-w-sm text-sm leading-relaxed">{error}</p>
+         <button
++          type="button"
+           onClick={() => navigate('/login')}
+-          className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 rounded-xl text-xs font-semibold tracking-wide transition cursor-pointer"
++          className="px-5 py-2.5 bg-surface-container border border-border-base hover:bg-surface-container-high rounded-xl text-xs font-semibold tracking-wide text-on-surface transition-colors cursor-pointer"
+         >
+           Return to Admin Login
+         </button>
+@@ -45,9 +48,19 @@ export default function QRRedirectPage() {
+   }
+ 
+   return (
+-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-100 space-y-3">
+-      <Spinner size="lg" className="text-primary" />
+-      <h1 className="text-[14px] font-bold tracking-wide uppercase text-zinc-400">Seating Guest & Loading Menu...</h1>
++    <div className="min-h-screen bg-background bg-pattern flex flex-col items-center justify-center text-on-background gap-4 font-sans">
++      <div className="relative w-16 h-16 flex items-center justify-center">
++        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[color-mix(in_srgb,var(--color-brand-accent)_100%,transparent)] opacity-20" />
++        <div className="relative w-16 h-16 rounded-2xl bg-[color-mix(in_srgb,var(--color-brand-accent)_10%,transparent)] border border-[color-mix(in_srgb,var(--color-brand-accent)_25%,transparent)] flex items-center justify-center">
++          <HiOutlineQrCode className="text-2xl text-[color-mix(in_srgb,var(--color-brand-accent)_100%,transparent)]" />
++        </div>
++      </div>
++      <div className="flex items-center gap-2.5">
++        <Spinner size="sm" />
++        <h1 className="text-sm font-semibold tracking-wide text-on-surface-variant font-sans">
++          Setting your table, loading the menu...
++        </h1>
++      </div>
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/server/package-lock.json b/server/package-lock.json
+index 821c97c..555595b 100644
+--- a/server/package-lock.json
++++ b/server/package-lock.json
+@@ -13,12 +13,15 @@
+         "@qdrant/js-client-rest": "^1.18.0",
+         "@socket.io/redis-adapter": "^8.3.0",
+         "bcrypt": "^6.0.0",
++        "cloudinary": "^1.41.3",
+         "cookie-parser": "^1.4.7",
+         "cors": "^2.8.6",
+         "dotenv": "^17.4.2",
+         "express": "^5.1.0",
+         "jsonwebtoken": "^9.0.2",
+         "mongoose": "^8.18.1",
++        "multer": "^2.2.0",
++        "multer-storage-cloudinary": "^4.0.0",
+         "neo4j-driver": "^6.2.0",
+         "nodemailer": "^9.0.1",
+         "razorpay": "^2.9.6",
+@@ -34,6 +37,7 @@
+         "@types/express": "^5.0.3",
+         "@types/jsonwebtoken": "^9.0.10",
+         "@types/morgan": "^1.9.10",
++        "@types/multer": "^2.2.0",
+         "@types/node": "^24.3.1",
+         "@types/nodemailer": "^8.0.1",
+         "@types/redis": "^4.0.11",
+@@ -751,6 +755,16 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@types/multer": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/@types/multer/-/multer-2.2.0.tgz",
++      "integrity": "sha512-3U1troeqGV8Ntp7Q3klwf4zr23VEoqYVocYXaswm9+8z3O9UHDYAqLxjJ/h550iRADTjKdOdhhasXw6gD6kYtg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/express": "*"
++      }
++    },
+     "node_modules/@types/node": {
+       "version": "24.13.1",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-24.13.1.tgz",
+@@ -865,6 +879,12 @@
+         "node": ">= 6.0.0"
+       }
+     },
++    "node_modules/append-field": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/append-field/-/append-field-1.0.0.tgz",
++      "integrity": "sha512-klpgFSWLW1ZEs8svjfb7g4qWY0YS5imI82dTg+QahUvJ8YqAY0P10Uk8tTyh9ZGuYEZEMaeJYCF5BFuX552hsw==",
++      "license": "MIT"
++    },
+     "node_modules/asynckit": {
+       "version": "0.4.0",
+       "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+@@ -989,6 +1009,23 @@
+       "integrity": "sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==",
+       "license": "BSD-3-Clause"
+     },
++    "node_modules/buffer-from": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/buffer-from/-/buffer-from-1.1.2.tgz",
++      "integrity": "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==",
++      "license": "MIT"
++    },
++    "node_modules/busboy": {
++      "version": "1.6.0",
++      "resolved": "https://registry.npmjs.org/busboy/-/busboy-1.6.0.tgz",
++      "integrity": "sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==",
++      "dependencies": {
++        "streamsearch": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=10.16.0"
++      }
++    },
+     "node_modules/bytes": {
+       "version": "3.1.2",
+       "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz",
+@@ -1027,6 +1064,30 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/cloudinary": {
++      "version": "1.41.3",
++      "resolved": "https://registry.npmjs.org/cloudinary/-/cloudinary-1.41.3.tgz",
++      "integrity": "sha512-4o84y+E7dbif3lMns+p3UW6w6hLHEifbX/7zBJvaih1E9QNMZITENQ14GPYJC4JmhygYXsuuBb9bRA3xWEoOfg==",
++      "license": "MIT",
++      "dependencies": {
++        "cloudinary-core": "^2.13.0",
++        "core-js": "^3.30.1",
++        "lodash": "^4.17.21",
++        "q": "^1.5.1"
++      },
++      "engines": {
++        "node": ">=0.6"
++      }
++    },
++    "node_modules/cloudinary-core": {
++      "version": "2.14.1",
++      "resolved": "https://registry.npmjs.org/cloudinary-core/-/cloudinary-core-2.14.1.tgz",
++      "integrity": "sha512-57rgZSQD2cJsz1rga6M7jIDQuEAzkwvq63vTvs3/I8rNpGLyHMoKoIvBkNS0Guv5RZ9KDReJhI2LmElk4D9U1g==",
++      "license": "MIT",
++      "peerDependencies": {
++        "lodash": ">=4.0"
++      }
++    },
+     "node_modules/cluster-key-slot": {
+       "version": "1.1.2",
+       "resolved": "https://registry.npmjs.org/cluster-key-slot/-/cluster-key-slot-1.1.2.tgz",
+@@ -1048,6 +1109,21 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/concat-stream": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/concat-stream/-/concat-stream-2.0.0.tgz",
++      "integrity": "sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==",
++      "engines": [
++        "node >= 6.0"
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "buffer-from": "^1.0.0",
++        "inherits": "^2.0.3",
++        "readable-stream": "^3.0.2",
++        "typedarray": "^0.0.6"
++      }
++    },
+     "node_modules/content-disposition": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-1.1.0.tgz",
+@@ -1107,6 +1183,17 @@
+         "node": ">=6.6.0"
+       }
+     },
++    "node_modules/core-js": {
++      "version": "3.49.0",
++      "resolved": "https://registry.npmjs.org/core-js/-/core-js-3.49.0.tgz",
++      "integrity": "sha512-es1U2+YTtzpwkxVLwAFdSpaIMyQaq0PBgm3YD1W3Qpsn1NAmO3KSgZfu+oGSWVu6NvLHoHCV/aYcsE5wiB7ALg==",
++      "hasInstallScript": true,
++      "license": "MIT",
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/core-js"
++      }
++    },
+     "node_modules/cors": {
+       "version": "2.8.6",
+       "resolved": "https://registry.npmjs.org/cors/-/cors-2.8.6.tgz",
+@@ -1791,6 +1878,12 @@
+         "node": ">=12.0.0"
+       }
+     },
++    "node_modules/lodash": {
++      "version": "4.18.1",
++      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.18.1.tgz",
++      "integrity": "sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==",
++      "license": "MIT"
++    },
+     "node_modules/lodash.includes": {
+       "version": "4.3.0",
+       "resolved": "https://registry.npmjs.org/lodash.includes/-/lodash.includes-4.3.0.tgz",
+@@ -1999,6 +2092,77 @@
+       "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+       "license": "MIT"
+     },
++    "node_modules/multer": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/multer/-/multer-2.2.0.tgz",
++      "integrity": "sha512-6rdyFg2kLrMh9Jee7/BMPuV9lEAd7lLW2YUpF9/YxR7njyoUwwQ0ZPh3TaIY50Sw6vlyD2HW3wGOkTS4P79xrQ==",
++      "license": "MIT",
++      "dependencies": {
++        "append-field": "^1.0.0",
++        "busboy": "^1.6.0",
++        "concat-stream": "^2.0.0",
++        "type-is": "^1.6.18"
++      },
++      "engines": {
++        "node": ">= 10.16.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/express"
++      }
++    },
++    "node_modules/multer-storage-cloudinary": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/multer-storage-cloudinary/-/multer-storage-cloudinary-4.0.0.tgz",
++      "integrity": "sha512-25lm9R6o5dWrHLqLvygNX+kBOxprzpmZdnVKH4+r68WcfCt8XV6xfQaMuAg+kUE5Xmr8mJNA4gE0AcBj9FJyWA==",
++      "license": "MIT",
++      "peerDependencies": {
++        "cloudinary": "^1.21.0"
++      }
++    },
++    "node_modules/multer/node_modules/media-typer": {
++      "version": "0.3.0",
++      "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz",
++      "integrity": "sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/multer/node_modules/mime-db": {
++      "version": "1.52.0",
++      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
++      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/multer/node_modules/mime-types": {
++      "version": "2.1.35",
++      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
++      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
++      "license": "MIT",
++      "dependencies": {
++        "mime-db": "1.52.0"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/multer/node_modules/type-is": {
++      "version": "1.6.18",
++      "resolved": "https://registry.npmjs.org/type-is/-/type-is-1.6.18.tgz",
++      "integrity": "sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==",
++      "license": "MIT",
++      "dependencies": {
++        "media-typer": "0.3.0",
++        "mime-types": "~2.1.24"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
+     "node_modules/negotiator": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-1.0.0.tgz",
+@@ -2166,6 +2330,17 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/q": {
++      "version": "1.5.1",
++      "resolved": "https://registry.npmjs.org/q/-/q-1.5.1.tgz",
++      "integrity": "sha512-kV/CThkXo6xyFEZUugw/+pIOywXcDbFYgSct5cT3gqlbkBE1SJdwy6UQoZvodiWF/ckQLZyDE/Bu1M6gVu5lVw==",
++      "deprecated": "You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.\n\n(For a CapTP with native promises, see @endo/eventual-send and @endo/captp)",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.6.0",
++        "teleport": ">=0.2.0"
++      }
++    },
+     "node_modules/qs": {
+       "version": "6.15.2",
+       "resolved": "https://registry.npmjs.org/qs/-/qs-6.15.2.tgz",
+@@ -2214,6 +2389,20 @@
+         "axios": "^1.6.8"
+       }
+     },
++    "node_modules/readable-stream": {
++      "version": "3.6.2",
++      "resolved": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
++      "integrity": "sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA==",
++      "license": "MIT",
++      "dependencies": {
++        "inherits": "^2.0.3",
++        "string_decoder": "^1.1.1",
++        "util-deprecate": "^1.0.1"
++      },
++      "engines": {
++        "node": ">= 6"
++      }
++    },
+     "node_modules/redis": {
+       "version": "5.12.1",
+       "resolved": "https://registry.npmjs.org/redis/-/redis-5.12.1.tgz",
+@@ -2540,6 +2729,14 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/streamsearch": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/streamsearch/-/streamsearch-1.1.0.tgz",
++      "integrity": "sha512-Mcc5wHehp9aXz1ax6bZUyY5afg9u2rv5cqQI3mRrYkGC8rW2hM02jWuwjtL++LS5qinSyhj2QfLyNsuc+VsExg==",
++      "engines": {
++        "node": ">=10.0.0"
++      }
++    },
+     "node_modules/string_decoder": {
+       "version": "1.3.0",
+       "resolved": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz",
+@@ -2643,6 +2840,12 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
++    "node_modules/typedarray": {
++      "version": "0.0.6",
++      "resolved": "https://registry.npmjs.org/typedarray/-/typedarray-0.0.6.tgz",
++      "integrity": "sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==",
++      "license": "MIT"
++    },
+     "node_modules/typescript": {
+       "version": "5.9.3",
+       "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+@@ -2689,6 +2892,12 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/util-deprecate": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz",
++      "integrity": "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==",
++      "license": "MIT"
++    },
+     "node_modules/vary": {
+       "version": "1.1.2",
+       "resolved": "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz",
+diff --git a/server/package.json b/server/package.json
+index ba10bf4..9fe7971 100644
+--- a/server/package.json
++++ b/server/package.json
+@@ -30,12 +30,15 @@
+     "@qdrant/js-client-rest": "^1.18.0",
+     "@socket.io/redis-adapter": "^8.3.0",
+     "bcrypt": "^6.0.0",
++    "cloudinary": "^1.41.3",
+     "cookie-parser": "^1.4.7",
+     "cors": "^2.8.6",
+     "dotenv": "^17.4.2",
+     "express": "^5.1.0",
+     "jsonwebtoken": "^9.0.2",
+     "mongoose": "^8.18.1",
++    "multer": "^2.2.0",
++    "multer-storage-cloudinary": "^4.0.0",
+     "neo4j-driver": "^6.2.0",
+     "nodemailer": "^9.0.1",
+     "razorpay": "^2.9.6",
+@@ -51,6 +54,7 @@
+     "@types/express": "^5.0.3",
+     "@types/jsonwebtoken": "^9.0.10",
+     "@types/morgan": "^1.9.10",
++    "@types/multer": "^2.2.0",
+     "@types/node": "^24.3.1",
+     "@types/nodemailer": "^8.0.1",
+     "@types/redis": "^4.0.11",
+diff --git a/server/src/config/cloudinary.ts b/server/src/config/cloudinary.ts
+new file mode 100644
+index 0000000..9b20c5c
+--- /dev/null
++++ b/server/src/config/cloudinary.ts
+@@ -0,0 +1,11 @@
++import { v2 as cloudinary } from "cloudinary";
++import { env } from "./env.js";
++
++cloudinary.config({
++  cloud_name: env.CLOUDINARY_CLOUD_NAME,
++  api_key: env.CLOUDINARY_API_KEY,
++  api_secret: env.CLOUDINARY_API_SECRET,
++  secure: true,
++});
++
++export default cloudinary;
+\ No newline at end of file
+diff --git a/server/src/config/env.ts b/server/src/config/env.ts
+index 186e55b..29bfb36 100644
+--- a/server/src/config/env.ts
++++ b/server/src/config/env.ts
+@@ -6,6 +6,11 @@ const envSchema = z.object({
+   JWT_SECRET: z.string(),
+   JWT_EXPIRES_IN: z.string().default('1d'),
+   REDIS_URL: z.string().optional(),
++  CLOUDINARY_CLOUD_NAME: z.string(),
++
++CLOUDINARY_API_KEY: z.string(),
++
++CLOUDINARY_API_SECRET: z.string(),
+ });
+ 
+ export const env = envSchema.parse(process.env);
+diff --git a/server/src/modules/media/media.constants.ts b/server/src/modules/media/media.constants.ts
+new file mode 100644
+index 0000000..60c2d8f
+--- /dev/null
++++ b/server/src/modules/media/media.constants.ts
+@@ -0,0 +1,36 @@
++export const MEDIA_FOLDERS = {
++  RESTAURANT_LOGO: "restaurant/logo",
++  RESTAURANT_BANNER: "restaurant/banner",
++
++  OUTLET_LOGO: "outlets/logo",
++  OUTLET_BANNER: "outlets/banner",
++
++  MENU_ITEMS: "menu/items",
++  CATEGORY: "menu/category",
++
++  USER_AVATAR: "user/avatar",
++  STAFF_AVATAR: "staff/avatar",
++  CUSTOMER_AVATAR: "customer/avatar",
++
++  MARKETING: "marketing",
++  QR: "qr",
++
++  SYSTEM: "system",
++} as const;
++
++export const ALLOWED_IMAGE_FORMATS = [
++  "jpg",
++  "jpeg",
++  "png",
++  "webp",
++  "avif",
++] as const;
++
++export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
++
++export const SIGNATURE_EXPIRY = 60 * 5;
++
++export const DEFAULT_TRANSFORMATION = {
++  quality: "auto",
++  fetch_format: "auto",
++};
+\ No newline at end of file
+diff --git a/server/src/modules/media/media.controller.ts b/server/src/modules/media/media.controller.ts
+new file mode 100644
+index 0000000..fe8d108
+--- /dev/null
++++ b/server/src/modules/media/media.controller.ts
+@@ -0,0 +1,162 @@
++import { Request, Response } from "express";
++import { Types } from "mongoose";
++import { MediaService } from "./media.service.js";
++import { ApiResponseHandler } from "../../utils/apiResponse.js";
++import { AccessScope } from "../../utils/accessScope.utils.js";
++import { signatureRequestSchema, registerAssetSchema } from "./media.validator.js";
++
++export class MediaController {
++  /**
++   * Generate secure signed upload signature
++   * POST /media/signature
++   */
++  static async generateUploadSignature(req: Request, res: Response): Promise<void> {
++    try {
++      if (!req.user?.tenantId) {
++        ApiResponseHandler.unauthorized(res, "User not authenticated or tenantId not found");
++        return;
++      }
++
++      const validated = signatureRequestSchema.parse(req.body);
++
++      // Validate outlet access if outletId is provided
++      if (validated.outletId) {
++        if (!(await AccessScope.canAccessOutlet(req.user, validated.outletId))) {
++          ApiResponseHandler.forbidden(res, "You cannot access this outlet");
++          return;
++        }
++      }
++
++      const signatureData = await MediaService.generateUploadSignature(
++        req.user.tenantId as string,
++        validated.folder,
++        req.user.userId as string,
++        validated.outletId
++      );
++
++      ApiResponseHandler.success(res, 200, "Signed signature generated successfully", signatureData);
++    } catch (error: any) {
++      ApiResponseHandler.badRequest(res, error.message || "Failed to generate upload signature");
++    }
++  }
++
++  /**
++   * Register uploaded asset metadata
++   * POST /media/register
++   */
++  static async registerMediaAsset(req: Request, res: Response): Promise<void> {
++    try {
++      if (!req.user?.tenantId) {
++        ApiResponseHandler.unauthorized(res, "User not authenticated or tenantId not found");
++        return;
++      }
++
++      const validated = registerAssetSchema.parse(req.body);
++
++      // Validate outlet access if outletId is provided
++      if (validated.outletId) {
++        if (!(await AccessScope.canAccessOutlet(req.user, validated.outletId))) {
++          ApiResponseHandler.forbidden(res, "You cannot access this outlet");
++          return;
++        }
++      }
++
++      const media = await MediaService.registerMediaAsset(
++        req.user.tenantId as string,
++        req.user.userId as string,
++        validated
++      );
++
++      ApiResponseHandler.success(res, 201, "Media asset registered successfully", {
++        id: media._id,
++        publicId: media.publicId,
++        secureUrl: media.secureUrl,
++        folder: media.folder,
++        format: media.format,
++        width: media.width,
++        height: media.height,
++        bytes: media.bytes,
++        uploadedAt: media.uploadedAt,
++      });
++    } catch (error: any) {
++      ApiResponseHandler.badRequest(res, error.message || "Failed to register media asset");
++    }
++  }
++
++  /**
++   * Delete a media asset (soft-delete in DB, call Cloudinary destroy)
++   * DELETE /media/:id
++   */
++  static async deleteMediaAsset(req: Request, res: Response): Promise<void> {
++    try {
++      if (!req.user?.tenantId) {
++        ApiResponseHandler.unauthorized(res, "User not authenticated or tenantId not found");
++        return;
++      }
++
++      const { id } = req.params as { id: string };
++
++      if (!Types.ObjectId.isValid(id)) {
++        ApiResponseHandler.badRequest(res, "Invalid media asset ID format");
++        return;
++      }
++
++      await MediaService.deleteMediaAsset(req.user.tenantId as string, id);
++
++      ApiResponseHandler.success(res, 200, "Media asset deleted successfully");
++    } catch (error: any) {
++      ApiResponseHandler.badRequest(res, error.message || "Failed to delete media asset");
++    }
++  }
++
++  /**
++   * Replace an existing media asset
++   * PUT /media/:id
++   */
++  static async replaceMediaAsset(req: Request, res: Response): Promise<void> {
++    try {
++      if (!req.user?.tenantId) {
++        ApiResponseHandler.unauthorized(res, "User not authenticated or tenantId not found");
++        return;
++      }
++
++      const { id } = req.params as { id: string };
++
++      if (!Types.ObjectId.isValid(id)) {
++        ApiResponseHandler.badRequest(res, "Invalid media asset ID format");
++        return;
++      }
++
++      const validated = registerAssetSchema.parse(req.body);
++
++      // Validate outlet access if outletId is provided
++      if (validated.outletId) {
++        if (!(await AccessScope.canAccessOutlet(req.user, validated.outletId))) {
++          ApiResponseHandler.forbidden(res, "You cannot access this outlet");
++          return;
++        }
++      }
++
++      const media = await MediaService.replaceMediaAsset(
++        req.user.tenantId as string,
++        req.user.userId as string,
++        id,
++        validated
++      );
++
++      ApiResponseHandler.success(res, 200, "Media asset replaced successfully", {
++        id: media._id,
++        publicId: media.publicId,
++        secureUrl: media.secureUrl,
++        folder: media.folder,
++        format: media.format,
++        width: media.width,
++        height: media.height,
++        bytes: media.bytes,
++        uploadedAt: media.uploadedAt,
++      });
++    } catch (error: any) {
++      ApiResponseHandler.badRequest(res, error.message || "Failed to replace media asset");
++    }
++  }
++}
+diff --git a/server/src/modules/media/media.model.ts b/server/src/modules/media/media.model.ts
+new file mode 100644
+index 0000000..039b1bb
+--- /dev/null
++++ b/server/src/modules/media/media.model.ts
+@@ -0,0 +1,105 @@
++import mongoose, { Document, Model, Schema, Types } from "mongoose";
++
++export interface IMedia extends Document {
++  tenantId: Types.ObjectId;
++  outletId?: Types.ObjectId | null;
++  publicId: string;
++  secureUrl: string;
++  folder: string;
++  format: string;
++  width?: number | null;
++  height?: number | null;
++  bytes?: number | null;
++  version?: string | null;
++  uploadedAt: Date;
++  createdBy: Types.ObjectId | null;
++  isDeleted: boolean;
++  deletedAt?: Date | null;
++}
++
++const mediaSchema = new Schema<IMedia>(
++  {
++    tenantId: {
++      type: Schema.Types.ObjectId,
++      ref: "Tenant",
++      required: [true, "Tenant ID is required"],
++    },
++    outletId: {
++      type: Schema.Types.ObjectId,
++      ref: "Outlet",
++      default: null,
++    },
++    publicId: {
++      type: String,
++      required: [true, "Public ID is required"],
++      unique: true,
++      trim: true,
++    },
++    secureUrl: {
++      type: String,
++      required: [true, "Secure URL is required"],
++      trim: true,
++    },
++    folder: {
++      type: String,
++      required: [true, "Folder path is required"],
++      trim: true,
++    },
++    format: {
++      type: String,
++      required: [true, "Format is required"],
++      trim: true,
++    },
++    width: {
++      type: Number,
++      default: null,
++    },
++    height: {
++      type: Number,
++      default: null,
++    },
++    bytes: {
++      type: Number,
++      default: null,
++    },
++    version: {
++      type: String,
++      default: null,
++    },
++    uploadedAt: {
++      type: Date,
++      default: Date.now,
++    },
++    createdBy: {
++      type: Schema.Types.ObjectId,
++      ref: "User",
++      default: null,
++    },
++    isDeleted: {
++      type: Boolean,
++      default: false,
++    },
++    deletedAt: {
++      type: Date,
++      default: null,
++    },
++  },
++  {
++    timestamps: true,
++    versionKey: false,
++  }
++);
++
++mediaSchema.index({ tenantId: 1 });
++mediaSchema.index({ isDeleted: 1 });
++
++mediaSchema.pre("find", function () {
++  this.where({ isDeleted: false });
++});
++
++mediaSchema.pre("findOne", function () {
++  this.where({ isDeleted: false });
++});
++
++const Media: Model<IMedia> = mongoose.model<IMedia>("Media", mediaSchema);
++export default Media;
+diff --git a/server/src/modules/media/media.routes.ts b/server/src/modules/media/media.routes.ts
+new file mode 100644
+index 0000000..ea2f55a
+--- /dev/null
++++ b/server/src/modules/media/media.routes.ts
+@@ -0,0 +1,19 @@
++import express, { Router } from "express";
++import { MediaController } from "./media.controller.js";
++import { verifyToken } from "../../middlewares/auth.middleware.js";
++
++const router: Router = express.Router();
++
++// Generate signed Cloudinary signature for direct upload
++router.post("/signature", verifyToken, MediaController.generateUploadSignature);
++
++// Register successfully uploaded media asset metadata
++router.post("/register", verifyToken, MediaController.registerMediaAsset);
++
++// Delete media asset by its MongoDB ID (soft-delete + Cloudinary destroy)
++router.delete("/:id", verifyToken, MediaController.deleteMediaAsset);
++
++// Replace an existing media asset (register new + delete old)
++router.put("/:id", verifyToken, MediaController.replaceMediaAsset);
++
++export default router;
+diff --git a/server/src/modules/media/media.service.ts b/server/src/modules/media/media.service.ts
+new file mode 100644
+index 0000000..af7a2e6
+--- /dev/null
++++ b/server/src/modules/media/media.service.ts
+@@ -0,0 +1,141 @@
++import { randomUUID } from "crypto";
++import { Types } from "mongoose";
++import cloudinary from "../../config/cloudinary.js";
++import { env } from "../../config/env.js";
++import Media, { IMedia } from "./media.model.js";
++
++export class MediaService {
++  /**
++   * Generate signed upload signature for direct client-to-Cloudinary upload
++   */
++  static async generateUploadSignature(
++    tenantId: string,
++    folder: string,
++    userId: string,
++    outletId?: string
++  ) {
++    const timestamp = Math.round(new Date().getTime() / 1000);
++    const uniqueId = randomUUID();
++    
++    // Generate secure public ID without path separators
++    const cleanFolderName = folder.split('/').pop() || folder;
++    const publicId = `${cleanFolderName}_${uniqueId}`;
++    const fullFolder = `omniserve/${tenantId}/${folder}`;
++
++    const paramsToSign = {
++      timestamp,
++      folder: fullFolder,
++      public_id: publicId,
++    };
++
++    const signature = cloudinary.utils.api_sign_request(
++      paramsToSign,
++      env.CLOUDINARY_API_SECRET
++    );
++
++    return {
++      signature,
++      timestamp,
++      publicId,
++      folder: fullFolder,
++      apiKey: env.CLOUDINARY_API_KEY,
++      cloudName: env.CLOUDINARY_CLOUD_NAME,
++    };
++  }
++
++  /**
++   * Register uploaded asset metadata in the MongoDB database
++   */
++  static async registerMediaAsset(
++    tenantId: string,
++    userId: string,
++    assetData: any
++  ): Promise<IMedia> {
++    const media = new Media({
++      tenantId: new Types.ObjectId(tenantId),
++      outletId: assetData.outletId ? new Types.ObjectId(assetData.outletId) : null,
++      publicId: assetData.publicId,
++      secureUrl: assetData.secureUrl,
++      folder: assetData.folder,
++      format: assetData.format,
++      width: assetData.width,
++      height: assetData.height,
++      bytes: assetData.bytes,
++      version: assetData.version,
++      uploadedAt: assetData.uploadedAt || new Date(),
++      createdBy: new Types.ObjectId(userId),
++    });
++
++    return await media.save();
++  }
++
++  /**
++   * Delete a media asset by database ID (soft-delete in DB, call Cloudinary destroy)
++   */
++  static async deleteMediaAsset(
++    tenantId: string,
++    assetId: string
++  ): Promise<boolean> {
++    const media = await Media.findOne({
++      _id: new Types.ObjectId(assetId),
++      tenantId: new Types.ObjectId(tenantId),
++      isDeleted: false,
++    });
++
++    if (!media) {
++      throw new Error("Media asset not found or access denied");
++    }
++
++    // Soft delete in database
++    media.isDeleted = true;
++    media.deletedAt = new Date();
++    await media.save();
++
++    // Asynchronously delete from Cloudinary
++    const fullPublicId = `${media.folder}/${media.publicId}`;
++    cloudinary.uploader.destroy(fullPublicId, (error, result) => {
++      if (error) {
++        console.error(`[Cloudinary Delete Error] Failed to delete ${fullPublicId}:`, error);
++      } else {
++        console.log(`[Cloudinary Delete Success] Deleted ${fullPublicId}:`, result);
++      }
++    });
++
++    return true;
++  }
++
++  /**
++   * Replace an existing media asset with a new upload
++   */
++  static async replaceMediaAsset(
++    tenantId: string,
++    userId: string,
++    oldAssetId: string,
++    newAssetData: any
++  ): Promise<IMedia> {
++    // 1. Register the new upload
++    const newAsset = await this.registerMediaAsset(tenantId, userId, newAssetData);
++
++    // 2. Delete the old asset
++    try {
++      await this.deleteMediaAsset(tenantId, oldAssetId);
++    } catch (err: any) {
++      console.warn(`[MediaService] Replace warning: failed to delete old asset ${oldAssetId}:`, err.message);
++    }
++
++    return newAsset;
++  }
++
++  /**
++   * Helper utility to generate optimized Cloudinary URL for a registered asset
++   */
++  static getOptimizedUrl(publicId: string, folder: string, transformations: object = {}): string {
++    const fullPublicId = `${folder}/${publicId}`;
++    return cloudinary.url(fullPublicId, {
++      secure: true,
++      quality: "auto",
++      fetch_format: "auto",
++      ...transformations,
++    });
++  }
++}
+diff --git a/server/src/modules/media/media.types.ts b/server/src/modules/media/media.types.ts
+new file mode 100644
+index 0000000..f81e7f0
+--- /dev/null
++++ b/server/src/modules/media/media.types.ts
+@@ -0,0 +1,27 @@
++export interface MediaMetadata {
++  publicId: string;
++  secureUrl: string;
++  folder: string;
++  format: string;
++  width: number;
++  height: number;
++  bytes: number;
++  version: string;
++  uploadedAt: Date;
++}
++
++export interface SignatureRequest {
++  folder: string;
++}
++
++export interface SignatureResponse {
++  signature: string;
++  timestamp: number;
++  apiKey: string;
++  cloudName: string;
++}
++
++export interface UploadResult {
++  publicId: string;
++  secureUrl: string;
++}
+\ No newline at end of file
+diff --git a/server/src/modules/media/media.validator.ts b/server/src/modules/media/media.validator.ts
+new file mode 100644
+index 0000000..9773751
+--- /dev/null
++++ b/server/src/modules/media/media.validator.ts
+@@ -0,0 +1,32 @@
++import { z } from "zod";
++import { MEDIA_FOLDERS, MAX_IMAGE_SIZE } from "./media.constants.js";
++
++// Helper for MongoDB ObjectId validation
++const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid MongoDB ObjectId");
++
++const folderValues = Object.values(MEDIA_FOLDERS) as string[];
++
++export const signatureRequestSchema = z.object({
++  folder: z.string().refine((val) => folderValues.includes(val), {
++    message: `Folder must be one of: ${folderValues.join(", ")}`,
++  }),
++  outletId: objectIdSchema.optional(),
++});
++
++export const registerAssetSchema = z.object({
++  publicId: z.string().min(1, "Public ID is required"),
++  secureUrl: z.string().url("Secure URL must be a valid URL"),
++  folder: z.string().refine((val) => folderValues.includes(val), {
++    message: `Folder must be one of: ${folderValues.join(", ")}`,
++  }),
++  format: z.string().min(1, "Format is required"),
++  width: z.number().int().positive().optional().nullable(),
++  height: z.number().int().positive().optional().nullable(),
++  bytes: z.number().int().nonnegative().max(MAX_IMAGE_SIZE, `File size cannot exceed ${MAX_IMAGE_SIZE} bytes (5MB)`),
++  version: z.string().optional().nullable(),
++  uploadedAt: z.preprocess((val) => {
++    if (typeof val === 'string' || val instanceof Date) return new Date(val);
++    return val;
++  }, z.date()).optional().nullable(),
++  outletId: objectIdSchema.optional().nullable(),
++});
