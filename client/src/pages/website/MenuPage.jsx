@@ -1,89 +1,74 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { 
-  getPublicMenuApi, 
-  createOrUpdateCartApi, 
-  updateCartApi,
-  removeFromCartApi,
-  getCartApi,
-  updateGuestSessionApi,
-  leaveGuestSessionApi
-} from "../../api/models/public.api";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { getPublicMenuApi, createOrUpdateCartApi, getCartApi } from "../../api/models/public.api";
 import Spinner from "../../components/ui/Spinner";
+import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-import RestaurantHeader from "../../components/guest/RestaurantHeader";
-import OutletBanner from "../../components/guest/OutletBanner";
-import CategoryChips from "../../components/guest/CategoryChips";
-import MenuCard from "../../components/guest/MenuCard";
-import VariantCustomizerSheet from "../../components/guest/VariantCustomizerSheet";
-import { useSocket } from "../../context/SocketContext";
-import { 
-  HiOutlineUserCircle, 
-  HiOutlineSparkles,
-  HiOutlineArrowRightOnRectangle,
-  HiOutlineShoppingBag,
-  HiChevronRight
-} from "react-icons/hi2";
+import Modal from "../../components/ui/Modal";
+import { HiOutlineUsers, HiOutlineSparkles, HiOutlineBookOpen, HiOutlineChevronRight } from "react-icons/hi2";
+
+const formatINR = (amount) => {
+  const n = Number(amount) || 0;
+  return `₹${n.toLocaleString("en-IN")}`;
+};
 
 export default function MenuPage() {
   const { outletSlug } = useParams();
   const navigate = useNavigate();
-  const { lastMessage } = useSocket();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  
-  // Custom Filters state
-  const [activeFilter, setActiveFilter] = useState("all"); // 'all' | 'veg' | 'non-veg' | 'bestseller' | 'recommended'
-
-  // Selected customization item
   const [selectedItem, setSelectedItem] = useState(null);
+  const [cartAddedCount, setCartAddedCount] = useState(0);
+
+  // Modal item config states
   const [itemVariants, setItemVariants] = useState([]);
   const [itemAddons, setItemAddons] = useState([]);
+  const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [selectedAddons, setSelectedAddons] = useState({}); // { addonId: quantity }
+  const [itemQuantity, setItemQuantity] = useState(1);
+  const [itemNotes, setItemNotes] = useState("");
   const [addingToCart, setAddingToCart] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
-  // Cart local state
-  const [cart, setCart] = useState(null);
-  const [cartLoading, setCartLoading] = useState(false);
+  // Scanned printed menu card state
+  const [showPhysicalMenu, setShowPhysicalMenu] = useState(false);
 
-  // Welcome Overlay states
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [guestName, setGuestName] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
-  const [updatingGuest, setUpdatingGuest] = useState(false);
+  const sectionRefs = useRef({});
+  const suppressObserver = useRef(false);
+  const suppressTimeout = useRef(null);
 
-  const guestSessionToken = localStorage.getItem("guestSessionToken");
-  
-  // Category references for scrolling
-  const categoryRefs = useRef({});
-  const isScrollingRef = useRef(false);
-
-  // 1. Fetch Cart details
-  const fetchCartDetails = async () => {
-    if (!guestSessionToken) return;
-    try {
-      const res = await getCartApi();
-      setCart(res.data.data);
-    } catch (err) {
-      console.warn("Failed to retrieve guest cart:", err.message);
+  // Generate session token if not exists
+  useEffect(() => {
+    let token = localStorage.getItem("sessionToken");
+    if (!token) {
+      token = "WEB-SESS-" + Math.random().toString(36).substring(2, 15).toUpperCase() + "-" + Date.now();
+      localStorage.setItem("sessionToken", token);
     }
-  };
+  }, []);
 
-  // 2. Fetch Menu details
-  const fetchMenuData = () => {
+  // Fetch Menu data
+  useEffect(() => {
     if (!outletSlug) return;
     setLoading(true);
-    getPublicMenuApi(outletSlug)
-      .then((res) => {
-        const payload = res.data.data;
+    
+    // Fetch menu & cart details in parallel
+    Promise.all([
+      getPublicMenuApi(outletSlug),
+      getCartApi()
+    ])
+      .then(([menuRes, cartRes]) => {
+        const payload = menuRes.data.data;
         setData(payload);
-        
-        // Do not auto-show welcome overlay on menu page anymore (handled in QRRedirectPage)
-        setShowWelcome(false);
         setError(null);
+
+        // Calculate initial cart added count
+        const items = cartRes.data.data?.items || [];
+        const count = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        setCartAddedCount(count);
       })
       .catch((err) => {
         setError(err.response?.data?.message || "Failed to load restaurant menu");
@@ -91,583 +76,678 @@ export default function MenuPage() {
       .finally(() => {
         setLoading(false);
       });
-  };
+  }, [outletSlug]);
 
-  useEffect(() => {
-    fetchMenuData();
-    fetchCartDetails();
-  }, [outletSlug, guestSessionToken]);
+  const outlet = data?.outlet;
+  const categories = data?.categories || [];
+  const menuItems = data?.menuItems || [];
+  const variants = data?.variants || [];
+  const addons = data?.addons || [];
+  const table = data?.table;
 
-  // 3. Listen to Real-time WebSockets Sold Out/Availability updates
-  useEffect(() => {
-    if (lastMessage) {
-      const { event, payload } = lastMessage;
-      if (event === "INVENTORY_CHANGED" || event === "MENU_CHANGED") {
-        console.log("[MenuPage] WebSocket update received, refreshing catalog...");
-        // Refresh catalog data silently to sync item availability statuses
-        getPublicMenuApi(outletSlug)
-          .then((res) => {
-            setData(res.data.data);
-          })
-          .catch((err) => console.warn("Silent menu sync failed:", err.message));
-      }
-    }
-  }, [lastMessage, outletSlug]);
+  const isSearching = searchQuery.trim().length > 0;
 
-  // 4. Welcome Form updates
-  const handleWelcomeSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!guestName.trim()) return;
-
-    setUpdatingGuest(true);
-    try {
-      await updateGuestSessionApi({
-        name: guestName.trim(),
-        phone: guestPhone.trim() || undefined
-      });
-      setShowWelcome(false);
-      fetchMenuData();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to update guest details");
-    } finally {
-      setUpdatingGuest(false);
-    }
-  };
-
-  const handleWelcomeSkip = async () => {
-    setUpdatingGuest(true);
-    try {
-      await updateGuestSessionApi({
-        name: "Guest",
-        phone: "Unknown"
-      });
-      setShowWelcome(false);
-      fetchMenuData();
-    } catch (err) {
-      setShowWelcome(false);
-    } finally {
-      setUpdatingGuest(false);
-    }
-  };
-
-  const handleLeaveSession = async () => {
-    if (!window.confirm("Are you sure you want to leave this table session? Your current cart items will be closed.")) return;
-    try {
-      await leaveGuestSessionApi();
-      localStorage.removeItem("sessionToken");
-      localStorage.removeItem("guestSessionToken");
-      localStorage.removeItem("selectedOutletId");
-      navigate("/");
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to leave table session");
-    }
-  };
-
-  // 5. Scroll tracking for Active Category Chips
-  useEffect(() => {
-    if (loading || !data) return;
-
-    const observerOptions = {
-      root: null,
-      rootMargin: "-80px 0px -60% 0px",
-      threshold: 0
-    };
-
-    const handleIntersection = (entries) => {
-      if (isScrollingRef.current) return;
-      
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const categoryId = entry.target.getAttribute("data-category-id");
-          if (categoryId) {
-            setSelectedCategory(categoryId);
-          }
-        }
-      });
-    };
-
-    const observer = new IntersectionObserver(handleIntersection, observerOptions);
-
-    // Observe all category section headers
-    data.categories.forEach((cat) => {
-      const el = categoryRefs.current[cat._id];
-      if (el) observer.observe(el);
+  const itemCountByCategory = useMemo(() => {
+    const map = {};
+    menuItems.forEach((item) => {
+      map[item.categoryId] = (map[item.categoryId] || 0) + 1;
     });
+    return map;
+  }, [menuItems]);
 
-    return () => {
-      observer.disconnect();
-    };
-  }, [loading, data]);
+  const categoriesWithItems = useMemo(
+    () => categories.filter((cat) => (itemCountByCategory[cat._id] || 0) > 0),
+    [categories, itemCountByCategory]
+  );
 
-  const handleSelectCategory = (categoryId) => {
-    setSelectedCategory(categoryId);
-    isScrollingRef.current = true;
+  const groupedSections = useMemo(
+    () =>
+      categoriesWithItems.map((cat) => ({
+        ...cat,
+        items: menuItems.filter((item) => item.categoryId === cat._id),
+      })),
+    [categoriesWithItems, menuItems]
+  );
 
-    const targetEl = categoryRefs.current[categoryId];
-    if (targetEl) {
-      const offset = 140; // sticky header + category chips offset
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = targetEl.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const q = searchQuery.toLowerCase();
+    return menuItems.filter((item) => item.name.toLowerCase().includes(q));
+  }, [isSearching, searchQuery, menuItems]);
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth"
-      });
+  // Track which category section is in view to keep the pill rail in sync
+  useEffect(() => {
+    if (isSearching || groupedSections.length === 0) return;
 
-      // Release scroll block after animation completes
-      setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 800);
-    } else {
-      isScrollingRef.current = false;
-    }
-  };
-
-  // 6. Cart item modifiers (stepper callbacks)
-  const getQuantityForMenuItem = (menuItemId) => {
-    if (!cart || !cart.items) return 0;
-    // Sum up quantity of all configurations for this menuItemId
-    return cart.items
-      .filter((item) => (item.menuItemId._id || item.menuItemId) === menuItemId)
-      .reduce((sum, item) => sum + item.quantity, 0);
-  };
-
-  const handleStepperUpdate = async (item, delta) => {
-    if (!cart) return;
-    setCartLoading(true);
-
-    // Find the cart item configuration matching this menuItemId
-    const matchingItems = cart.items.filter(
-      (ci) => (ci.menuItemId._id || ci.menuItemId) === item._id
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (suppressObserver.current) return;
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length === 0) return;
+        const top = visible.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b));
+        const catId = top.target.getAttribute("data-category-id");
+        if (catId) setSelectedCategory(catId);
+      },
+      { rootMargin: "-136px 0px -65% 0px", threshold: 0 }
     );
 
-    if (matchingItems.length === 0) {
-      setCartLoading(false);
-      return;
-    }
+    Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, [isSearching, groupedSections]);
 
-    // Update the last added configuration
-    const targetCartItem = matchingItems[matchingItems.length - 1];
-    const newQty = targetCartItem.quantity + delta;
+  const handleCategoryClick = (catId) => {
+    setSelectedCategory(catId);
+    if (isSearching) return;
 
-    try {
-      if (newQty <= 0) {
-        // If total quantity becomes 0, remove this configuration
-        const res = await removeFromCartApi(
-          cart._id,
-          targetCartItem.menuItemId._id || targetCartItem.menuItemId,
-          targetCartItem.variantId?._id ? { variantId: targetCartItem.variantId._id } : {}
-        );
-        setCart(res.data.data);
-      } else {
-        const res = await updateCartApi(cart._id, {
-          item: {
-            menuItemId: targetCartItem.menuItemId._id || targetCartItem.menuItemId,
-            variantId: targetCartItem.variantId?._id || undefined,
-            quantity: newQty,
-            notes: targetCartItem.notes || undefined
-          }
-        });
-        setCart(res.data.data);
-      }
-    } catch (err) {
-      console.warn("Stepper update failed:", err.message);
-    } finally {
-      setCartLoading(false);
-    }
-  };
+    suppressObserver.current = true;
+    if (suppressTimeout.current) clearTimeout(suppressTimeout.current);
 
-  const handleAddClick = (item) => {
-    // If variants or addons exist, open the sheet customizer, otherwise add directly
-    const hasVariants = variants.some(v => v.menuItemId === item._id);
-    const hasAddons = addons.some(a => a.menuItemId === item._id);
-
-    if (hasVariants || hasAddons) {
-      handleOpenItemConfig(item);
+    if (catId === "all") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      handleAddDirectly(item);
-    }
-  };
-
-  const handleAddDirectly = async (item) => {
-    setCartLoading(true);
-    const payload = {
-      sessionToken: guestSessionToken,
-      outletId: outlet.id,
-      item: {
-        menuItemId: item._id,
-        quantity: 1
+      const el = sectionRefs.current[catId];
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 128;
+        window.scrollTo({ top: y, behavior: "smooth" });
       }
-    };
-    try {
-      const res = await createOrUpdateCartApi(payload);
-      setCart(res.data.data);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to add item to cart");
-    } finally {
-      setCartLoading(false);
     }
+
+    suppressTimeout.current = setTimeout(() => {
+      suppressObserver.current = false;
+    }, 700);
   };
 
   const handleOpenItemConfig = (item) => {
+    setSelectedItem(item);
     const activeVariants = variants.filter((v) => v.menuItemId === item._id);
     const activeAddons = addons.filter((a) => a.menuItemId === item._id);
-    
+
     setItemVariants(activeVariants);
     setItemAddons(activeAddons);
-    setSelectedItem(item);
+
+    setSelectedVariantId(activeVariants[0]?._id || "");
+    setSelectedAddons({});
+    setItemQuantity(1);
+    setItemNotes("");
+    setJustAdded(false);
   };
 
-  const handleConfirmCustomizer = async (config) => {
+  const handleToggleAddon = (addonId) => {
+    setSelectedAddons((prev) => {
+      const copy = { ...prev };
+      if (copy[addonId]) {
+        delete copy[addonId];
+      } else {
+        copy[addonId] = 1;
+      }
+      return copy;
+    });
+  };
+
+  const handleAddonQty = (addonId, delta) => {
+    setSelectedAddons((prev) => {
+      const copy = { ...prev };
+      if (copy[addonId] !== undefined) {
+        const nextQty = copy[addonId] + delta;
+        if (nextQty >= 1) {
+          copy[addonId] = nextQty;
+        }
+      }
+      return copy;
+    });
+  };
+
+  const handleAddToCart = async () => {
     if (!selectedItem) return;
     setAddingToCart(true);
 
+    const formattedAddons = Object.entries(selectedAddons).map(([addonId, qty]) => {
+      const originalAddon = itemAddons.find((a) => a._id === addonId);
+      return {
+        addonId,
+        quantity: qty,
+        name: originalAddon?.name || "Addon",
+        price: originalAddon?.price || 0,
+      };
+    });
+
     const payload = {
-      sessionToken: guestSessionToken,
+      sessionToken: localStorage.getItem("sessionToken"),
       outletId: outlet.id,
       item: {
         menuItemId: selectedItem._id,
-        variantId: config.variantId,
-        addons: config.addons,
-        quantity: config.quantity,
-        notes: config.notes
-      }
+        variantId: selectedVariantId || undefined,
+        addons: formattedAddons,
+        quantity: itemQuantity,
+        notes: itemNotes || undefined,
+      },
+    };
+
+    const query = new URLSearchParams(window.location.search);
+    const utmSource = query.get("utm_source") || "";
+    const utmMedium = query.get("utm_medium") || "";
+    const utmCampaign = query.get("utm_campaign") || "";
+    const referrer = document.referrer || "";
+
+    const finalPayload = {
+      ...payload,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      referrer,
     };
 
     try {
-      const res = await createOrUpdateCartApi(payload);
-      setCart(res.data.data);
+      await createOrUpdateCartApi(finalPayload);
+      setJustAdded(true);
+      setCartAddedCount((c) => c + itemQuantity);
+      
+      // Flash success message
+      await new Promise((resolve) => setTimeout(resolve, 380));
       setSelectedItem(null);
+      
+      // NO direct navigation to the cart anymore!
+      // This allows the user to continue adding more items.
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to customize item");
+      alert(err.response?.data?.message || "Failed to add item to cart");
     } finally {
       setAddingToCart(false);
     }
   };
 
-  // 7. Dynamic local item filtering & search memoizations
-  const filteredMenuItems = useMemo(() => {
-    if (!data) return [];
-    
-    return data.menuItems.filter((item) => {
-      // Search matches
-      const matchesSearch = searchQuery.trim() === "" ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (item.tags && item.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())));
+  const showTableSessionFab =
+    localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-");
 
-      // Filter matches
-      let matchesFilter = true;
-      if (activeFilter === "veg") matchesFilter = item.isVeg === true;
-      if (activeFilter === "non-veg") matchesFilter = item.isVeg === false;
-      if (activeFilter === "bestseller") matchesFilter = item.isBestseller === true;
-      if (activeFilter === "recommended") matchesFilter = item.isRecommended === true;
+  const renderItemCard = (item) => (
+    <div
+      key={item._id}
+      onClick={() => handleOpenItemConfig(item)}
+      className="group bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 hover:border-[#6311f4] cursor-pointer transition-all duration-300 p-4 rounded-3xl flex gap-4 justify-between items-center shadow-sm hover:shadow-lg shadow-zinc-100 dark:shadow-none active:scale-[0.98] relative overflow-hidden"
+    >
+      {/* Left text section */}
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          {typeof item.isVeg === "boolean" && (
+            <span
+              className={`shrink-0 w-3.5 h-3.5 border border-current rounded-[3px] flex items-center justify-center ${
+                item.isVeg ? "text-emerald-600" : "text-red-500"
+              }`}
+              aria-label={item.isVeg ? "Vegetarian" : "Non-vegetarian"}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-emerald-600" : "bg-red-500"}`} />
+            </span>
+          )}
+          {(item.isBestseller || item.isNew || item.isChefSpecial) && (
+            <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-1.5 py-0.5 rounded-md">
+              {item.isBestseller ? "Bestseller" : item.isChefSpecial ? "Chef's Pick" : "New"}
+            </span>
+          )}
+        </div>
+        <h3 className="font-extrabold text-zinc-950 dark:text-zinc-50 text-[15px] leading-snug tracking-tight font-sans">
+          {item.name}
+        </h3>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-normal">
+          {item.description || "Fresh and prepared with premium ingredients."}
+        </p>
+        <div className="flex items-center gap-3 text-[10px] text-zinc-455 dark:text-zinc-500 font-bold">
+          <span className="text-zinc-950 dark:text-zinc-200 text-sm font-black tabular-nums">
+            {formatINR(item.price)}
+          </span>
+          {typeof item.rating === "number" && (
+            <span className="flex items-center gap-0.5 text-amber-500">
+              ★ <span className="text-zinc-600 dark:text-zinc-400 font-extrabold">{item.rating.toFixed(1)}</span>
+            </span>
+          )}
+          {item.prepTimeMinutes && <span>· {item.prepTimeMinutes} mins</span>}
+        </div>
+      </div>
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [data, searchQuery, activeFilter]);
-
-  // Chefs Recommendation Rails
-  const recommendedItems = useMemo(() => {
-    if (!data) return [];
-    return data.menuItems.filter(item => item.isRecommended || item.isBestseller).slice(0, 5);
-  }, [data]);
-
-  // Aggregate quantities
-  const totalCartCount = useMemo(() => {
-    if (!cart || !cart.items) return 0;
-    return cart.items.reduce((sum, item) => sum + item.quantity, 0);
-  }, [cart]);
-
-  const totalCartPrice = useMemo(() => {
-    if (!cart || !cart.items) return 0;
-    return cart.items.reduce((sum, item) => {
-      const itemPrice = item.variantId?.price || item.menuItemId?.price || 0;
-      const addonsPrice = (item.addons || []).reduce((acc, ad) => acc + (ad.addonId?.price || ad.price || 0) * (ad.quantity || 1), 0);
-      return sum + (itemPrice + addonsPrice) * item.quantity;
-    }, 0);
-  }, [cart]);
+      {/* Right image section */}
+      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 border border-zinc-100/60 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
+        {item.image ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        ) : (
+          <div className="text-zinc-300 dark:text-zinc-700 text-3xl">🍽️</div>
+        )}
+        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-[#6311f4] dark:text-[#a07cff] text-[10px] font-black uppercase tracking-wider py-1 px-3.5 rounded-full shadow-md hover:scale-105 active:scale-95 transition-all">
+          Add
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white text-zinc-900 guest-ordering">
-        <Spinner size="lg" className="text-[#6311f4]" />
+      <div className="min-h-screen bg-background">
+        <div className="border-b border-border-base bg-surface-container-low/80 px-5 py-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-surface-container-high animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-32 bg-surface-container-high rounded animate-pulse" />
+            <div className="h-3 w-20 bg-surface-container-high rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="flex gap-2 px-5 py-4 overflow-hidden">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-9 w-24 shrink-0 rounded-full bg-surface-container animate-pulse" />
+          ))}
+        </div>
+        <div className="px-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-40 rounded-2xl bg-surface-container animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-zinc-950 p-6 text-center space-y-4 guest-ordering">
-        <h2 className="text-xl font-black text-rose-500">Failed to Load Menu</h2>
-        <p className="text-zinc-500 text-xs max-w-xs">{error || "Something went wrong"}</p>
-        <button
-          onClick={() => navigate('/')}
-          className="px-6 py-2.5 bg-[#6311f4] text-white font-bold rounded-xl text-xs uppercase"
-        >
-          Return Home
-        </button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-on-background p-6 font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center text-2xl mb-5">
+          ⚠️
+        </div>
+        <h2 className="text-xl font-semibold mb-2 font-hanken">Couldn't load the menu</h2>
+        <p className="text-on-surface-variant text-sm mb-7 text-center max-w-xs">
+          {error || "Something went wrong on our end."}
+        </p>
+        <Link to="/login">
+          <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
+            Return to Admin Login
+          </Button>
+        </Link>
       </div>
     );
   }
 
-  const { outlet, categories, variants, addons, guestSession, table, diningArea } = data;
-
   return (
-    <div className="min-h-screen bg-white text-zinc-955 flex flex-col guest-ordering relative select-none pb-12">
-      {/* Welcome Overlay Screen */}
-      {showWelcome && (
-        <div className="fixed inset-0 bg-zinc-950/40 backdrop-blur-md z-50 flex items-center justify-center p-5">
-          <div className="bg-white border border-zinc-100 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-6">
-            <div className="text-center space-y-3">
-              <div className="w-14 h-14 bg-[#6311f4]/5 border border-[#6311f4]/10 rounded-2xl flex items-center justify-center mx-auto text-[#6311f4] text-2xl font-black">
-                OS
-              </div>
-              <div>
-                <h2 className="font-black text-xl text-zinc-950 tracking-tight">Welcome to {outlet.name}</h2>
-                <p className="text-[11px] text-zinc-500 mt-0.5">{outlet.address || 'Table Self-Ordering'}</p>
-              </div>
-              <div className="inline-flex items-center gap-1.5 bg-[#6311f4]/5 border border-[#6311f4]/10 px-3 py-1 rounded-full text-[#6311f4] text-[10px] font-extrabold uppercase tracking-wider">
-                Table {table?.tableNumber || 'N/A'} • {diningArea?.name || 'Dine-In'}
-              </div>
-            </div>
-
-            <form onSubmit={handleWelcomeSubmit} className="space-y-4">
-              <Input
-                label="Your Name"
-                placeholder="Enter your name (e.g. John)"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                required
-                icon="person"
-                className="bg-zinc-50 border-zinc-100 text-zinc-900 text-xs focus:border-[#6311f4]"
-              />
-
-              <Input
-                label="Phone Number (Optional)"
-                placeholder="Enter phone number"
-                value={guestPhone}
-                onChange={(e) => setGuestPhone(e.target.value)}
-                icon="phone"
-                type="tel"
-                className="bg-zinc-50 border-zinc-100 text-zinc-900 text-xs focus:border-[#6311f4]"
-              />
-
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleWelcomeSkip}
-                  disabled={updatingGuest}
-                  className="flex-1 bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 text-zinc-500 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl transition-all cursor-pointer"
-                >
-                  Skip
-                </button>
-                <button
-                  type="submit"
-                  disabled={updatingGuest || !guestName.trim()}
-                  className="flex-1 bg-[#6311f4] hover:bg-[#520dd4] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-lg shadow-[#6311f4]/15 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {updatingGuest ? 'Joining...' : 'Start Ordering'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Brand Header Component */}
-      <RestaurantHeader
-        outletName={outlet.name}
-        outletAddress={outlet.address}
-        tableNumber={table?.tableNumber}
-        guestCount={guestSession?.guestCount}
-        cartItemsCount={totalCartCount}
-        cartLink={`/public/w/${outletSlug}/cart`}
-      />
-
-      <div className="flex-grow max-w-2xl w-full mx-auto p-4 space-y-6 pb-28">
-        {/* Banner Details */}
-        <OutletBanner
-          outletName={outlet.name}
-          tableNumber={table?.tableNumber}
-          guestsCount={guestSession?.guestCount}
-          onCallWaiter={() => alert("Assistance request sent to waiter.")}
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-on-background flex flex-col font-sans">
+      {/* Premium Food Banner Hero Section */}
+      <div className="relative h-56 w-full overflow-hidden shrink-0">
+        <img
+          src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80"
+          alt="Restaurant banner"
+          className="w-full h-full object-cover brightness-[0.6] scale-105"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        
+        {/* Floating actions (Back/Close & Cart) */}
+        <div className="absolute top-4 left-5 right-5 flex justify-between items-center z-10">
+          <Link
+            to="/login"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-black/45 border border-white/15 text-white hover:bg-black/60 transition-all text-xs uppercase"
+          >
+            ←
+          </Link>
+          <Link
+            to={`/public/w/${outletSlug}/cart`}
+            className="relative flex items-center justify-center w-9 h-9 rounded-full bg-black/45 border border-white/15 text-white hover:bg-black/60 transition-all"
+          >
+            <span className="text-sm">🛒</span>
+            {cartAddedCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center text-[10px] font-black rounded-full bg-[#6311f4] text-white">
+                {cartAddedCount}
+              </span>
+            )}
+          </Link>
+        </div>
 
-        {/* Dynamic offers banner placeholder */}
-        <div className="bg-gradient-to-r from-[#6311f4]/5 to-purple-500/5 border border-[#6311f4]/10 rounded-2xl p-3 flex items-center justify-between">
+        {/* Brand Information overlay */}
+        <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            {outlet?.logoUrl ? (
+              <img
+                src={outlet.logoUrl}
+                alt={outlet.name}
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0 bg-white"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4] text-white flex items-center justify-center font-black text-xl border-2 border-white/30 shadow-lg shrink-0">
+                {outlet?.name?.charAt(0) || "F"}
+              </div>
+            )}
+            <div className="text-white">
+              <h2 className="font-black text-lg leading-tight drop-shadow-md tracking-tight">{outlet?.name}</h2>
+              <p className="text-[10px] text-white/70 mt-1 font-semibold uppercase tracking-wider">{outlet?.cuisine || "Modern Dining Experience"}</p>
+            </div>
+          </div>
+          
           <div className="flex items-center gap-2">
-            <span className="text-[18px]">🏷️</span>
-            <div>
-              <p className="text-[11px] font-black text-zinc-800">Get 10% OFF up to ₹100</p>
-              <p className="text-[9px] text-[#6311f4] font-bold">Use Coupon: OMNISERVE10</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowPhysicalMenu(true)}
+              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 border border-white/20 px-3.5 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md"
+            >
+              <HiOutlineBookOpen className="text-xs" />
+              <span>Menu Card</span>
+            </button>
+            {table?.number && (
+              <div className="bg-[#6311f4] border border-white/10 px-3.5 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-wider shadow-md">
+                Table {table.number}
+              </div>
+            )}
           </div>
-          <span className="text-zinc-300 text-xs">✨ Dine-In Only</span>
-        </div>
-
-        {/* Pinned Search and Filters bar */}
-        <div className="sticky top-[68px] bg-white z-30 space-y-3 pt-2 pb-1 border-b border-zinc-100">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search dishes, descriptions, categories..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-100 text-zinc-900 placeholder-zinc-400 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-[#6311f4]/40"
-            />
-          </div>
-
-          <CategoryChips
-            categories={categories}
-            selectedCategoryId={selectedCategory}
-            onSelectCategory={handleSelectCategory}
-          />
-
-          {/* Veg/Non-Veg sub filters chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { id: 'all', label: 'All Items' },
-              { id: 'veg', label: '🟢 Veg Only' },
-              { id: 'non-veg', label: '🔴 Non-Veg' },
-              { id: 'bestseller', label: '⭐ Bestseller' },
-              { id: 'recommended', label: '👍 Chef Picks' }
-            ].map((filt) => (
-              <button
-                key={filt.id}
-                onClick={() => setActiveFilter(filt.id)}
-                className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold whitespace-nowrap transition-all duration-150 cursor-pointer ${
-                  activeFilter === filt.id
-                    ? 'bg-[#6311f4]/10 border-[#6311f4]/20 text-[#6311f4]'
-                    : 'bg-white border-zinc-100 text-zinc-600 hover:border-zinc-200'
-                }`}
-              >
-                {filt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Chefs Recommendation / Popular Rail */}
-        {recommendedItems.length > 0 && searchQuery.trim() === "" && activeFilter === "all" && (
-          <div className="space-y-3">
-            <h3 className="font-extrabold text-[14px] text-zinc-900 tracking-tight flex items-center gap-1">
-              <span>🔥</span>
-              <span>Popular & Chef Picks</span>
-            </h3>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-              {recommendedItems.map((item) => (
-                <div 
-                  key={item._id} 
-                  onClick={() => handleAddClick(item)}
-                  className="bg-white border border-zinc-100 rounded-2xl p-3 shrink-0 w-40 space-y-2 cursor-pointer hover:shadow-xs transition-all relative"
-                >
-                  <div className="w-full h-24 rounded-xl overflow-hidden relative bg-zinc-50 border border-zinc-100/60">
-                    <img 
-                      src={item.imageUrl || `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f7f5fa"/><text x="50%" y="50%" font-size="12" font-family="sans-serif" font-weight="bold" fill="%23c8c8d5" dominant-baseline="middle" text-anchor="middle">Food</text></svg>`} 
-                      alt={item.name} 
-                      className="w-full h-full object-cover" 
-                    />
-                    <div className="absolute top-1.5 left-1.5">
-                      <div className={item.isVeg ? 'veg-dot bg-white scale-75' : 'nonveg-dot bg-white scale-75'}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? 'bg-green-500' : 'bg-red-500'}`} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <h4 className="font-bold text-xs text-zinc-900 line-clamp-1">{item.name}</h4>
-                    <span className="text-xs font-black text-zinc-950">₹{item.price}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic Categories List Scroll Sections */}
-        <div className="space-y-8">
-          {categories.map((cat) => {
-            const itemsInCat = filteredMenuItems.filter(item => item.categoryId === cat._id);
-            if (itemsInCat.length === 0) return null;
-
-            return (
-              <section 
-                key={cat._id}
-                ref={(el) => (categoryRefs.current[cat._id] = el)}
-                data-category-id={cat._id}
-                className="space-y-4 pt-4 border-t border-zinc-100/50"
-              >
-                <div>
-                  <h2 className="font-black text-base text-zinc-900 tracking-tight">{cat.name}</h2>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{itemsInCat.length} Dishes available</p>
-                </div>
-
-                <div className="space-y-4">
-                  {itemsInCat.map((item) => (
-                    <MenuCard
-                      key={item._id}
-                      item={item}
-                      quantityInCart={getQuantityForMenuItem(item._id)}
-                      onAddClick={() => handleAddClick(item)}
-                      onUpdateQty={(delta) => handleStepperUpdate(item, delta)}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
         </div>
       </div>
 
-      {/* Floating Bottom Cart Bar */}
-      {totalCartCount > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-45 animate-bounce-short">
-          <Link 
-            to={`/public/w/${outletSlug}/cart`}
-            className="bg-[#6311f4] hover:bg-[#520dd4] text-white flex items-center justify-between p-4.5 rounded-2xl shadow-xl shadow-[#6311f4]/20 transition-all active:scale-98 cursor-pointer"
+      {/* Sticky category rail */}
+      {!isSearching && groupedSections.length > 0 && (
+        <div className="sticky top-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-b border-zinc-150/60 dark:border-zinc-900 px-5 py-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => handleCategoryClick("all")}
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+              selectedCategory === "all"
+                ? "bg-[#6311f4] text-white shadow-md shadow-[#6311f4]/15"
+                : "bg-zinc-100 dark:bg-zinc-900 text-zinc-500 border border-zinc-150/60 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-105"
+            }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                <HiOutlineShoppingBag className="w-5.5 h-5.5 text-white" />
+            All
+          </button>
+          {groupedSections.map((cat) => (
+            <button
+              type="button"
+              key={cat._id}
+              onClick={() => handleCategoryClick(cat._id)}
+              className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedCategory === cat._id
+                  ? "bg-[#6311f4] text-white shadow-md shadow-[#6311f4]/15"
+                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-500 border border-zinc-150/60 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-105"
+              }`}
+            >
+              {cat.name}
+              <span className={selectedCategory === cat._id ? "opacity-90" : "opacity-55"}>
+                ({itemCountByCategory[cat._id]})
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 max-w-3xl w-full mx-auto px-5 py-6 flex flex-col gap-6">
+        {/* Search */}
+        <div className="relative">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm pointer-events-none">
+            🔍
+          </span>
+          <Input
+            type="text"
+            placeholder="Search delicious dishes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search dishes"
+            className="!bg-white dark:!bg-zinc-900 border-zinc-150/60 dark:border-zinc-800 text-zinc-900 placeholder-zinc-400 focus:border-[#6311f4] rounded-2xl pl-9 w-full shadow-sm text-xs font-medium py-3"
+          />
+        </div>
+
+        {isSearching ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+              {searchResults.length} result{searchResults.length === 1 ? "" : "s"} for "{searchQuery}"
+            </p>
+            {searchResults.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {searchResults.map(renderItemCard)}
               </div>
+            ) : (
+              <div className="py-16 flex flex-col items-center text-center gap-3">
+                <span className="text-3xl">🔍</span>
+                <p className="text-sm text-zinc-500">No dishes match "{searchQuery}".</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-xs font-black text-[#6311f4] hover:underline cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
+          </div>
+        ) : groupedSections.length === 0 ? (
+          <div className="py-16 flex flex-col items-center text-center gap-3">
+            <span className="text-3xl">🍽️</span>
+            <p className="text-sm text-zinc-500">The menu isn't set up yet. Please check back soon.</p>
+          </div>
+        ) : (
+          groupedSections.map((cat) => (
+            <section
+              key={cat._id}
+              data-category-id={cat._id}
+              ref={(el) => (sectionRefs.current[cat._id] = el)}
+              className="scroll-mt-32"
+            >
+              <div className="flex items-baseline justify-between mb-4 border-b border-zinc-100/60 dark:border-zinc-850/60 pb-1.5">
+                <h2 className="text-base font-black text-zinc-950 dark:text-zinc-100 tracking-tight font-hanken">{cat.name}</h2>
+                <span className="text-[10px] text-zinc-450 dark:text-zinc-500 font-bold uppercase tracking-wider">{cat.items.length} items</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{cat.items.map(renderItemCard)}</div>
+            </section>
+          ))
+        )}
+      </div>
+
+      {/* Item Customizer Modal */}
+      {selectedItem && (
+        <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} title={selectedItem.name} size="md">
+          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 text-on-surface font-sans">
+            {/* Premium Item Image */}
+            {selectedItem.image && (
+              <div className="w-full aspect-video rounded-2xl overflow-hidden border border-zinc-150/40 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center relative shadow-sm">
+                <img src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* Price */}
+            <div>
+              <span className="text-xs text-on-surface-variant uppercase tracking-wider block mb-1">Base Price</span>
+              <span className="text-2xl font-bold text-on-surface tabular-nums">{formatINR(selectedItem.price)}</span>
+            </div>
+
+            {/* Description */}
+            {selectedItem.description && (
+              <p className="text-sm text-on-surface-variant bg-surface-container-low p-3 rounded-xl border border-border-base">
+                {selectedItem.description}
+              </p>
+            )}
+
+            {/* Variants */}
+            {itemVariants.length > 0 && (
               <div>
-                <p className="text-xs font-bold text-purple-100 uppercase tracking-wider">{totalCartCount} {totalCartCount === 1 ? 'Item' : 'Items'} added</p>
-                <p className="text-sm font-black text-white">₹{totalCartPrice} plus taxes</p>
+                <h4 className="text-sm font-semibold text-on-surface mb-3 uppercase tracking-wider">Choose Variant</h4>
+                <div className="space-y-2">
+                  {itemVariants.map((v) => (
+                    <label
+                      key={v._id}
+                      className="flex items-center justify-between p-3.5 bg-surface-container border border-border-base rounded-xl cursor-pointer hover:border-primary/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="item-variant"
+                          value={v._id}
+                          checked={selectedVariantId === v._id}
+                          onChange={() => setSelectedVariantId(v._id)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-sm font-medium">{v.name}</span>
+                      </div>
+                      <span className="text-sm font-bold tabular-nums">{formatINR(v.price)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Addons */}
+            {itemAddons.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-on-surface mb-3 uppercase tracking-wider">Add Extra Addons</h4>
+                <div className="space-y-2">
+                  {itemAddons.map((a) => {
+                    const isSelected = !!selectedAddons[a._id];
+                    const qty = selectedAddons[a._id] || 0;
+
+                    return (
+                      <div
+                        key={a._id}
+                        className="flex items-center justify-between p-3.5 bg-surface-container border border-border-base rounded-xl hover:border-primary/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleAddon(a._id)}
+                            className="w-4 h-4 accent-primary rounded"
+                          />
+                          <span className="text-sm font-medium">{a.name}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-bold text-on-surface-variant tabular-nums">{formatINR(a.price)}</span>
+                          {isSelected && (
+                            <div className="flex items-center gap-2 bg-surface-container-low border border-border-base rounded-lg p-1">
+                              <button
+                                type="button"
+                                onClick={() => handleAddonQty(a._id, -1)}
+                                className="w-6 h-6 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded"
+                                aria-label={`Decrease ${a.name} quantity`}
+                              >
+                                −
+                              </button>
+                              <span className="text-xs font-bold w-4 text-center">{qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleAddonQty(a._id, 1)}
+                                className="w-6 h-6 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded"
+                                aria-label={`Increase ${a.name} quantity`}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Quantity */}
+            <div className="flex items-center justify-between border-t border-border-base pt-4">
+              <span className="text-sm font-semibold text-on-surface">Quantity</span>
+              <div className="flex items-center gap-3 bg-surface-container border border-border-base rounded-xl p-1.5">
+                <button
+                  type="button"
+                  onClick={() => setItemQuantity((q) => Math.max(1, q - 1))}
+                  className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface font-bold rounded-lg"
+                  aria-label="Decrease quantity"
+                >
+                  −
+                </button>
+                <span className="font-bold w-6 text-center text-sm tabular-nums">{itemQuantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setItemQuantity((q) => q + 1)}
+                  className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface font-bold rounded-lg"
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1 font-black text-xs uppercase tracking-wider">
-              <span>View Cart</span>
-              <HiChevronRight className="w-4 h-4" />
+
+            {/* Notes */}
+            <div>
+              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
+                Special instructions
+              </label>
+              <textarea
+                value={itemNotes}
+                onChange={(e) => setItemNotes(e.target.value)}
+                placeholder="No onions, extra spicy, etc."
+                className="w-full bg-surface-container border border-border-base text-on-surface placeholder-on-surface-variant rounded-xl p-3.5 text-sm focus:outline-none focus:border-primary h-20 resize-none"
+              />
+            </div>
+
+            {/* Submit button */}
+            <div className="pt-4 border-t border-border-base flex items-center gap-3 sticky bottom-0 bg-background -mx-2 px-2 pb-1">
+              <Button
+                variant="secondary"
+                onClick={() => setSelectedItem(null)}
+                className="flex-1 bg-surface-container border border-border-base text-on-surface"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleAddToCart}
+                disabled={addingToCart}
+                className="flex-1 bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-bold disabled:opacity-70"
+              >
+                {justAdded ? "Added ✓" : addingToCart ? "Adding..." : `Add ${itemQuantity} to Cart · ${formatINR(
+                  ((selectedVariantId
+                    ? (itemVariants.find((v) => v._id === selectedVariantId)?.price || selectedItem.price)
+                    : selectedItem.price) +
+                    Object.entries(selectedAddons).reduce((sum, [addonId, qty]) => {
+                      const addon = itemAddons.find((a) => a._id === addonId);
+                      return sum + (addon?.price || 0) * qty;
+                    }, 0)) * itemQuantity
+                )}`}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Scanned printed physical menu modal */}
+      {showPhysicalMenu && (
+        <Modal isOpen={showPhysicalMenu} onClose={() => setShowPhysicalMenu(false)} title="Menu Card" size="md">
+          <div className="flex flex-col items-center justify-center p-2">
+            <img
+              src="https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?auto=format&fit=crop&w=800&q=80"
+              alt="Physical Menu Card Reference"
+              className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-xl border border-zinc-200"
+            />
+            <p className="text-[10px] text-zinc-450 mt-3 font-semibold text-center uppercase tracking-wider">Physical printed menu card for reference</p>
+          </div>
+        </Modal>
+      )}
+
+      {/* Floating center-aligned bottom "View Cart" sticky bar */}
+      {cartAddedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-5 animate-slideUp">
+          <Link to={`/public/w/${outletSlug}/cart`} className="no-underline">
+            <div className="bg-[#6311f4] hover:bg-[#520dd4] text-white px-5 py-4 rounded-2xl shadow-xl shadow-[#6311f4]/35 flex items-center justify-between transition-all duration-200 active:scale-95">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">🛒</span>
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-black uppercase tracking-wider leading-none">View Cart</span>
+                  <span className="text-[10px] text-white/80 leading-none mt-1 font-medium">{cartAddedCount} item{cartAddedCount === 1 ? '' : 's'} added</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+                <span>Go to Cart</span>
+                <HiOutlineChevronRight className="text-sm" />
+              </div>
             </div>
           </Link>
         </div>
       )}
 
-      {/* Variant customizer pop-up */}
-      {selectedItem && (
-        <VariantCustomizerSheet
-          isOpen={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
-          item={selectedItem}
-          variants={itemVariants}
-          addons={itemAddons}
-          onConfirm={handleConfirmCustomizer}
-          confirmLoading={addingToCart}
-        />
+      {/* Table Session FAB (offsets vertically if Cart bar is visible) */}
+      {showTableSessionFab && (
+        <div className={`fixed z-50 transition-all duration-300 ${cartAddedCount > 0 ? 'bottom-28' : 'bottom-6'} right-5`}>
+          <Link to={`/public/w/${outletSlug}/table-session`}>
+            <button
+              type="button"
+              className="bg-[#6311f4] hover:brightness-110 text-white font-extrabold px-5 py-3.5 rounded-full shadow-lg flex items-center gap-2 text-xs uppercase tracking-wider transition-all cursor-pointer border-none"
+            >
+              <span>🍽️</span>
+              <span>Table Bill &amp; Pay</span>
+            </button>
+          </Link>
+        </div>
       )}
-
-      {/* Floating Leave Table Action */}
-      <div className="fixed bottom-6 left-6 z-40">
-        <button
-          onClick={handleLeaveSession}
-          className="bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-600 font-extrabold px-4.5 py-3 rounded-full shadow-lg flex items-center gap-1.5 text-[10px] uppercase tracking-wider transition-all cursor-pointer"
-        >
-          <HiOutlineArrowRightOnRectangle className="w-4 h-4 text-rose-500" />
-          <span>Leave Table</span>
-        </button>
-      </div>
     </div>
   );
 }

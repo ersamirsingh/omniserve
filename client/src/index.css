@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @plugin "daisyui";
 @custom-variant dark (&:where(.dark, .dark *));
@@ -62,7 +61,7 @@
   --color-brand-accent: #6311f4;
 
   --spacing-gutter: 2rem;
-  --spacing-section-gap: 8rem;
+  --spacing-section-gap: 11rem;
   --spacing-margin-desktop: 4rem;
   --spacing-container-max: 1440px;
   --spacing-component-padding-lg: 2rem;
@@ -190,6 +189,20 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Referenced on <body> in index.html but previously undefined — a very
+   quiet dot-grid so the base app doesn't read as a flat, empty fill. */
+.bg-pattern {
+  background-image: radial-gradient(circle, var(--color-on-surface-variant) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -14px -14px;
+}
+
+@supports (background: color-mix(in srgb, red, blue)) {
+  .bg-pattern {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--color-on-surface-variant) 10%, transparent) 1px, transparent 1px);
+  }
+}
+
 /* ── Landing Page Scoped Styles & Animations ── */
 .landing-page {
   font-family: 'Inter', sans-serif;
@@ -200,18 +213,68 @@ body {
   --on-background: #000000;
   --color-on-background: #000000;
 
-  /* Redefine surface containers as UrbanPiper style light slate/lavender */
-  --surface-container-low: #f3f5f8;
-  --color-surface-container-low: #f3f5f8;
+  /* Light Theme Variables */
+  --lp-bg: #FAF8FF;
+  --lp-text: #0B0F19;
+  --lp-text-secondary: #4E5A70;
+  --lp-border: rgba(99, 17, 244, 0.08);
+  --lp-surface-low: #F1EFF8;
+  --lp-surface: #EBE8F4;
+  --lp-surface-high: #E2DEEE;
+  --lp-surface-highest: #D5CFE5;
+  --lp-glass-bg: rgba(255, 255, 255, 0.7);
+  --lp-glass-border: rgba(99, 17, 244, 0.1);
+  --lp-card-shadow: 0px 8px 30px rgba(99, 17, 244, 0.03);
+  --lp-card-hover-shadow: 0px 16px 40px rgba(99, 17, 244, 0.08);
+  --lp-nav-bg: rgba(250, 248, 255, 0.8);
+  --lp-nav-border: rgba(99, 17, 244, 0.08);
 
-  --surface-container: #f7f6fc;
-  --color-surface-container: #f7f6fc;
+  /* Override standard theme variables locally for children */
+  --background: var(--lp-bg);
+  --on-background: var(--lp-text);
+  --on-surface: var(--lp-text);
+  --on-surface-variant: var(--lp-text-secondary);
+  --surface-container-low: var(--lp-surface-low);
+  --surface-container: var(--lp-surface);
+  --surface-container-high: var(--lp-surface-high);
+  --surface-container-highest: var(--lp-surface-highest);
+  --border-base: var(--lp-border);
 
-  --surface-container-high: #e4e4e4;
-  --color-surface-container-high: #e4e4e4;
+  background-color: var(--lp-bg) !important;
+  color: var(--lp-text) !important;
+  transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  --surface-container-highest: #c8c8c8;
-  --color-surface-container-highest: #c8c8c8;
+.dark .landing-page {
+  /* Dark Theme Variables (Linear/Vercel inspired slate/violet) */
+  --lp-bg: #030014; /* Extremely premium dark violet black */
+  --lp-text: #F3F1F8;
+  --lp-text-secondary: #8A8B9E;
+  --lp-border: rgba(255, 255, 255, 0.06);
+  --lp-surface-low: #08061A;
+  --lp-surface: #0E0B25;
+  --lp-surface-high: #161234;
+  --lp-surface-highest: #231C4D;
+  --lp-glass-bg: rgba(8, 6, 26, 0.65);
+  --lp-glass-border: rgba(99, 17, 244, 0.2);
+  --lp-card-shadow: 0px 8px 30px rgba(0, 0, 0, 0.4);
+  --lp-card-hover-shadow: 0px 16px 40px rgba(99, 17, 244, 0.25);
+  --lp-nav-bg: rgba(3, 0, 20, 0.8);
+  --lp-nav-border: rgba(255, 255, 255, 0.06);
+
+  /* Overrides for standard theme variables */
+  --background: var(--lp-bg);
+  --on-background: var(--lp-text);
+  --on-surface: var(--lp-text);
+  --on-surface-variant: var(--lp-text-secondary);
+  --surface-container-low: var(--lp-surface-low);
+  --surface-container: var(--lp-surface);
+  --surface-container-high: var(--lp-surface-high);
+  --surface-container-highest: var(--lp-surface-highest);
+  --border-base: var(--lp-border);
+
+  background-color: var(--lp-bg) !important;
+  color: var(--lp-text) !important;
 }
 
 /* Explicit background overrides to override Tailwind utilities */
@@ -277,38 +340,57 @@ body {
   background-color: #141316 !important;
 }
 
+.landing-page .text-on-surface {
+  color: var(--lp-text) !important;
+}
+
+/* ── Type scale: pushed up a full step so the hero reads like a $100M product,
+   not a template. Plus Jakarta Sans carries the weight; tighter tracking
+   at the largest sizes keeps it from feeling loose. ── */
 .landing-page .font-display-lg {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 3rem;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-size: 3.25rem;
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
 
 @media (min-width: 768px) {
   .landing-page .font-display-lg {
-    font-size: 4rem;
+    font-size: 5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-page .font-display-lg {
+    font-size: 6.25rem;
   }
 }
 
 .landing-page .font-headline-xl {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 2.25rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 768px) {
+  .landing-page .font-headline-xl {
+    font-size: 3.25rem;
+  }
 }
 
 .landing-page .font-headline-lg {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.75rem;
+  font-size: 1.875rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .landing-page .font-body-lg {
   font-family: 'Inter', sans-serif;
-  font-size: 1.125rem;
+  font-size: 1.1875rem;
   font-weight: 400;
   line-height: 1.6;
 }

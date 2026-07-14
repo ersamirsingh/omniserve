@@ -56,4 +56,7 @@ publicRouter.patch("/qr/guest/session", PublicController.updateGuestSession);
 publicRouter.post("/qr/guest/session/leave", PublicController.leaveGuestSession);
 publicRouter.post("/orders/:orderId/items/:itemId/cancel", PublicController.cancelOrderItem);
 
+// Submit contact / lead form
+publicRouter.post("/contact", PublicController.submitContactForm);
+
 export default publicRouter;

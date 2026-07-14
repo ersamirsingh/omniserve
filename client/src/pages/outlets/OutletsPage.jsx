@@ -21,6 +21,8 @@ const emptyForm = {
   pincode: '',
   phone: '',
   email: '',
+  latitude: '',
+  longitude: '',
 };
 
 export default function OutletsPage() {
@@ -72,6 +74,8 @@ export default function OutletsPage() {
       pincode: item.pincode || '',
       phone: item.phone || '',
       email: item.email || '',
+      latitude: item.location?.coordinates?.[1] || '',
+      longitude: item.location?.coordinates?.[0] || '',
     });
     setModal({ open: true, mode: 'edit', item });
   };
@@ -87,6 +91,10 @@ export default function OutletsPage() {
     pincode: form.pincode.trim(),
     phone: form.phone.trim(),
     email: form.email.trim(),
+    location: {
+      type: 'Point',
+      coordinates: [Number(form.longitude), Number(form.latitude)],
+    },
   });
 
   const handleSubmit = async (e) => {
@@ -252,6 +260,53 @@ export default function OutletsPage() {
             required 
             placeholder="e.g. 400001"
           />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input 
+              id="out-latitude" 
+              label="Location Latitude" 
+              type="number"
+              step="any"
+              value={form.latitude} 
+              onChange={(e) => setForm({ ...form, latitude: e.target.value })} 
+              required 
+              placeholder="e.g. 19.0760"
+            />
+            <Input 
+              id="out-longitude" 
+              label="Location Longitude" 
+              type="number"
+              step="any"
+              value={form.longitude} 
+              onChange={(e) => setForm({ ...form, longitude: e.target.value })} 
+              required 
+              placeholder="e.g. 72.8777"
+            />
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="w-full text-xs font-bold py-2.5"
+            onClick={() => {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  setForm(prev => ({
+                    ...prev,
+                    latitude: pos.coords.latitude.toFixed(6),
+                    longitude: pos.coords.longitude.toFixed(6)
+                  }));
+                  addToast('Current location detected successfully', 'success');
+                },
+                (err) => {
+                  addToast('Failed to detect location. Please enter coordinates manually.', 'error');
+                }
+              );
+            }}
+          >
+            📍 Autofill Current Coordinates
+          </Button>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input 

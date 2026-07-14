@@ -9,18 +9,11 @@ export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState(null);
-  const [guestTokenState, setGuestTokenState] = useState(
-    localStorage.getItem('guestSessionToken') || localStorage.getItem('sessionToken')
-  );
 
   const connectSocket = useCallback(() => {
-    const guestToken = localStorage.getItem('guestSessionToken') || localStorage.getItem('sessionToken');
-    if (!isAuthenticated && !guestToken) return;
+    if (!isAuthenticated || !user) return;
 
-    const token = isAuthenticated 
-      ? (localStorage.getItem('accessToken') || localStorage.getItem('sessionToken'))
-      : guestToken;
-      
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('sessionToken');
     const socketUrl = import.meta.env.VITE_WS_URL || window.location.origin;
 
     console.log('[SocketContext] Connecting websocket...', socketUrl);
@@ -36,17 +29,9 @@ export function SocketProvider({ children }) {
       setConnected(true);
 
       // Join kitchen room if staff/manager/owner has outletId
-      if (user) {
-        const outletId = user.outletId || (user.outletIds && user.outletIds[0]);
-        if (outletId && user.role !== 'CUSTOMER') {
-          newSocket.emit('join_kitchen', { outletId });
-        }
-      } else if (guestToken) {
-        // Auto join session room for guest
-        const sessionId = localStorage.getItem('sessionToken');
-        if (sessionId) {
-          newSocket.emit('join_session', { sessionId });
-        }
+      const outletId = user.outletId || (user.outletIds && user.outletIds[0]);
+      if (outletId && user.role !== 'CUSTOMER') {
+        newSocket.emit('join_kitchen', { outletId });
       }
     });
 
@@ -87,17 +72,7 @@ export function SocketProvider({ children }) {
     return () => {
       newSocket.disconnect();
     };
-  }, [isAuthenticated, user, guestTokenState]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('guestSessionToken') || localStorage.getItem('sessionToken');
-      if (currentToken !== guestTokenState) {
-        setGuestTokenState(currentToken);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [guestTokenState]);
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     const cleanup = connectSocket();

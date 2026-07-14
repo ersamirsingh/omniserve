@@ -35,6 +35,7 @@ import { CouponService } from "../coupon/coupon.service.js";
 import GuestSession from "../../models/guestsession.model.js";
 import Coupon from "../../models/coupon.model.js";
 import IdempotencyKey from "../../models/idempotencyKey.model.js";
+import TableLock from "../../models/tableLock.model.js";
 
 class Idempotency {
   static async check(key: string, tenantId: string | Types.ObjectId): Promise<{ statusCode: number; body: any } | null> {
@@ -1214,9 +1215,9 @@ export class PublicController {
    * POST /api/public/checkout
    * Checkout endpoint converting cart to CanonicalOrder, executing ingestion, and creating timeline/checkout session
    */
-  static async checkoutCart(req: Request, res: Response): Promise<void> {
+  static async checkoutCart(req: any, res: any): Promise<void> {
     try {
-      const { cartId, customer, fulfillment, payment, couponCode } = req.body;
+      const { cartId, customer, fulfillment, payment, couponCode, customerLocation } = req.body;
 
       if (!cartId || !customer || !customer.name || !customer.phone) {
         ApiResponseHandler.badRequest(res, "cartId, customer name, and phone are required");
@@ -1233,6 +1234,80 @@ export class PublicController {
       if (!cart || cart.items.length === 0) {
         ApiResponseHandler.badRequest(res, "Cart is empty or does not exist");
         return;
+      }
+
+      // Resolve Dine-In Geofence and Session details
+      let tableId = undefined;
+      let tableNumber = undefined;
+      let seatNumber = undefined;
+
+      if (fulfillment?.type === "DINE_IN") {
+        if (!customerLocation || typeof customerLocation.latitude !== 'number' || typeof customerLocation.longitude !== 'number') {
+          ApiResponseHandler.badRequest(res, "Location coordinates are required to place a dine-in table order.");
+          return;
+        }
+
+        const OutletModel = (await import("../../models/outlet.model.js")).default;
+        const outlet = await OutletModel.findOne({ _id: cart.outletId, isDeleted: false });
+        if (!outlet) {
+          ApiResponseHandler.badRequest(res, "Associated outlet not found");
+          return;
+        }
+
+        const outletCoords = outlet.location?.coordinates;
+        if (!outletCoords || outletCoords.length !== 2 || (outletCoords[0] === 0 && outletCoords[1] === 0)) {
+          ApiResponseHandler.badRequest(res, "Outlet coordinates are not configured. Please contact support.");
+          return;
+        }
+
+        const outletLng = outletCoords[0];
+        const outletLat = outletCoords[1];
+        const customerLat = customerLocation.latitude;
+        const customerLng = customerLocation.longitude;
+
+        const R = 6371; // Earth radius in km
+        const dLat = (customerLat - outletLat) * (Math.PI / 180);
+        const dLng = (customerLng - outletLng) * (Math.PI / 180);
+        const a = 
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(outletLat * (Math.PI / 180)) * Math.cos(customerLat * (Math.PI / 180)) * 
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+
+        console.info(`[DineInGeofence] Table order distance: ${distance.toFixed(4)} km (Limit: 0.5 km)`);
+
+        if (distance > 0.5) {
+          ApiResponseHandler.badRequest(res, `Dine-in ordering is restricted. You must be physically at the restaurant to place an order (you are ${(distance).toFixed(2)} km away).`);
+          return;
+        }
+
+        const qrSession = await QRSession.findOne({ sessionToken: cart.sessionToken, isDeleted: false });
+        const activeSession = qrSession;
+        if (activeSession && activeSession.tableId) {
+          // Enforce IP Lock check
+          const ipAddress = String((req as any).headers?.["x-forwarded-for"] || (req as any).ip || "").split(',')[0]?.trim() || "";
+          const activeLock = await TableLock.findOne({ tableId: activeSession.tableId as Types.ObjectId, expiresAt: { $gt: new Date() } });
+          if (activeLock && activeLock.ipAddress !== ipAddress) {
+            ApiResponseHandler.badRequest(res, "This table session has expired or is locked by another customer. Please scan the QR again.");
+            return;
+          }
+
+          tableId = activeSession.tableId.toString();
+
+          const table = await Table.findById(activeSession.tableId as Types.ObjectId);
+          if (table) {
+            tableNumber = table.tableNumber;
+          }
+
+          const guestSessionToken = req.headers["x-guest-session-token"] || req.headers["x-session-token"];
+          if (guestSessionToken) {
+            const guestSession = await GuestSession.findOne({ guestSessionToken: String(guestSessionToken), isDeleted: false });
+            if (guestSession) {
+              seatNumber = guestSession.seatNumber || "SHARED";
+            }
+          }
+        }
       }
 
       // Idempotency Key check
@@ -1412,6 +1487,9 @@ export class PublicController {
           addressId: fulfillment?.addressId || undefined,
           scheduledFor: fulfillment?.scheduledFor || undefined,
           instructions: fulfillment?.instructions || undefined,
+          tableId,
+          tableNumber,
+          seatNumber,
           address: resolvedAddress ? {
             line1: resolvedAddress.line1,
             line2: resolvedAddress.line2 || undefined,
@@ -1763,37 +1841,56 @@ export class PublicController {
    * Resolves table by QR token, creates/joins active QRSession, manages guest sessions,
    * handles "Join Existing Table" vs "Start New Group" selection, and returns session tokens.
    */
-  static async resolveQrCode(req: Request, res: Response): Promise<void> {
+  static async resolveQrCode(req: any, res: any): Promise<void> {
     try {
       const { tableToken } = req.params;
       const { action } = req.query; // 'join' or 'new'
       const clientGuestToken = req.headers["x-guest-session-token"];
+      console.log(`[resolveQrCode] tableToken=${tableToken}, action=${action}, guestToken=${clientGuestToken}, referer=${req.headers.referer}, user-agent=${req.headers['user-agent']}`);
 
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
-      if (!table || table.status !== "ACTIVE") {
+      const activeTable = table;
+      if (!activeTable || activeTable.status !== "ACTIVE") {
         ApiResponseHandler.notFound(res, "Table not found or is currently inactive");
         return;
       }
 
-      if (table.operationalStatus === "RESERVED") {
+      if (activeTable.operationalStatus === "RESERVED") {
         ApiResponseHandler.badRequest(res, "This table has already been reserved. Please contact staff.");
         return;
       }
 
-      if (table.operationalStatus === "CLEANING") {
+      if (activeTable.operationalStatus === "CLEANING") {
         ApiResponseHandler.badRequest(res, "Table is currently being cleaned. Please wait.");
         return;
       }
 
-      const outlet = await Outlet.findOne({ _id: table.outletId, isDeleted: false });
+      const ipAddress = String((req as any).headers?.["x-forwarded-for"] || (req as any).ip || "").split(',')[0]?.trim() || "";
+      const activeLock = await TableLock.findOne({ tableId: (activeTable as any)._id, expiresAt: { $gt: new Date() } });
+
+      if (activeLock && activeLock.ipAddress !== ipAddress) {
+        ApiResponseHandler.badRequest(res, "This table is locked by another customer.");
+        return;
+      }
+
+      // Upsert/Refresh the lock for 5 minutes
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      const lock = await TableLock.findOneAndUpdate(
+        { tableId: (activeTable as any)._id },
+        { ipAddress, expiresAt, lockedAt: new Date() },
+        { upsert: true, new: true }
+      );
+      const lockRemainingSeconds = Math.max(0, Math.ceil((lock.expiresAt.getTime() - Date.now()) / 1000));
+
+      const outlet = await Outlet.findOne({ _id: activeTable.outletId, isDeleted: false });
       if (!outlet) {
         ApiResponseHandler.notFound(res, "Outlet not found");
         return;
       }
 
       let session: any = null;
-      if (table.activeSessionId) {
-        session = await QRSession.findById(table.activeSessionId);
+      if (activeTable.activeSessionId) {
+        session = await QRSession.findById(activeTable.activeSessionId);
       }
 
       const hasActiveSession = session && session.status !== "CLOSED" && session.status !== "EXPIRED";
@@ -1823,7 +1920,8 @@ export class PublicController {
               activeGuestsCount: activeGuests.length,
               activeGuestsNames: activeGuests.map(g => g.name),
               outletSlug: outlet.slug,
-              tableNumber: table.tableNumber
+              tableNumber: activeTable.tableNumber,
+              lockRemainingSeconds
             });
             return;
           }
@@ -1832,7 +1930,17 @@ export class PublicController {
 
       // 2. Handle Action: Start New Group
       if (action === "new" && hasActiveSession) {
-        // Close existing QRSession
+        // Require that table is not occupied by other active guests to avoid session hijacking
+        const activeGuests = await GuestSession.find({
+          qrsessionId: session._id,
+          status: "ACTIVE"
+        });
+        if (activeGuests.length > 0) {
+          ApiResponseHandler.badRequest(res, "This table is currently occupied by active diners. You cannot start a new session.");
+          return;
+        }
+
+        // Close existing empty QRSession
         session.status = "CLOSED";
         session.closedAt = new Date();
         await session.save();
@@ -1850,20 +1958,20 @@ export class PublicController {
       // 3. Resolve or initialize QRSession
       if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
         const newSession = await QRSession.create({
-          tenantId: table.tenantId,
-          outletId: table.outletId,
-          tableId: table._id,
+          tenantId: activeTable.tenantId,
+          outletId: activeTable.outletId,
+          tableId: activeTable._id,
           status: "ACTIVE",
           openedAt: new Date(),
           menuViewedAt: new Date(),
           seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }],
-          waiterId: table.defaultWaiterId || null
+          waiterId: activeTable.defaultWaiterId || null
         });
 
         // Atomic check: only update if activeSessionId is currently null and table is not reserved/cleaning
         const updatedTable = await Table.findOneAndUpdate(
           {
-            _id: table._id,
+            _id: activeTable._id,
             activeSessionId: null,
             operationalStatus: { $nin: ["RESERVED", "CLEANING"] }
           },
@@ -1877,7 +1985,7 @@ export class PublicController {
         if (!updatedTable) {
           // Lost race or table transitioned to reserved/cleaning! Delete newSession
           await QRSession.deleteOne({ _id: newSession._id });
-          const winningTable = await Table.findById(table._id);
+          const winningTable = await Table.findById(activeTable._id);
           if (winningTable && ["RESERVED", "CLEANING"].includes(winningTable.operationalStatus)) {
             ApiResponseHandler.badRequest(res, `Table is currently ${winningTable.operationalStatus.toLowerCase()}. Please contact staff.`);
             return;
@@ -1891,18 +1999,18 @@ export class PublicController {
           session = newSession;
         }
       } else {
-        table.operationalStatus = "OCCUPIED";
-        await table.save();
+        activeTable.operationalStatus = "OCCUPIED";
+        await activeTable.save();
       }
 
       await EventBusService.publishTableOccupied(
-        table.tenantId,
-        table.outletId,
-        table._id,
+        activeTable.tenantId,
+        activeTable.outletId,
+        activeTable._id,
         {
-          tableId: table._id.toString(),
-          tableNumber: table.tableNumber,
-          status: table.operationalStatus,
+          tableId: activeTable._id.toString(),
+          tableNumber: activeTable.tableNumber,
+          status: activeTable.operationalStatus,
           updatedAt: new Date()
         },
         { sourceSystem: "QR" }
@@ -1941,8 +2049,8 @@ export class PublicController {
 
       // Fetch dining area name if available
       let diningAreaName = "Dine-In";
-      if (table.diningAreaId) {
-        const da = await DiningArea.findById(table.diningAreaId);
+      if (activeTable.diningAreaId) {
+        const da = await DiningArea.findById(activeTable.diningAreaId);
         if (da) diningAreaName = da.name;
       }
 
@@ -1950,10 +2058,10 @@ export class PublicController {
         outletSlug: outlet.slug,
         outletName: outlet.name,
         outletAddress: outlet.address,
-        tenantId: table.tenantId.toString(),
-        outletId: table.outletId.toString(),
-        tableId: table._id.toString(),
-        tableNumber: table.tableNumber,
+        tenantId: activeTable.tenantId.toString(),
+        outletId: activeTable.outletId.toString(),
+        tableId: activeTable._id.toString(),
+        tableNumber: activeTable.tableNumber,
         diningAreaName,
         sessionToken: session.sessionToken,
         sessionId: session._id.toString(),
@@ -1963,7 +2071,8 @@ export class PublicController {
           role: guestSession.role,
           seatNumber: guestSession.seatNumber,
           guestCount: guestSession.guestCount
-        }
+        },
+        lockRemainingSeconds
       });
     } catch (error: any) {
       console.error("[PublicController] resolveQrCode error:", error);
@@ -2714,6 +2823,45 @@ export class PublicController {
     } catch (error: any) {
       console.error("[PublicController] cancelOrderItem error:", error);
       ApiResponseHandler.internalError(res, error.message || "Failed to cancel order item");
+    }
+  }
+
+  /**
+   * POST /api/public/contact
+   * Submit a contact/lead form and send email notification
+   */
+  static async submitContactForm(req: Request, res: Response): Promise<void> {
+    try {
+      const { firstName, lastName, email, phone, message } = req.body;
+
+      if (!firstName || !lastName || !email || !message) {
+        ApiResponseHandler.badRequest(res, "Missing required parameters (firstName, lastName, email, message)");
+        return;
+      }
+
+      try {
+        const { EmailService } = await import("../notification/email.service.js");
+        await EmailService.sendMail({
+          to: "omniserve.team@gmail.com",
+          subject: `New Lead: ${firstName} ${lastName}`,
+          text: `Name: ${firstName} ${lastName}\nEmail: ${email}\nPhone: ${phone || 'N/A'}\nMessage: ${message}`,
+          html: `
+            <h3>New Contact Form Submission</h3>
+            <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Phone:</strong> ${phone || 'N/A'}</p>
+            <p><strong>Message:</strong></p>
+            <p>${message.replace(/\\n/g, "<br>")}</p>
+          `
+        });
+      } catch (mailError: any) {
+        console.warn("[PublicController] EmailService failed, printing message:", mailError.message || mailError);
+      }
+
+      ApiResponseHandler.success(res, 200, "Message sent successfully!");
+    } catch (error: any) {
+      console.error("[PublicController] submitContactForm error:", error);
+      ApiResponseHandler.internalError(res, error.message || "Failed to submit contact form");
     }
   }
 }
