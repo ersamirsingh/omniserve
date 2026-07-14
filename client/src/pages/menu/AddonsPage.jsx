@@ -34,6 +34,7 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
   const [showInfo, setShowInfo] = useState(false);
   const [modal, setModal] = useState({ open: false, mode: 'create', item: null });
   const [form, setForm] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
   const { addToast } = useToast();
 
   const filteredMenuItems = selectedOutletId && selectedOutletId !== 'all'
@@ -135,6 +136,7 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const payload = buildPayload();
       if (modal.mode === 'create') {
@@ -149,17 +151,23 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
       fetchAddons(payload.menuItemId);
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleDelete = async (row) => {
+    if (submitting) return;
     if (!confirm('Delete?')) return;
+    setSubmitting(true);
     try {
       await deleteAddonApi(getEntityId(row));
       addToast('Deleted', 'success');
       fetchAddons(selectedMenuItemId);
     } catch {
       addToast('Failed', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -178,14 +186,14 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
     { key: 'isAvailable', label: 'Status', render: (r) => <Badge variant={r.isAvailable !== false ? 'success' : 'neutral'}>{r.isAvailable !== false ? 'Available' : 'Unavailable'}</Badge> },
     { key: 'actions', label: 'Actions', render: (r) => (
       <div className="flex gap-2">
-        <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>Edit</Button>
-        <Button size="sm" variant="danger" onClick={() => handleDelete(r)}>Delete</Button>
+        <Button size="sm" variant="secondary" onClick={() => openEdit(r)} disabled={submitting}>Edit</Button>
+        <Button size="sm" variant="danger" onClick={() => handleDelete(r)} disabled={submitting}>Delete</Button>
       </div>
     ) },
   ];
 
   const actions = (
-    <Button onClick={openCreate} disabled={!filteredMenuItems.length} className="flex items-center gap-1 font-bold shadow-sm">
+    <Button onClick={openCreate} disabled={submitting || !filteredMenuItems.length} className="flex items-center gap-1 font-bold shadow-sm">
       <HiPlus /> Add Addon
     </Button>
   );
@@ -264,8 +272,8 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
             Available
           </label>
           <div className="flex justify-end gap-2 pt-4 border-t border-border-base dark:border-zinc-850">
-            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button type="submit">{modal.mode === 'create' ? 'Create' : 'Save'}</Button>
+            <Button variant="secondary" onClick={closeModal} disabled={submitting}>Cancel</Button>
+            <Button type="submit" disabled={submitting} loading={submitting}>{modal.mode === 'create' ? 'Create' : 'Save'}</Button>
           </div>
         </form>
       </Modal>

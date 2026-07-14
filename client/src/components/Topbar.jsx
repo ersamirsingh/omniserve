@@ -102,9 +102,13 @@ export default function Topbar({ onMenuClick, title }) {
             className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 cursor-pointer hover:border-primary-container dark:hover:border-primary-fixed-dim transition-all select-none" 
             onClick={() => setOpen(!open)}
           >
-            <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center font-bold text-xs text-white uppercase shadow-sm">
-              {initials}
-            </div>
+            {user?.profileImage ? (
+              <img src={user.profileImage} alt="Profile" className="w-8 h-8 rounded-full object-cover shadow-sm" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center font-bold text-xs text-white uppercase shadow-sm">
+                {initials}
+              </div>
+            )}
             <div className="flex flex-col max-sm:hidden">
               <span className="text-xs font-bold text-on-surface dark:text-zinc-200 leading-tight">
                 {user?.firstName} {user?.lastName}

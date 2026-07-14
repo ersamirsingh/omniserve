@@ -8,6 +8,7 @@ import OrderTimeline from "../../models/ordertimeline.model.js";
 import Payment from "../../models/payment.model.js";
 import { PaymentMethod, PaymentStatus } from "../../models/enums.js";
 import { EventBusService } from "../../events/eventBus.js";
+import { RealtimeService } from "../../sockets/realtime.service.js";
 
 export type SplitType = "NONE" | "EQUAL" | "BY_SEAT" | "BY_ITEM" | "CUSTOM";
 
@@ -241,18 +242,41 @@ export class BillingService {
       const seatTotals = new Map<string, number>();
       for (const order of orders) {
         const seatNum = order.diningContext?.seatNumber ?? "SHARED";
-        const orderItems = items.filter(i => i.orderId.toString() === order._id.toString());
+        // Ignore cancelled items when computing splits
+        const orderItems = items.filter(i => i.orderId.toString() === order._id.toString() && i.status !== "CANCELLED");
         const orderTotal = orderItems.reduce((sum, i) => sum + i.totalPrice, 0);
         seatTotals.set(seatNum, (seatTotals.get(seatNum) ?? 0) + orderTotal);
       }
 
-      splits = Array.from(seatTotals.entries()).map(([seatNumber, amount]) => ({
-        seatNumber,
-        customerId: session.seats.find(s => s.seatNumber === seatNumber)?.customerId ?? null,
-        amount: parseFloat(amount.toFixed(2)),
-        isPaid: false
-      }));
+      const totalSubtotal = Array.from(seatTotals.values()).reduce((sum, amt) => sum + amt, 0) || 1;
+      const totalTaxAndFees = billSession.totalAmount - totalSubtotal;
+
+      const seatList = Array.from(seatTotals.entries());
+      const tempSplits = seatList.map(([seatNumber, subtotalAmt]) => {
+        const ratio = subtotalAmt / totalSubtotal;
+        const amount = subtotalAmt + ratio * totalTaxAndFees;
+        return {
+          seatNumber,
+          customerId: session.seats.find(s => s.seatNumber === seatNumber)?.customerId ?? null,
+          amount: parseFloat(amount.toFixed(2)),
+          isPaid: false
+        };
+      });
+
+      // Adjust last item for rounding to match totalAmount exactly
+      if (tempSplits.length > 0) {
+        const sumOfOthers = tempSplits.slice(0, -1).reduce((sum, s) => sum + s.amount, 0);
+        const lastSplit = tempSplits[tempSplits.length - 1];
+        if (lastSplit) {
+          lastSplit.amount = parseFloat((billSession.totalAmount - sumOfOthers).toFixed(2));
+        }
+      }
+      splits = tempSplits;
     } else if (splitType === "CUSTOM" && customSplits) {
+      const sum = customSplits.reduce((acc, s) => acc + s.amount, 0);
+      if (Math.abs(sum - billSession.totalAmount) > 1.0) {
+        throw new Error(`Total split amount (₹${sum.toFixed(2)}) must equal total bill amount (₹${billSession.totalAmount.toFixed(2)})`);
+      }
       splits = customSplits.map(s => ({
         ...(s.seatNumber && { seatNumber: s.seatNumber }),
         customerId: s.customerId ? new Types.ObjectId(s.customerId) : null,
@@ -508,5 +532,135 @@ export class BillingService {
     }).lean();
 
     return { billSession, orders, items };
+  }
+
+  /**
+   * Recalculates the active BillSession totals, subtotals, taxes, and splits,
+   * then broadcasts updates via WebSockets to all connected panels.
+   */
+  static async recalculateBillSession(
+    tenantId: Types.ObjectId | string,
+    sessionId: Types.ObjectId | string
+  ): Promise<any> {
+    const tenantObjId = new Types.ObjectId(tenantId);
+    const sessionObjId = new Types.ObjectId(sessionId);
+
+    // 1. Fetch active orders
+    const orders = await Order.find({
+      "diningContext.sessionId": sessionObjId,
+      tenantId: tenantObjId,
+      orderStatus: { $ne: "CANCELLED" as any },
+      isDeleted: false
+    });
+
+    const orderIds = orders.map(o => o._id);
+
+    // 2. Fetch active order items
+    const items = await OrderItem.find({
+      orderId: { $in: orderIds as any },
+      tenantId: tenantObjId,
+      status: { $ne: "CANCELLED" as any },
+      isDeleted: false
+    });
+
+    const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0);
+    // Recalculate tax as 5% of subtotal (or aggregate from active orders)
+    const tax = orders.reduce((sum, o) => {
+      const activeOrderItems = items.filter(item => item.orderId.toString() === o._id.toString());
+      const orderSubtotal = activeOrderItems.reduce((s, item) => s + item.totalPrice, 0);
+      const calculatedTax = parseFloat((orderSubtotal * 0.05).toFixed(2));
+      return sum + calculatedTax;
+    }, 0);
+
+    const billSession = await BillSession.findOne({
+      sessionId: sessionObjId,
+      tenantId: tenantObjId,
+      isDeleted: false
+    });
+
+    if (!billSession) return null;
+
+    const tip = billSession.tip || 0;
+    const discount = billSession.discount || 0;
+    // Add service/packing fee of 15 (if applicable, matching checkout page)
+    const totalAmount = subtotal + tax + tip - discount + (subtotal > 0 ? 15 : 0);
+
+    billSession.subtotal = parseFloat(subtotal.toFixed(2));
+    billSession.tax = parseFloat(tax.toFixed(2));
+    billSession.totalAmount = parseFloat(totalAmount.toFixed(2));
+    
+    // outstanding balance = totalAmount - paid splits
+    const paidAmount = (billSession.splits || [])
+      .filter(s => s.isPaid)
+      .reduce((sum, s) => sum + s.amount, 0);
+    billSession.outstandingBalance = parseFloat(Math.max(0, totalAmount - paidAmount).toFixed(2));
+
+    // If splits exist, re-apply the split strategy to update split amounts!
+    if (billSession.splits && billSession.splits.length > 0 && billSession.splitType !== "NONE") {
+      const qrsession = await QRSession.findById(sessionObjId);
+      if (qrsession) {
+        if (billSession.splitType === "EQUAL") {
+          const seatCount = qrsession.seats.length || 1;
+          const perSeat = parseFloat((billSession.totalAmount / seatCount).toFixed(2));
+          billSession.splits = qrsession.seats.map((seat, idx) => ({
+            seatNumber: seat.seatNumber,
+            customerId: seat.customerId ?? null,
+            amount: idx === qrsession.seats.length - 1
+              ? parseFloat((billSession.totalAmount - perSeat * (seatCount - 1)).toFixed(2))
+              : perSeat,
+            isPaid: (billSession.splits.find(s => s.seatNumber === seat.seatNumber)?.isPaid) || false
+          })) as any;
+        } else if (billSession.splitType === "BY_SEAT") {
+          const seatTotals = new Map<string, number>();
+          for (const order of orders) {
+            const seatNum = order.diningContext?.seatNumber ?? "SHARED";
+            const orderItems = items.filter(i => i.orderId.toString() === order._id.toString());
+            const orderTotal = orderItems.reduce((sum, i) => sum + i.totalPrice, 0);
+            seatTotals.set(seatNum, (seatTotals.get(seatNum) ?? 0) + orderTotal);
+          }
+          const totalSub = Array.from(seatTotals.values()).reduce((sum, amt) => sum + amt, 0) || 1;
+          const totalFees = billSession.totalAmount - totalSub;
+          const seatList = Array.from(seatTotals.entries());
+          const newSplits = seatList.map(([seatNumber, subAmt]) => {
+            const ratio = subAmt / totalSub;
+            const amount = subAmt + ratio * totalFees;
+            const wasPaid = (billSession.splits.find(s => s.seatNumber === seatNumber)?.isPaid) || false;
+            return {
+              seatNumber,
+              customerId: qrsession.seats.find(s => s.seatNumber === seatNumber)?.customerId ?? null,
+              amount: parseFloat(amount.toFixed(2)),
+              isPaid: wasPaid
+            };
+          });
+          if (newSplits.length > 0) {
+            const sumOfOthers = newSplits.slice(0, -1).reduce((sum, s) => sum + s.amount, 0);
+            const lastSplit = newSplits[newSplits.length - 1];
+            if (lastSplit) {
+              lastSplit.amount = parseFloat((billSession.totalAmount - sumOfOthers).toFixed(2));
+            }
+          }
+          billSession.splits = newSplits as any;
+        }
+      }
+    }
+
+    await billSession.save();
+
+    // Broadcast updates via Socket.IO to Guest UI and Operations Cockpit
+    const socketPayload = {
+      billSessionId: billSession._id.toString(),
+      sessionId: sessionObjId.toString(),
+      totalAmount: billSession.totalAmount,
+      subtotal: billSession.subtotal,
+      tax: billSession.tax,
+      outstandingBalance: billSession.outstandingBalance,
+      splits: billSession.splits,
+      status: billSession.status
+    };
+
+    RealtimeService.sendToSession(sessionObjId.toString(), "BILL_REQUESTED" as any, socketPayload);
+    RealtimeService.sendToOutlet(tenantObjId.toString(), billSession.outletId.toString(), "BILL_REQUESTED" as any, socketPayload);
+
+    return billSession;
   }
 }

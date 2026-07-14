@@ -1,7 +1,10 @@
 import api from "../axios";
 
-export const getPublicMenuApi = (outletSlug, params) =>
-  api.get(`/public/o/${outletSlug}/menu`, { params });
+export const getPublicMenuApi = (outletSlug, params) => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.get(`/public/o/${outletSlug}/menu`, { params, headers });
+};
 
 export const getPublicCategoriesApi = (outletSlug) =>
   api.get(`/public/o/${outletSlug}/categories`);
@@ -30,8 +33,14 @@ export const checkoutCartApi = (data) =>
 export const trackOrderApi = (orderId) =>
   api.get(`/public/orders/track/${orderId}`);
 
-export const resolveQrCodeApi = (tableToken) =>
-  api.get(`/public/qr/resolve/${tableToken}`);
+export const resolveQrCodeApi = (tableToken, params) =>
+  api.get(`/public/qr/resolve/${tableToken}`, { params });
+
+export const updateGuestSessionApi = (data) => {
+  const guestSessionToken = localStorage.getItem("guestSessionToken");
+  const headers = guestSessionToken ? { "x-guest-session-token": guestSessionToken } : {};
+  return api.patch("/public/qr/guest/session", data, { headers });
+};
 
 export const requestQrAssistanceApi = (data) =>
   api.post("/public/qr/assist", data);

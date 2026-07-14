@@ -618,7 +618,12 @@ export class OrderService {
 
     const currentStatus = order.orderStatus;
 
-    if (currentStatus !== OrderStatus.PENDING && currentStatus !== OrderStatus.ACCEPTED) {
+    if (
+      currentStatus !== OrderStatus.PENDING &&
+      currentStatus !== OrderStatus.ACCEPTED &&
+      currentStatus !== OrderStatus.PREPARING &&
+      currentStatus !== OrderStatus.READY
+    ) {
       throw new Error(`Cannot cancel order in status ${currentStatus}`);
     }
 
@@ -626,8 +631,12 @@ export class OrderService {
     session.startTransaction();
 
     try {
-      // INVENTORY RESTORATION: only if it had previously reached ACCEPTED
-      if (currentStatus === OrderStatus.ACCEPTED) {
+      // INVENTORY RESTORATION: only if it had previously reached kitchen (ACCEPTED, PREPARING, or READY)
+      if (
+        currentStatus === OrderStatus.ACCEPTED ||
+        currentStatus === OrderStatus.PREPARING ||
+        currentStatus === OrderStatus.READY
+      ) {
         const items = await OrderItem.find({ orderId: order._id, isDeleted: false }).session(session);
 
         for (const item of items) {

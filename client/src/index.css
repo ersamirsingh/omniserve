@@ -61,7 +61,7 @@
   --color-brand-accent: #6311f4;
 
   --spacing-gutter: 2rem;
-  --spacing-section-gap: 8rem;
+  --spacing-section-gap: 11rem;
   --spacing-margin-desktop: 4rem;
   --spacing-container-max: 1440px;
   --spacing-component-padding-lg: 2rem;
@@ -206,6 +206,12 @@ body {
 /* ── Landing Page Scoped Styles & Animations ── */
 .landing-page {
   font-family: 'Inter', sans-serif;
+  background-color: #FAF8FF;
+  color: #000000;
+  --on-surface: #000000;
+  --color-on-surface: #000000;
+  --on-background: #000000;
+  --color-on-background: #000000;
 
   /* Light Theme Variables */
   --lp-bg: #FAF8FF;
@@ -273,23 +279,65 @@ body {
 
 /* Explicit background overrides to override Tailwind utilities */
 .landing-page .bg-surface-container-low {
-  background-color: var(--lp-surface-low) !important;
+  background-color: #f3f5f8;
 }
 
 .landing-page .bg-surface-container {
-  background-color: var(--lp-surface) !important;
+  background-color: #f7f6fc;
 }
 
 .landing-page .bg-surface-container-high {
-  background-color: var(--lp-surface-high) !important;
+  background-color: #e4e4e4;
 }
 
 .landing-page .bg-surface-container-highest {
-  background-color: var(--lp-surface-highest) !important;
+  background-color: #c8c8c8;
 }
 
 .landing-page .bg-background {
-  background-color: var(--lp-bg) !important;
+  background-color: #ffffff;
+}
+
+/* Dark mode overrides */
+.dark .landing-page {
+  background-color: #141316 !important;
+  color: #e6e1e5 !important;
+  --on-surface: #e6e1e5 !important;
+  --color-on-surface: #e6e1e5 !important;
+  --on-background: #e6e1e5 !important;
+  --color-on-background: #e6e1e5 !important;
+
+  --surface-container-low: #1c1b1e;
+  --color-surface-container-low: #1c1b1e;
+
+  --surface-container: #1b191c;
+  --color-surface-container: #1b191c;
+
+  --surface-container-high: #2b292d;
+  --color-surface-container-high: #2b292d;
+
+  --surface-container-highest: #363438;
+  --color-surface-container-highest: #363438;
+}
+
+.dark .landing-page .bg-surface-container-low {
+  background-color: #1c1b1e !important;
+}
+
+.dark .landing-page .bg-surface-container {
+  background-color: #1b191c !important;
+}
+
+.dark .landing-page .bg-surface-container-high {
+  background-color: #2b292d !important;
+}
+
+.dark .landing-page .bg-surface-container-highest {
+  background-color: #363438 !important;
+}
+
+.dark .landing-page .bg-background {
+  background-color: #141316 !important;
 }
 
 .landing-page .text-on-surface {
@@ -361,58 +409,35 @@ body {
   line-height: 1.4;
 }
 
-/* ── Glass: reserved for ONE signature moment per section (hero-adjacent
-   panels), not repeated on every card — that repetition is what was
-   flattening the whole page into sameness. ── */
+.landing-page .glass-card:not([class*="bg-"]) {
+  background: #ffffff;
+}
+
 .landing-page .glass-card {
-  background: var(--lp-glass-bg) !important;
-  border: 1px solid var(--lp-border) !important;
-  box-shadow: var(--lp-card-shadow) !important;
-  backdrop-filter: blur(12px);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+  border: 1px solid #e4e8ef;
+  box-shadow: 0px 8px 24px rgba(62, 73, 95, 0.04);
+  transition: all 0.3s ease;
 }
 
 .landing-page .glass-card:hover {
-  box-shadow: var(--lp-card-hover-shadow) !important;
-  border-color: var(--lp-glass-border) !important;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0px 12px 30px rgba(99, 17, 244, 0.08);
+  border-color: rgba(99, 17, 244, 0.2);
 }
 
-/* ── Surface card: crisp, no blur, flat — used for dense grids (bento,
-   tech stack) where 8+ cards on screen at once need to read calmly,
-   not compete with glass shine. ── */
-.landing-page .surface-card {
-  background: var(--lp-surface-low);
-  border: 1px solid var(--lp-border);
-  box-shadow: none;
-  transition: border-color 0.25s ease, background-color 0.25s ease, transform 0.25s ease;
+.dark .landing-page .glass-card:not([class*="bg-"]) {
+  background: #181922 !important;
 }
 
-.landing-page .surface-card:hover {
-  border-color: var(--color-brand-accent);
-  transform: translateY(-2px);
+.dark .landing-page .glass-card {
+  border: 1px solid #282a39 !important;
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.2) !important;
+  color: #e6e1e5 !important;
 }
 
-/* ── Outline card: near-invisible until hovered — used for airy sections
-   like testimonials and FAQ so they don't read as "more of the same card". ── */
-.landing-page .outline-card {
-  background: transparent;
-  border: 1px solid var(--lp-border);
-  box-shadow: none;
-  transition: border-color 0.25s ease, background-color 0.25s ease;
-}
-
-.landing-page .outline-card:hover {
-  border-color: var(--lp-glass-border);
-  background: var(--lp-surface-low);
-}
-
-/* ── Terminal frame: the hero's signature element. A live-data console
-   look (deep violet-black, inset highlight, soft glow) instead of a
-   static screenshot in a laptop bezel. ── */
-.landing-page .terminal-frame {
-  background: #05030f;
-  border: 1px solid rgba(99, 17, 244, 0.25);
-  box-shadow: 0 40px 100px -25px rgba(99, 17, 244, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.dark .landing-page .glass-card:hover {
+  box-shadow: 0px 12px 30px rgba(99, 17, 244, 0.15) !important;
+  border-color: rgba(147, 85, 255, 0.3) !important;
 }
 
 @keyframes float {
@@ -438,3 +463,82 @@ body {
   opacity: 1;
   transform: translateY(0);
 }
+
+@keyframes gradient-glow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.landing-page .bg-gradient-glow {
+  background-size: 200% 200%;
+  animation: gradient-glow 12s ease infinite;
+}
+
+/* ── Guest Ordering Scoped Styles ── */
+.guest-ordering {
+  font-family: 'Inter', sans-serif;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  --on-surface: #000000 !important;
+  --color-on-surface: #000000 !important;
+}
+
+.guest-ordering .bg-surface {
+  background-color: #ffffff !important;
+}
+
+.guest-ordering .text-muted {
+  color: #71717a !important;
+}
+
+.guest-ordering .border-light {
+  border-color: #f1f3f7 !important;
+}
+
+.guest-ordering .guest-card {
+  background: #ffffff;
+  border: 1px solid #f1f3f7;
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 20px rgba(99, 17, 244, 0.02);
+  transition: all 0.25s ease;
+}
+
+.guest-ordering .guest-card:hover {
+  box-shadow: 0 8px 30px rgba(99, 17, 244, 0.05);
+}
+
+.guest-ordering .btn-guest-primary {
+  background-color: #6311f4 !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.guest-ordering .btn-guest-primary:hover {
+  background-color: #520dd4 !important;
+  transform: translateY(-1px);
+}
+
+.guest-ordering .veg-dot {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #22c55e;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-center: center;
+  padding: 2px;
+}
+
+.guest-ordering .nonveg-dot {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #ef4444;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-center: center;
+  padding: 2px;
+}
+

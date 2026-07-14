@@ -93,7 +93,7 @@ export class MediaService {
 
     // Asynchronously delete from Cloudinary
     const fullPublicId = `${media.folder}/${media.publicId}`;
-    cloudinary.uploader.destroy(fullPublicId, (error, result) => {
+    cloudinary.uploader.destroy(fullPublicId, (error: any, result: any) => {
       if (error) {
         console.error(`[Cloudinary Delete Error] Failed to delete ${fullPublicId}:`, error);
       } else {

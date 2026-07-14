@@ -1,6 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import helmet from 'helmet';
 import router from './routes/api.v1.js';
 import './integrations/adapters/adapter-registry.js';
 import { initWorkerRegistry } from './jobs/register-workers.js';
@@ -9,6 +10,8 @@ import { errorHandler } from './middlewares/error.middleware.js';
 import { rateLimiter } from './middlewares/rateLimiter.middleware.js';
 
 const app = express();
+
+app.use(helmet());
 
 
 app.use(cors({
@@ -36,11 +39,11 @@ app.get("/", (req, res) => {
 })
 
 // Apply global rate limiter to all api routes: 100 requests per 15 minutes
-app.use('/api', rateLimiter({
-   windowMs: 15 * 60 * 1000,
-   max: 100,
-   message: 'Too many requests from this IP, please try again after 15 minutes'
-}));
+// app.use('/api', rateLimiter({
+//    windowMs: 15 * 60 * 1000,
+//    max: 100,
+//    message: 'Too many requests from this IP, please try again after 15 minutes'
+// }));
 
 app.use('/api', router);
 

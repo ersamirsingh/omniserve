@@ -143,7 +143,7 @@ export default function RegisterPage() {
           id="reg-tenant"
           label="Organization Name"
           name="tenantName"
-          placeholder="My Restaurant"
+          placeholder="My Organization"
           value={form.tenantName}
           onChange={handleChange}
           required

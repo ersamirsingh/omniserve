@@ -34,6 +34,7 @@ export default function CategoriesPage({ isEmbedded = false, selectedOutletId, g
   const [showInfo, setShowInfo] = useState(false);
   const [modal, setModal] = useState({ open: false, mode: 'create', item: null });
   const [form, setForm] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
   const { addToast } = useToast();
 
   const fetchData = async () => {
@@ -87,6 +88,7 @@ export default function CategoriesPage({ isEmbedded = false, selectedOutletId, g
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       if (modal.mode === 'create') {
         await createCategoryApi({
@@ -107,17 +109,23 @@ export default function CategoriesPage({ isEmbedded = false, selectedOutletId, g
       fetchData();
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleDelete = async (row) => {
+    if (submitting) return;
     if (!confirm('Delete?')) return;
+    setSubmitting(true);
     try {
       await deleteCategoryApi(getEntityId(row));
       addToast('Deleted', 'success');
       fetchData();
     } catch {
       addToast('Failed', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -138,14 +146,14 @@ export default function CategoriesPage({ isEmbedded = false, selectedOutletId, g
     { key: 'isActive', label: 'Status', render: (r) => <Badge variant={r.isActive !== false ? 'success' : 'neutral'}>{r.isActive !== false ? 'Active' : 'Inactive'}</Badge> },
     { key: 'actions', label: 'Actions', render: (r) => (
       <div className="flex gap-2">
-        <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>Edit</Button>
-        <Button size="sm" variant="danger" onClick={() => handleDelete(r)}>Delete</Button>
+        <Button size="sm" variant="secondary" onClick={() => openEdit(r)} disabled={submitting}>Edit</Button>
+        <Button size="sm" variant="danger" onClick={() => handleDelete(r)} disabled={submitting}>Delete</Button>
       </div>
     ) },
   ];
 
   const actions = (
-    <Button onClick={openCreate} disabled={!outlets.length} className="flex items-center gap-1 font-bold shadow-sm">
+    <Button onClick={openCreate} disabled={submitting || !outlets.length} className="flex items-center gap-1 font-bold shadow-sm">
       <HiPlus /> Add Category
     </Button>
   );
@@ -227,8 +235,8 @@ export default function CategoriesPage({ isEmbedded = false, selectedOutletId, g
             </label>
           )}
           <div className="flex justify-end gap-2 pt-4 border-t border-border-base dark:border-zinc-850">
-            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button type="submit">{modal.mode === 'create' ? 'Create' : 'Save'}</Button>
+            <Button variant="secondary" onClick={closeModal} disabled={submitting}>Cancel</Button>
+            <Button type="submit" disabled={submitting} loading={submitting}>{modal.mode === 'create' ? 'Create' : 'Save'}</Button>
           </div>
         </form>
       </Modal>

@@ -27,12 +27,36 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { RealtimeService } from "../../sockets/realtime.service.js";
 import { BillingService } from "../order/billing.service.js";
 import { WaiterTaskService } from "../order/waiter-task.service.js";
+import { OrderService } from "../order/order.service.js";
 import Payment from "../../models/payment.model.js";
-import { PaymentMethod, PaymentStatus } from "../../models/enums.js";
+import WaiterTask from "../../models/waitertask.model.js";
+import { PaymentMethod, PaymentStatus, OrderStatus } from "../../models/enums.js";
 import { CouponService } from "../coupon/coupon.service.js";
 import GuestSession from "../../models/guestsession.model.js";
 import Coupon from "../../models/coupon.model.js";
+import IdempotencyKey from "../../models/idempotencyKey.model.js";
+import TableLock from "../../models/tableLock.model.js";
 
+class Idempotency {
+  static async check(key: string, tenantId: string | Types.ObjectId): Promise<{ statusCode: number; body: any } | null> {
+    if (!key) return null;
+    const record = await (IdempotencyKey as any).findOne({ key, tenantId: new Types.ObjectId(tenantId) });
+    if (record) {
+      return { statusCode: record.statusCode, body: record.responseBody };
+    }
+    return null;
+  }
+
+  static async save(key: string, tenantId: string | Types.ObjectId, statusCode: number, responseBody: any): Promise<void> {
+    if (!key) return;
+    await (IdempotencyKey as any).create({
+      key,
+      tenantId: new Types.ObjectId(tenantId),
+      statusCode,
+      responseBody
+    });
+  }
+}
 
 export class PublicController {
   /**
@@ -104,6 +128,15 @@ export class PublicController {
         }),
       ]);
 
+      const clientGuestToken = req.headers["x-guest-session-token"];
+      let guestSession = null;
+      if (clientGuestToken) {
+        guestSession = await mongoose.model("GuestSession").findOne({
+          guestSessionToken: String(clientGuestToken),
+          status: "ACTIVE"
+        });
+      }
+
       ApiResponseHandler.success(res, 200, "Public menu retrieved successfully", {
         outlet: {
           id: outlet._id,
@@ -115,6 +148,14 @@ export class PublicController {
         menuItems,
         variants,
         addons,
+        ...(guestSession && {
+          guestSession: {
+            name: guestSession.name,
+            role: guestSession.role,
+            seatNumber: guestSession.seatNumber,
+            guestCount: guestSession.guestCount
+          }
+        })
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to retrieve public menu");
@@ -133,6 +174,16 @@ export class PublicController {
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       if (!table || table.status !== "ACTIVE") {
         ApiResponseHandler.notFound(res, "Table not found or is currently inactive");
+        return;
+      }
+
+      if (table.operationalStatus === "RESERVED") {
+        ApiResponseHandler.badRequest(res, "This table has already been reserved. Please contact staff.");
+        return;
+      }
+
+      if (table.operationalStatus === "CLEANING") {
+        ApiResponseHandler.badRequest(res, "Table is currently being cleaned. Please wait.");
         return;
       }
 
@@ -218,6 +269,15 @@ export class PublicController {
         }),
       ]);
 
+      const clientGuestToken = req.headers["x-guest-session-token"];
+      let guestSession = null;
+      if (clientGuestToken) {
+        guestSession = await mongoose.model("GuestSession").findOne({
+          guestSessionToken: String(clientGuestToken),
+          status: "ACTIVE"
+        });
+      }
+
       ApiResponseHandler.success(res, 200, "Table specific menu retrieved successfully", {
         outlet: {
           id: outlet._id,
@@ -240,6 +300,14 @@ export class PublicController {
         menuItems,
         variants,
         addons,
+        ...(guestSession && {
+          guestSession: {
+            name: guestSession.name,
+            role: guestSession.role,
+            seatNumber: guestSession.seatNumber,
+            guestCount: guestSession.guestCount
+          }
+        })
       });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to retrieve table menu");
@@ -268,6 +336,98 @@ export class PublicController {
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       if (!table || table.status !== "ACTIVE") {
         ApiResponseHandler.badRequest(res, "Invalid or inactive Table Token");
+        return;
+      }
+
+      // Idempotency Key check
+      const idempotencyKey = req.headers["idempotency-key"] as string;
+      if (idempotencyKey) {
+        const cached = await Idempotency.check(idempotencyKey, table.tenantId);
+        if (cached) {
+          res.status(cached.statusCode).json(cached.body);
+          return;
+        }
+      }
+
+      // Price Validation
+      const priceChanges = [];
+      const acceptPriceChanges = !!req.body.acceptPriceChanges;
+      for (const item of items) {
+        const menuItemId = item.menuItemId || item.itemId;
+        const dbItem = await MenuItem.findById(menuItemId);
+        if (!dbItem) continue;
+
+        let expectedPrice = dbItem.price;
+        if (item.variantId) {
+          const dbVariant = await Variant.findById(item.variantId);
+          if (dbVariant) expectedPrice = dbVariant.price;
+        }
+
+        const clientPrice = Number(item.price || 0);
+        if (clientPrice !== expectedPrice) {
+          priceChanges.push({
+            itemId: menuItemId.toString(),
+            name: dbItem.name,
+            oldPrice: clientPrice,
+            newPrice: expectedPrice
+          });
+        }
+      }
+
+      if (priceChanges.length > 0 && !acceptPriceChanges) {
+        const responseBody = {
+          success: false,
+          statusCode: 400,
+          message: "Price has changed",
+          data: {
+            status: "PRICE_CHANGED",
+            message: "Some item prices have changed. Please review your cart.",
+            changes: priceChanges
+          }
+        };
+        if (idempotencyKey) {
+          await Idempotency.save(idempotencyKey, table.tenantId, 400, responseBody);
+        }
+        res.status(400).json(responseBody);
+        return;
+      }
+
+      // Inventory Stock Validation
+      const unavailableItems = [];
+      for (const item of items) {
+        const menuItemId = item.menuItemId || item.itemId;
+        const inventory = await Inventory.findOne({
+          menuItemId,
+          outletId: table.outletId,
+          tenantId: table.tenantId,
+          isDeleted: false
+        });
+
+        if (inventory && inventory.quantity < item.quantity) {
+          unavailableItems.push({
+            itemId: menuItemId.toString(),
+            name: item.name,
+            requestedQty: item.quantity,
+            availableQty: inventory.quantity
+          });
+        }
+      }
+
+      if (unavailableItems.length > 0) {
+        const responseBody = {
+          success: false,
+          statusCode: 400,
+          message: "Stock unavailable",
+          data: {
+            status: "STOCK_UNAVAILABLE",
+            message: "Some items in your cart are no longer available in the requested quantity.",
+            unavailableItems
+          }
+        };
+        if (idempotencyKey) {
+          await Idempotency.save(idempotencyKey, table.tenantId, 400, responseBody);
+        }
+        res.status(400).json(responseBody);
         return;
       }
 
@@ -326,7 +486,7 @@ export class PublicController {
         };
       });
 
-      const totalAmount = subtotal; // tax/discount omitted for simplicity
+      const totalAmount = subtotal;
 
       // 4. Construct raw canonical payload matching QrAdapter expectation
       const rawPayload = {
@@ -445,7 +605,21 @@ export class PublicController {
       }
       await bill.save();
 
-      ApiResponseHandler.success(res, 201, "QR Order placed successfully", processedOrder);
+      // Recalculate bill session automatically on order placement
+      await BillingService.recalculateBillSession(table.tenantId, session._id);
+
+      const responseBody = {
+        success: true,
+        statusCode: 201,
+        message: "QR Order placed successfully",
+        data: processedOrder
+      };
+
+      if (idempotencyKey) {
+        await Idempotency.save(idempotencyKey, table.tenantId, 201, responseBody);
+      }
+
+      res.status(201).json(responseBody);
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to place QR order");
     }
@@ -515,6 +689,20 @@ export class PublicController {
         CLEANING:     "CLEANING",
       };
       const taskType = ACTION_MAP[String(action).toUpperCase()] || "CUSTOM";
+
+      // Waiter Task Duplicate Prevention (with status/age check)
+      const existingTask = await WaiterTask.findOne({
+        sessionId: session._id,
+        taskType,
+        status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS", "ESCALATED"] },
+        createdAt: { $gt: new Date(Date.now() - 15 * 60 * 1000) }, // created within the last 15 minutes
+        isDeleted: false
+      });
+
+      if (existingTask) {
+        ApiResponseHandler.badRequest(res, `${taskType.replace('_', ' ')} already requested. Please wait until your current request is completed.`);
+        return;
+      }
 
       // 4. Create WaiterTask document via WaiterTaskService
       const waiterTask = await WaiterTaskService.createTask(
@@ -1027,9 +1215,9 @@ export class PublicController {
    * POST /api/public/checkout
    * Checkout endpoint converting cart to CanonicalOrder, executing ingestion, and creating timeline/checkout session
    */
-  static async checkoutCart(req: Request, res: Response): Promise<void> {
+  static async checkoutCart(req: any, res: any): Promise<void> {
     try {
-      const { cartId, customer, fulfillment, payment, couponCode } = req.body;
+      const { cartId, customer, fulfillment, payment, couponCode, customerLocation } = req.body;
 
       if (!cartId || !customer || !customer.name || !customer.phone) {
         ApiResponseHandler.badRequest(res, "cartId, customer name, and phone are required");
@@ -1045,6 +1233,129 @@ export class PublicController {
 
       if (!cart || cart.items.length === 0) {
         ApiResponseHandler.badRequest(res, "Cart is empty or does not exist");
+        return;
+      }
+
+      // Resolve Dine-In Geofence and Session details
+      let tableId = undefined;
+      let tableNumber = undefined;
+      let seatNumber = undefined;
+
+      if (fulfillment?.type === "DINE_IN") {
+        if (!customerLocation || typeof customerLocation.latitude !== 'number' || typeof customerLocation.longitude !== 'number') {
+          ApiResponseHandler.badRequest(res, "Location coordinates are required to place a dine-in table order.");
+          return;
+        }
+
+        const OutletModel = (await import("../../models/outlet.model.js")).default;
+        const outlet = await OutletModel.findOne({ _id: cart.outletId, isDeleted: false });
+        if (!outlet) {
+          ApiResponseHandler.badRequest(res, "Associated outlet not found");
+          return;
+        }
+
+        const outletCoords = outlet.location?.coordinates;
+        if (!outletCoords || outletCoords.length !== 2 || (outletCoords[0] === 0 && outletCoords[1] === 0)) {
+          ApiResponseHandler.badRequest(res, "Outlet coordinates are not configured. Please contact support.");
+          return;
+        }
+
+        const outletLng = outletCoords[0];
+        const outletLat = outletCoords[1];
+        const customerLat = customerLocation.latitude;
+        const customerLng = customerLocation.longitude;
+
+        const R = 6371; // Earth radius in km
+        const dLat = (customerLat - outletLat) * (Math.PI / 180);
+        const dLng = (customerLng - outletLng) * (Math.PI / 180);
+        const a = 
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(outletLat * (Math.PI / 180)) * Math.cos(customerLat * (Math.PI / 180)) * 
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+
+        console.info(`[DineInGeofence] Table order distance: ${distance.toFixed(4)} km (Limit: 0.5 km)`);
+
+        if (distance > 0.5) {
+          ApiResponseHandler.badRequest(res, `Dine-in ordering is restricted. You must be physically at the restaurant to place an order (you are ${(distance).toFixed(2)} km away).`);
+          return;
+        }
+
+        const qrSession = await QRSession.findOne({ sessionToken: cart.sessionToken, isDeleted: false });
+        const activeSession = qrSession;
+        if (activeSession && activeSession.tableId) {
+          // Enforce IP Lock check
+          const ipAddress = String((req as any).headers?.["x-forwarded-for"] || (req as any).ip || "").split(',')[0]?.trim() || "";
+          const activeLock = await TableLock.findOne({ tableId: activeSession.tableId as Types.ObjectId, expiresAt: { $gt: new Date() } });
+          if (activeLock && activeLock.ipAddress !== ipAddress) {
+            ApiResponseHandler.badRequest(res, "This table session has expired or is locked by another customer. Please scan the QR again.");
+            return;
+          }
+
+          tableId = activeSession.tableId.toString();
+
+          const table = await Table.findById(activeSession.tableId as Types.ObjectId);
+          if (table) {
+            tableNumber = table.tableNumber;
+          }
+
+          const guestSessionToken = req.headers["x-guest-session-token"] || req.headers["x-session-token"];
+          if (guestSessionToken) {
+            const guestSession = await GuestSession.findOne({ guestSessionToken: String(guestSessionToken), isDeleted: false });
+            if (guestSession) {
+              seatNumber = guestSession.seatNumber || "SHARED";
+            }
+          }
+        }
+      }
+
+      // Idempotency Key check
+      const idempotencyKey = req.headers["idempotency-key"] as string;
+      if (idempotencyKey) {
+        const cached = await Idempotency.check(idempotencyKey, cart.tenantId);
+        if (cached) {
+          res.status(cached.statusCode).json(cached.body);
+          return;
+        }
+      }
+
+      // Inventory Validation
+      const unavailableItems = [];
+      for (const cartItem of cart.items) {
+        const inventory = await Inventory.findOne({
+          menuItemId: cartItem.menuItemId,
+          outletId: cart.outletId,
+          tenantId: cart.tenantId,
+          isDeleted: false
+        });
+
+        if (inventory && inventory.quantity < cartItem.quantity) {
+          const menuItem = await MenuItem.findById(cartItem.menuItemId);
+          unavailableItems.push({
+            itemId: cartItem.menuItemId.toString(),
+            name: menuItem ? menuItem.name : "Item",
+            requestedQty: cartItem.quantity,
+            availableQty: inventory.quantity
+          });
+        }
+      }
+
+      if (unavailableItems.length > 0) {
+        const responseBody = {
+          success: false,
+          statusCode: 400,
+          message: "Stock unavailable",
+          data: {
+            status: "STOCK_UNAVAILABLE",
+            message: "Some items in your cart are no longer available in the requested quantity.",
+            unavailableItems
+          }
+        };
+        if (idempotencyKey) {
+          await Idempotency.save(idempotencyKey, cart.tenantId, 400, responseBody);
+        }
+        res.status(400).json(responseBody);
         return;
       }
 
@@ -1176,6 +1487,9 @@ export class PublicController {
           addressId: fulfillment?.addressId || undefined,
           scheduledFor: fulfillment?.scheduledFor || undefined,
           instructions: fulfillment?.instructions || undefined,
+          tableId,
+          tableNumber,
+          seatNumber,
           address: resolvedAddress ? {
             line1: resolvedAddress.line1,
             line2: resolvedAddress.line2 || undefined,
@@ -1271,10 +1585,21 @@ export class PublicController {
         sourceSystem: "WEBSITE",
       }).catch(err => console.error("Failed to publish CHECKOUT_STARTED event:", err));
 
-      ApiResponseHandler.success(res, 201, "Website Checkout completed successfully", {
-        processedOrder,
-        checkoutSession,
-      });
+      const responseBody = {
+        success: true,
+        statusCode: 201,
+        message: "Website Checkout completed successfully",
+        data: {
+          processedOrder,
+          checkoutSession,
+        }
+      };
+
+      if (idempotencyKey) {
+        await Idempotency.save(idempotencyKey, cart.tenantId, 201, responseBody);
+      }
+
+      res.status(201).json(responseBody);
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || "Failed to complete checkout");
     }
@@ -1516,27 +1841,56 @@ export class PublicController {
    * Resolves table by QR token, creates/joins active QRSession, manages guest sessions,
    * handles "Join Existing Table" vs "Start New Group" selection, and returns session tokens.
    */
-  static async resolveQrCode(req: Request, res: Response): Promise<void> {
+  static async resolveQrCode(req: any, res: any): Promise<void> {
     try {
       const { tableToken } = req.params;
       const { action } = req.query; // 'join' or 'new'
       const clientGuestToken = req.headers["x-guest-session-token"];
+      console.log(`[resolveQrCode] tableToken=${tableToken}, action=${action}, guestToken=${clientGuestToken}, referer=${req.headers.referer}, user-agent=${req.headers['user-agent']}`);
 
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
-      if (!table || table.status !== "ACTIVE") {
+      const activeTable = table;
+      if (!activeTable || activeTable.status !== "ACTIVE") {
         ApiResponseHandler.notFound(res, "Table not found or is currently inactive");
         return;
       }
 
-      const outlet = await Outlet.findOne({ _id: table.outletId, isDeleted: false });
+      if (activeTable.operationalStatus === "RESERVED") {
+        ApiResponseHandler.badRequest(res, "This table has already been reserved. Please contact staff.");
+        return;
+      }
+
+      if (activeTable.operationalStatus === "CLEANING") {
+        ApiResponseHandler.badRequest(res, "Table is currently being cleaned. Please wait.");
+        return;
+      }
+
+      const ipAddress = String((req as any).headers?.["x-forwarded-for"] || (req as any).ip || "").split(',')[0]?.trim() || "";
+      const activeLock = await TableLock.findOne({ tableId: (activeTable as any)._id, expiresAt: { $gt: new Date() } });
+
+      if (activeLock && activeLock.ipAddress !== ipAddress) {
+        ApiResponseHandler.badRequest(res, "This table is locked by another customer.");
+        return;
+      }
+
+      // Upsert/Refresh the lock for 5 minutes
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      const lock = await TableLock.findOneAndUpdate(
+        { tableId: (activeTable as any)._id },
+        { ipAddress, expiresAt, lockedAt: new Date() },
+        { upsert: true, new: true }
+      );
+      const lockRemainingSeconds = Math.max(0, Math.ceil((lock.expiresAt.getTime() - Date.now()) / 1000));
+
+      const outlet = await Outlet.findOne({ _id: activeTable.outletId, isDeleted: false });
       if (!outlet) {
         ApiResponseHandler.notFound(res, "Outlet not found");
         return;
       }
 
       let session: any = null;
-      if (table.activeSessionId) {
-        session = await QRSession.findById(table.activeSessionId);
+      if (activeTable.activeSessionId) {
+        session = await QRSession.findById(activeTable.activeSessionId);
       }
 
       const hasActiveSession = session && session.status !== "CLOSED" && session.status !== "EXPIRED";
@@ -1566,7 +1920,8 @@ export class PublicController {
               activeGuestsCount: activeGuests.length,
               activeGuestsNames: activeGuests.map(g => g.name),
               outletSlug: outlet.slug,
-              tableNumber: table.tableNumber
+              tableNumber: activeTable.tableNumber,
+              lockRemainingSeconds
             });
             return;
           }
@@ -1575,7 +1930,17 @@ export class PublicController {
 
       // 2. Handle Action: Start New Group
       if (action === "new" && hasActiveSession) {
-        // Close existing QRSession
+        // Require that table is not occupied by other active guests to avoid session hijacking
+        const activeGuests = await GuestSession.find({
+          qrsessionId: session._id,
+          status: "ACTIVE"
+        });
+        if (activeGuests.length > 0) {
+          ApiResponseHandler.badRequest(res, "This table is currently occupied by active diners. You cannot start a new session.");
+          return;
+        }
+
+        // Close existing empty QRSession
         session.status = "CLOSED";
         session.closedAt = new Date();
         await session.save();
@@ -1592,30 +1957,60 @@ export class PublicController {
 
       // 3. Resolve or initialize QRSession
       if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
-        session = await QRSession.create({
-          tenantId: table.tenantId,
-          outletId: table.outletId,
-          tableId: table._id,
+        const newSession = await QRSession.create({
+          tenantId: activeTable.tenantId,
+          outletId: activeTable.outletId,
+          tableId: activeTable._id,
           status: "ACTIVE",
           openedAt: new Date(),
           menuViewedAt: new Date(),
           seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }],
-          waiterId: table.defaultWaiterId || null
+          waiterId: activeTable.defaultWaiterId || null
         });
-        table.activeSessionId = session._id;
+
+        // Atomic check: only update if activeSessionId is currently null and table is not reserved/cleaning
+        const updatedTable = await Table.findOneAndUpdate(
+          {
+            _id: activeTable._id,
+            activeSessionId: null,
+            operationalStatus: { $nin: ["RESERVED", "CLEANING"] }
+          },
+          {
+            activeSessionId: newSession._id,
+            operationalStatus: "OCCUPIED"
+          },
+          { new: true }
+        );
+
+        if (!updatedTable) {
+          // Lost race or table transitioned to reserved/cleaning! Delete newSession
+          await QRSession.deleteOne({ _id: newSession._id });
+          const winningTable = await Table.findById(activeTable._id);
+          if (winningTable && ["RESERVED", "CLEANING"].includes(winningTable.operationalStatus)) {
+            ApiResponseHandler.badRequest(res, `Table is currently ${winningTable.operationalStatus.toLowerCase()}. Please contact staff.`);
+            return;
+          }
+          session = await QRSession.findById(winningTable?.activeSessionId);
+          if (!session) {
+            ApiResponseHandler.badRequest(res, "Table is currently unavailable. Please try again.");
+            return;
+          }
+        } else {
+          session = newSession;
+        }
+      } else {
+        activeTable.operationalStatus = "OCCUPIED";
+        await activeTable.save();
       }
 
-      table.operationalStatus = "OCCUPIED";
-      await table.save();
-
       await EventBusService.publishTableOccupied(
-        table.tenantId,
-        table.outletId,
-        table._id,
+        activeTable.tenantId,
+        activeTable.outletId,
+        activeTable._id,
         {
-          tableId: table._id.toString(),
-          tableNumber: table.tableNumber,
-          status: table.operationalStatus,
+          tableId: activeTable._id.toString(),
+          tableNumber: activeTable.tableNumber,
+          status: activeTable.operationalStatus,
           updatedAt: new Date()
         },
         { sourceSystem: "QR" }
@@ -1654,8 +2049,8 @@ export class PublicController {
 
       // Fetch dining area name if available
       let diningAreaName = "Dine-In";
-      if (table.diningAreaId) {
-        const da = await DiningArea.findById(table.diningAreaId);
+      if (activeTable.diningAreaId) {
+        const da = await DiningArea.findById(activeTable.diningAreaId);
         if (da) diningAreaName = da.name;
       }
 
@@ -1663,10 +2058,10 @@ export class PublicController {
         outletSlug: outlet.slug,
         outletName: outlet.name,
         outletAddress: outlet.address,
-        tenantId: table.tenantId.toString(),
-        outletId: table.outletId.toString(),
-        tableId: table._id.toString(),
-        tableNumber: table.tableNumber,
+        tenantId: activeTable.tenantId.toString(),
+        outletId: activeTable.outletId.toString(),
+        tableId: activeTable._id.toString(),
+        tableNumber: activeTable.tableNumber,
         diningAreaName,
         sessionToken: session.sessionToken,
         sessionId: session._id.toString(),
@@ -1676,7 +2071,8 @@ export class PublicController {
           role: guestSession.role,
           seatNumber: guestSession.seatNumber,
           guestCount: guestSession.guestCount
-        }
+        },
+        lockRemainingSeconds
       });
     } catch (error: any) {
       console.error("[PublicController] resolveQrCode error:", error);
@@ -1749,6 +2145,45 @@ export class PublicController {
         return;
       }
 
+      // Idempotency Key check
+      const idempotencyKey = req.headers["idempotency-key"] as string;
+      if (idempotencyKey) {
+        const cached = await Idempotency.check(idempotencyKey, session.tenantId);
+        if (cached) {
+          res.status(cached.statusCode).json(cached.body);
+          return;
+        }
+      }
+
+      if (billData.billSession.status === "SETTLED") {
+        const responseBody = {
+          success: false,
+          statusCode: 400,
+          message: "This bill session is already settled"
+        };
+        if (idempotencyKey) {
+          await Idempotency.save(idempotencyKey, session.tenantId, 400, responseBody);
+        }
+        res.status(400).json(responseBody);
+        return;
+      }
+
+      if (seatNumber && billData.billSession.splits && billData.billSession.splits.length > 0) {
+        const split = billData.billSession.splits.find((s: any) => s.seatNumber === seatNumber);
+        if (split && split.isPaid) {
+          const responseBody = {
+            success: false,
+            statusCode: 400,
+            message: `Seat ${seatNumber} has already been paid`
+          };
+          if (idempotencyKey) {
+            await Idempotency.save(idempotencyKey, session.tenantId, 400, responseBody);
+          }
+          res.status(400).json(responseBody);
+          return;
+        }
+      }
+
       const billSessionId = billData.billSession._id.toString();
 
       // Apply tip adjustments if needed
@@ -1766,7 +2201,7 @@ export class PublicController {
         });
 
         // Trigger Waiter Task
-        await WaiterTaskService.createTask(
+        const waiterTask = await WaiterTaskService.createTask(
           session.tenantId,
           session.outletId,
           session.tableId,
@@ -1783,9 +2218,21 @@ export class PublicController {
           }
         );
 
-        ApiResponseHandler.success(res, 200, "Cash payment requested. Waiter notified.", {
-          status: "REQUESTED"
-        });
+        const responseBody = {
+          success: true,
+          statusCode: 200,
+          message: "Cash payment requested. Waiter notified.",
+          data: {
+            status: "REQUESTED",
+            taskId: waiterTask._id.toString()
+          }
+        };
+
+        if (idempotencyKey) {
+          await Idempotency.save(idempotencyKey, session.tenantId, 200, responseBody);
+        }
+
+        res.status(200).json(responseBody);
         return;
       }
 
@@ -1807,7 +2254,6 @@ export class PublicController {
       }
 
       // Create a single Payment document representing the full session payment.
-      // Link to the first order for FK consistency; all orders share the same billSession.
       const transactionId = `TXN-QR-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
       const primaryOrderId = billData.billSession.orderIds?.[0];
       if (!primaryOrderId) {
@@ -1831,7 +2277,21 @@ export class PublicController {
         paymentId: paymentDoc._id.toString()
       });
 
-      ApiResponseHandler.success(res, 200, "Payment processed successfully", result);
+      // Automatically recalculate bill session totals on payment
+      await BillingService.recalculateBillSession(session.tenantId, session._id);
+
+      const responseBody = {
+        success: true,
+        statusCode: 200,
+        message: "Payment processed successfully",
+        data: result
+      };
+
+      if (idempotencyKey) {
+        await Idempotency.save(idempotencyKey, session.tenantId, 200, responseBody);
+      }
+
+      res.status(200).json(responseBody);
     } catch (error: any) {
       console.error("[PublicController] payQrSessionBill error:", error);
       ApiResponseHandler.internalError(res, error.message || "Failed to process payment");
@@ -1861,6 +2321,7 @@ export class PublicController {
 
       const result = await BillingService.splitBill(
         session.tenantId,
+        session.outletId,
         billData.billSession._id.toString(),
         splitType,
         customSplits
@@ -1934,24 +2395,110 @@ export class PublicController {
         return;
       }
 
+      // 0. Fetch Table/Outlet settings for cancel approval
+      const qrSession = await QRSession.findById(guestSession.qrsessionId);
+      if (!qrSession) {
+        ApiResponseHandler.notFound(res, "Associated QR session not found");
+        return;
+      }
+
+      const table = await Table.findById(qrSession.tableId);
+      const outlet = await Outlet.findById(qrSession.outletId);
+      const tenantId = qrSession.tenantId;
+
+      // 1. Fetch active orders
+      const orders = await mongoose.model("Order").find({
+        "diningContext.sessionId": qrSession._id,
+        tenantId,
+        orderStatus: { $ne: OrderStatus.CANCELLED },
+        isDeleted: false
+      });
+
+      // Group orders by status
+      const hasServed = orders.some(o => o.orderStatus === OrderStatus.SERVED);
+      const hasKitchenAccepted = orders.some(o => [OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY].includes(o.orderStatus));
+      const hasPending = orders.some(o => o.orderStatus === OrderStatus.PENDING);
+
+      const cancelReason = req.body.reason || "Customer left dining session";
+
+      if (hasServed) {
+        // Case 4: Outstanding bill exists
+        ApiResponseHandler.success(res, 200, "Outstanding bill exists. Please settle the balance first.", {
+          status: "BILL_OUTSTANDING",
+          message: "You have served items and an outstanding bill exists. Please settle the balance first."
+        });
+        return;
+      }
+
+      const approvalMode = outlet?.orderCancellationApproval || "WAITER";
+
+      if (hasKitchenAccepted) {
+        if (approvalMode === "AUTO") {
+          // Cancel automatically
+          for (const order of orders) {
+            await OrderService.cancelOrder(order._id.toString(), tenantId.toString(), cancelReason, guestSession._id.toString());
+          }
+        } else {
+          // Case 3: Requires approval. Create WaiterTask
+          const existingTask = await WaiterTask.findOne({
+            sessionId: qrSession._id,
+            taskType: "ORDER_CANCEL_REQUEST",
+            status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS", "ESCALATED"] },
+            isDeleted: false
+          });
+
+          if (!existingTask) {
+            await WaiterTaskService.createTask(
+              tenantId,
+              qrSession.outletId,
+              qrSession.tableId,
+              qrSession._id,
+              "ORDER_CANCEL_REQUEST",
+              "CUSTOMER",
+              {
+                priority: "HIGH",
+                ...(guestSession.seatNumber ? { seatNumber: guestSession.seatNumber } : {}),
+                metadata: {
+                  guestSessionId: guestSession._id.toString(),
+                  reason: cancelReason,
+                  notes: `Customer requested cancel & leave. Approval required by: ${approvalMode}`
+                }
+              }
+            );
+          }
+
+          ApiResponseHandler.success(res, 200, "Cancellation request sent to staff.", {
+            status: "REQUIRES_APPROVAL",
+            message: "Kitchen has already accepted your order. A cancellation request has been sent to staff."
+          });
+          return;
+        }
+      } else if (hasPending) {
+        // Case 2: PENDING orders only. Cancel automatically.
+        for (const order of orders) {
+          await OrderService.cancelOrder(order._id.toString(), tenantId.toString(), cancelReason, guestSession._id.toString());
+        }
+      }
+
+      // Mark GuestSession as LEFT
       guestSession.status = "LEFT";
       await guestSession.save();
 
       // Check if other active guest sessions exist for this QRSession
-      const remainingActive = await GuestSession.countDocuments({
+      const remainingActiveGuests = await GuestSession.find({
         qrsessionId: guestSession.qrsessionId,
         status: "ACTIVE"
       });
 
+      const remainingActive = remainingActiveGuests.length;
+
       if (remainingActive === 0) {
-        const qrSession = await QRSession.findById(guestSession.qrsessionId);
-        if (qrSession && qrSession.status !== "CLOSED" && qrSession.status !== "EXPIRED") {
+        if (qrSession.status !== "CLOSED" && qrSession.status !== "EXPIRED") {
           qrSession.status = "CLOSED";
           qrSession.closedAt = new Date();
           await qrSession.save();
 
           // Reset table operational status
-          const table = await Table.findById(qrSession.tableId);
           if (table) {
             table.operationalStatus = "AVAILABLE";
             table.activeSessionId = null;
@@ -1972,7 +2519,33 @@ export class PublicController {
             );
           }
         }
+      } else {
+        // Phase 3: Host successor promotion
+        if (guestSession.role === "HOST") {
+          let successor = null;
+          const { successorGuestSessionId } = req.body;
+          if (successorGuestSessionId) {
+            successor = remainingActiveGuests.find(g => g._id.toString() === successorGuestSessionId);
+          }
+          if (!successor) {
+            successor = remainingActiveGuests.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime())[0];
+          }
+          if (successor) {
+            successor.role = "HOST";
+            await successor.save();
+
+            const { RealtimeService } = await import("../../sockets/realtime.service.js");
+            RealtimeService.sendToSession(qrSession._id.toString(), "HOST_TRANSFERRED" as any, {
+              oldHostId: guestSession._id.toString(),
+              newHostId: successor._id.toString(),
+              newHostName: successor.name
+            });
+          }
+        }
       }
+
+      // Recalculate bill automatically on leave/cancellations
+      await BillingService.recalculateBillSession(tenantId, qrSession._id);
 
       ApiResponseHandler.success(res, 200, "Left guest session successfully", { remainingActive });
     } catch (error: any) {
@@ -2074,6 +2647,221 @@ export class PublicController {
     } catch (error: any) {
       console.error("[PublicController] submitQrSessionFeedback error:", error);
       ApiResponseHandler.internalError(res, error.message || "Failed to submit feedback");
+    }
+  }
+
+  /**
+   * POST /api/public/orders/:orderId/items/:itemId/cancel
+   * Cancels a specific order item or requests approval based on order state.
+   */
+  static async cancelOrderItem(req: Request, res: Response): Promise<void> {
+    try {
+      const { orderId, itemId } = req.params;
+      const { reason } = req.body;
+
+      if (!orderId || !itemId) {
+        ApiResponseHandler.badRequest(res, "orderId and itemId are required");
+        return;
+      }
+
+      const orderObjId = new Types.ObjectId(String(orderId));
+      const itemObjId = new Types.ObjectId(String(itemId));
+
+      const order = await Order.findOne({ _id: orderObjId, isDeleted: false });
+      if (!order) {
+        ApiResponseHandler.notFound(res, "Order not found");
+        return;
+      }
+
+      const orderItem = await OrderItem.findOne({ _id: itemObjId, orderId: orderObjId, isDeleted: false });
+      if (!orderItem) {
+        ApiResponseHandler.notFound(res, "Order item not found");
+        return;
+      }
+
+      if (orderItem.status === ("CANCELLED" as any)) {
+        ApiResponseHandler.badRequest(res, "Item is already cancelled");
+        return;
+      }
+
+      const currentStatus = order.orderStatus;
+      const tenantId = order.tenantId;
+
+      if (currentStatus === OrderStatus.PENDING) {
+        orderItem.status = "CANCELLED" as any;
+        await orderItem.save();
+
+        const siblingItems = await OrderItem.find({ orderId: order._id, status: { $ne: "CANCELLED" as any }, isDeleted: false });
+        const newSubtotal = siblingItems.reduce((sum, i) => sum + i.totalPrice, 0);
+        const newTax = parseFloat((newSubtotal * 0.05).toFixed(2));
+        const newTotal = newSubtotal + newTax;
+
+        order.subtotal = newSubtotal;
+        order.tax = newTax;
+        order.totalAmount = newTotal;
+
+        if (siblingItems.length === 0) {
+          order.orderStatus = OrderStatus.CANCELLED;
+          order.cancelledAt = new Date();
+          order.cancellationReason = reason || "All items cancelled";
+        }
+        await order.save();
+
+        await OrderTimeline.create({
+          tenantId,
+          qrsessionId: order.sessionId,
+          orderId: order._id,
+          status: "ORDER_UPDATED" as any,
+          notes: `Item ${orderItem.name} cancelled. Reason: ${reason || "Changed mind"}`,
+          timestamp: new Date()
+        });
+
+        if (order.sessionId) {
+          await BillingService.recalculateBillSession(tenantId, order.sessionId);
+        }
+
+        ApiResponseHandler.success(res, 200, "Item cancelled successfully", {
+          status: "CANCELLED",
+          order
+        });
+        return;
+      } else if (
+        currentStatus === OrderStatus.ACCEPTED ||
+        currentStatus === OrderStatus.PREPARING ||
+        currentStatus === OrderStatus.READY
+      ) {
+        const outlet = await Outlet.findById(order.outletId);
+        const approvalMode = outlet?.orderCancellationApproval || "WAITER";
+
+        if (approvalMode === "AUTO") {
+          orderItem.status = "CANCELLED" as any;
+          await orderItem.save();
+
+          const siblingItems = await OrderItem.find({ orderId: order._id, status: { $ne: "CANCELLED" as any }, isDeleted: false });
+          const newSubtotal = siblingItems.reduce((sum, i) => sum + i.totalPrice, 0);
+          const newTax = parseFloat((newSubtotal * 0.05).toFixed(2));
+          const newTotal = newSubtotal + newTax;
+
+          order.subtotal = newSubtotal;
+          order.tax = newTax;
+          order.totalAmount = newTotal;
+
+          if (siblingItems.length === 0) {
+            order.orderStatus = OrderStatus.CANCELLED;
+            order.cancelledAt = new Date();
+            order.cancellationReason = reason || "All items cancelled";
+          }
+          await order.save();
+
+          const inventory = await Inventory.findOne({
+            menuItemId: orderItem.menuItemId,
+            outletId: order.outletId,
+            tenantId,
+            isDeleted: false
+          });
+          if (inventory) {
+            const newQty = inventory.quantity + orderItem.quantity;
+            await Inventory.updateOne({ _id: inventory._id }, { quantity: newQty, isLowStock: newQty <= inventory.threshold });
+          }
+
+          await OrderTimeline.create({
+            tenantId,
+            qrsessionId: order.sessionId,
+            orderId: order._id,
+            status: "ORDER_UPDATED" as any,
+            notes: `Item ${orderItem.name} cancelled automatically. Reason: ${reason || "Changed mind"}`,
+            timestamp: new Date()
+          });
+
+          if (order.sessionId) {
+            await BillingService.recalculateBillSession(tenantId, order.sessionId);
+          }
+
+          ApiResponseHandler.success(res, 200, "Item cancelled successfully", {
+            status: "CANCELLED",
+            order
+          });
+          return;
+        }
+
+        const existingTask = await WaiterTask.findOne({
+          sessionId: order.sessionId,
+          taskType: "ORDER_CANCEL_REQUEST",
+          "metadata.itemId": itemId,
+          status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS", "ESCALATED"] },
+          isDeleted: false
+        });
+
+        if (!existingTask) {
+          await WaiterTaskService.createTask(
+            tenantId,
+            order.outletId,
+            order.diningContext?.tableId || order.outletId,
+            order.sessionId || order._id,
+            "ORDER_CANCEL_REQUEST",
+            "CUSTOMER",
+            {
+              priority: "HIGH",
+              metadata: {
+                itemId: itemId,
+                orderId: orderId,
+                reason: reason || "Wrong item",
+                notes: `Customer requested cancellation of item: ${orderItem.name}`
+              }
+            }
+          );
+        }
+
+        ApiResponseHandler.success(res, 200, "Cancellation request sent to staff", {
+          status: "REQUIRES_APPROVAL",
+          message: `Cancellation of ${orderItem.name} requires staff approval.`
+        });
+        return;
+      } else {
+        ApiResponseHandler.badRequest(res, `Cannot cancel item when order status is ${currentStatus}`);
+      }
+    } catch (error: any) {
+      console.error("[PublicController] cancelOrderItem error:", error);
+      ApiResponseHandler.internalError(res, error.message || "Failed to cancel order item");
+    }
+  }
+
+  /**
+   * POST /api/public/contact
+   * Submit a contact/lead form and send email notification
+   */
+  static async submitContactForm(req: Request, res: Response): Promise<void> {
+    try {
+      const { firstName, lastName, email, phone, message } = req.body;
+
+      if (!firstName || !lastName || !email || !message) {
+        ApiResponseHandler.badRequest(res, "Missing required parameters (firstName, lastName, email, message)");
+        return;
+      }
+
+      try {
+        const { EmailService } = await import("../notification/email.service.js");
+        await EmailService.sendMail({
+          to: "omniserve.team@gmail.com",
+          subject: `New Lead: ${firstName} ${lastName}`,
+          text: `Name: ${firstName} ${lastName}\nEmail: ${email}\nPhone: ${phone || 'N/A'}\nMessage: ${message}`,
+          html: `
+            <h3>New Contact Form Submission</h3>
+            <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Phone:</strong> ${phone || 'N/A'}</p>
+            <p><strong>Message:</strong></p>
+            <p>${message.replace(/\\n/g, "<br>")}</p>
+          `
+        });
+      } catch (mailError: any) {
+        console.warn("[PublicController] EmailService failed, printing message:", mailError.message || mailError);
+      }
+
+      ApiResponseHandler.success(res, 200, "Message sent successfully!");
+    } catch (error: any) {
+      console.error("[PublicController] submitContactForm error:", error);
+      ApiResponseHandler.internalError(res, error.message || "Failed to submit contact form");
     }
   }
 }

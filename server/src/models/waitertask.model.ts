@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 
-export type WaiterTaskType = 'SERVE_FOOD' | 'WATER' | 'TISSUE' | 'SPOON' | 'BILL' | 'CLEANING' | 'CUSTOM';
+export type WaiterTaskType = 'SERVE_FOOD' | 'WATER' | 'TISSUE' | 'SPOON' | 'BILL' | 'CLEANING' | 'CUSTOM' | 'ORDER_CANCEL_REQUEST' | 'TABLE_LEAVE_REQUEST' | 'PAYMENT_ASSISTANCE';
 export type WaiterTaskStatus = 'CREATED' | 'ASSIGNED' | 'ACKNOWLEDGED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'ESCALATED';
 
 export interface IWaiterTask extends Document {
@@ -53,7 +53,7 @@ const waiterTaskSchema = new Schema<IWaiterTask>(
     taskType: {
       type: String,
       enum: {
-        values: ['SERVE_FOOD', 'WATER', 'TISSUE', 'SPOON', 'BILL', 'CLEANING', 'CUSTOM'],
+        values: ['SERVE_FOOD', 'WATER', 'TISSUE', 'SPOON', 'BILL', 'CLEANING', 'CUSTOM', 'ORDER_CANCEL_REQUEST', 'TABLE_LEAVE_REQUEST', 'PAYMENT_ASSISTANCE'],
         message: 'Invalid task type: {VALUE}',
       },
       required: [true, 'Task type is required'],

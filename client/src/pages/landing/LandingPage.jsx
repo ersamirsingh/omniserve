@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../components/ui/Toast';
 import {
   Monitor,
   ChefHat,
@@ -25,18 +27,12 @@ import {
   CheckCircle,
   XCircle,
   CheckCheck,
-  Sun,
-  Moon,
-  Laptop,
-  Lock,
-  Globe,
-  Database,
+  Sparkles,
+  Shield,
   Cpu,
-  Server,
-  Cloud,
-  Layers
+  Database,
+  Network
 } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 import ProductShowcase from '../../components/landing/ProductShowcase';
 import ThemedImage from '../../components/landing/ThemedImage';
 import api from '../../api/axios';
@@ -480,21 +476,64 @@ function StaffMgmtMock() {
 export default function LandingPage() {
   const { theme, selectTheme } = useTheme();
 
+  const heroStats = [
+    { value: "40%+", label: "Order Speedup" },
+    { value: "99.99%", label: "System Uptime" },
+    { value: "15k+", label: "Happy Merchants" }
+  ];
+
+  const { addToast } = useToast();
   const [themeOpen, setThemeOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState({});
-  const [activeBentoModule, setActiveBentoModule] = useState(null);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  const [activeTab, setActiveTab] = useState('cockpit');
+  const themeRef = useRef(null);
 
-  // Form State
-  const [formData, setFormData] = useState({
+  const [contactForm, setContactForm] = useState({
     firstName: '',
     lastName: '',
-    phone: '',
     email: '',
+    phone: '',
     message: ''
   });
-  const [submittedEmail, setSubmittedEmail] = useState('');
-  const [formStatus, setFormStatus] = useState('idle'); // idle, submitting, success, error
-  const [formError, setFormError] = useState('');
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    if (!contactForm.firstName || !contactForm.lastName || !contactForm.email || !contactForm.message) {
+      addToast('Please fill out all required fields.', 'error');
+      return;
+    }
+    setContactSubmitting(true);
+    try {
+      const response = await fetch('/api/public/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(contactForm)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        addToast(data.message || 'Message sent successfully!', 'success');
+        setContactForm({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          message: ''
+        });
+      } else {
+        addToast(data.message || 'Failed to send message.', 'error');
+      }
+    } catch (err) {
+      console.error("[ContactSubmit] Error submitting contact form:", err);
+      addToast('Failed to connect to the server. Please try again later.', 'error');
+    } finally {
+      setContactSubmitting(false);
+    }
+  };
 
   const toggleFaq = (index) => {
     setFaqOpen((prev) => ({
@@ -506,8 +545,29 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    const handleOutsideClick = (e) => {
+      if (themeRef.current && !themeRef.current.contains(e.target)) {
+        setShowThemeMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleScroll = () => {
-      // Reveal items on scroll
       const reveals = document.querySelectorAll('.reveal');
       reveals.forEach((element) => {
         const windowHeight = window.innerHeight;
@@ -536,702 +596,446 @@ export default function LandingPage() {
     };
   }, []);
 
-  const handleContactSubmit = async (e) => {
-    e.preventDefault();
-    if (formStatus === 'submitting' || formStatus === 'success') return;
-
-    const payload = {
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      phone: formData.phone.trim(),
-      email: formData.email.trim(),
-      message: formData.message.trim(),
-    };
-
-    if (!payload.firstName || !payload.email || !payload.message) {
-      setFormError('Please fill out all required fields.');
-      setFormStatus('error');
-      return;
-    }
-
-    setFormStatus('submitting');
-    setFormError('');
-
-    try {
-      await api.post('/public/contact', payload);
-      setSubmittedEmail(payload.email);
-      setFormStatus('success');
-    } catch (err) {
-      console.error(err);
-      setFormError('We could not send your message right now. Please try again in a moment.');
-      setFormStatus('error');
-    }
-  };
-
-  const scrollToContact = () => {
-    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const scrollToTop = (event) => {
-    event.preventDefault();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const images = {
+    hero: isDark ? '/images/landingpage/hero_dark.jpg' : '/images/landingpage/hero.jpg',
+    integrations: isDark ? '/images/landingpage/integrations_dark.png' : '/images/landingpage/integrations.png',
+    cockpit: isDark ? '/images/landingpage/cockpit_dark.png' : '/images/landingpage/cockpit.png',
+    analytics: isDark ? '/images/landingpage/analytics_dark.png' : '/images/landingpage/analytics.png',
+    orders: isDark ? '/images/landingpage/orders_dark.png' : '/images/landingpage/orders.png',
+    staff: isDark ? '/images/landingpage/staff_dark.png' : '/images/landingpage/staff.png',
   };
 
   const teamMembers = [
-    { name: 'Md Yusuf', image: '/images/landingpage/yusuf.png', role: 'Chief Architect' },
-    { name: 'Samir Kumar Singh', image: '/images/landingpage/samir.jpg', role: 'Backend & Security lead' },
-    { name: 'Nitish Kumar', image: '/images/landingpage/nitish.jpg', role: 'Full Stack & AI Engineer' },
-    { name: 'Ajay Rathore', image: '/images/landingpage/ajay.jpg', role: 'UI/UX & Product Engineer' }
-  ];
-
-  const heroStats = [
-    { label: 'Outlets live', value: '105+' },
-    { label: 'Uptime SLA', value: '99.99%' },
-    { label: 'Order sync', value: '<1s' },
-  ];
-
-  const bentoModules = [
-    { id: 'ops', title: 'Operations Cockpit', desc: 'One live terminal for every table, session, and order across all outlets.', icon: Monitor, size: 'md:col-span-2' },
-    { id: 'kds', title: 'KDS Engine', desc: 'Tickets auto-routed to the right station, tracked against SLA.', icon: ChefHat, size: 'col-span-1' },
-    { id: 'inv', title: 'Smart Inventory', desc: 'Stock, waste, and recipes linked straight to billing.', icon: Package, size: 'col-span-1' },
-    { id: 'bill', title: 'Unified Billing', desc: 'One checkout flow across cash, cards, and digital wallets.', icon: CreditCard, size: 'col-span-1' },
-    { id: 'anal', title: 'Insights & Analytics', desc: 'Sales, SLA, and outlet performance in one live view.', icon: BarChart3, size: 'col-span-1' },
-    { id: 'qr', title: 'QR Ordering', desc: 'Guests order and pay from the table — no app download.', icon: Scan, size: 'md:col-span-2' },
-    { id: 'bus', title: 'Integrations Bus', desc: 'Swiggy, Zomato, ONDC, and ERP — connected by native webhooks.', icon: LinkIcon, size: 'col-span-1' },
-    { id: 'logs', title: 'Security & Audit Logs', desc: 'Full audit trail across every tenant and outlet.', icon: FileText, size: 'col-span-1' },
-  ];
-
-  const techStackGroups = [
-    {
-      category: 'Databases & Cache',
-      icon: Database,
-      techs: [
-        { name: 'PostgreSQL', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-        { name: 'MongoDB', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-        { name: 'Redis', badge: 'bg-red-500/10 text-red-400 border-red-500/20' },
-        { name: 'Neo4j (Graph)', badge: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
-        { name: 'Qdrant (Vector)', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' }
-      ]
-    },
-    {
-      category: 'Backend Services',
-      icon: Server,
-      techs: [
-        { name: 'Node.js', badge: 'bg-green-500/10 text-green-400 border-green-500/20' },
-        { name: 'Express', badge: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
-        { name: 'NestJS', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
-        { name: 'WebSocket (Socket.io)', badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' }
-      ]
-    },
-    {
-      category: 'Frontend Logic',
-      icon: Layout,
-      techs: [
-        { name: 'React', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
-        { name: 'Vite', badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
-        { name: 'TypeScript', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-        { name: 'Tailwind CSS v4', badge: 'bg-teal-500/10 text-teal-400 border-teal-500/20' }
-      ]
-    },
-    {
-      category: 'AI & Data Models',
-      icon: Cpu,
-      techs: [
-        { name: 'OpenAI API', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-        { name: 'Gemini 1.5 Flash', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-        { name: 'RAG Pipeline', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' }
-      ]
-    },
-    {
-      category: 'Infrastructure & Cloud',
-      icon: Cloud,
-      techs: [
-        { name: 'Docker', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
-        { name: 'Kubernetes', badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
-        { name: 'Nginx', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-        { name: 'AWS Cloud', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-        { name: 'Cloudflare Proxy', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' }
-      ]
-    },
-    {
-      category: 'Streams & Message Queues',
-      icon: Layers,
-      techs: [
-        { name: 'RabbitMQ', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-        { name: 'Apache Kafka', badge: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
-        { name: 'Internal Event Bus', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' }
-      ]
-    }
+    { name: 'Md Yusuf', role: 'Full Stack Developer', image: '/images/landingpage/yusuf.png' },
+    { name: 'Samir Kumar Singh', role: 'AI Engineer', image: '/images/landingpage/samir.jpg' },
+    { name: 'Nitish Kumar', role: 'Full Stack Developer', image: '/images/landingpage/nitish.jpg' },
+    { name: 'Ajay Rathore', role: 'Full Stack Developer', image: '/images/landingpage/ajay.jpg' }
   ];
 
   return (
     <div className="landing-page bg-background text-on-surface font-body-lg overflow-x-hidden selection:bg-secondary-container selection:text-on-secondary-container">
+      
       {/* TopNavBar */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        scrolled
-          ? 'h-16 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md shadow-xs border-b border-zinc-200/50 dark:border-zinc-800/60'
-          : 'h-20 bg-transparent border-b border-transparent'
-      }`}>
-        <div className="flex justify-between items-center h-full px-4 sm:px-6 lg:px-margin-desktop max-w-container-max mx-auto">
-          {/* Logo & Wordmark */}
-          <Link to="/" onClick={scrollToTop} className="flex items-center gap-3 hover:opacity-90 transition-opacity duration-200 no-underline">
-            <img src="/logo.png" alt="OmniServe Logo" className="w-8 h-8 object-contain rounded-xl shadow-xs" />
-            <div className="flex flex-col">
-              <span className="font-hanken font-bold text-lg tracking-tight text-on-surface transition-colors">OmniServe</span>
-              <span className="text-[8px] text-[#6311f4] dark:text-indigo-400 font-bold tracking-widest uppercase">Operations OS</span>
-            </div>
+      <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-lg border-b border-[#6311f4]/10 dark:border-[#6311f4]/20 shadow-xs transition-all duration-500">
+        <div className="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+          <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2 select-none cursor-pointer">
+            <img src="/omniserve_logo.png" alt="OmniServe Logo" className="h-10 w-auto object-contain" />
+            <span className="font-headline-lg text-headline-lg font-bold text-on-surface dark:text-zinc-100 tracking-tight">OmniServe</span>
           </Link>
-
-          {/* Nav links */}
+          
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#product" className="relative group text-on-surface/80 hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors duration-200 font-body-md text-sm font-medium no-underline py-2">
-              Product
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#6311f4] dark:bg-indigo-400 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#solutions" className="relative group text-on-surface/80 hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors duration-200 font-body-md text-sm font-medium no-underline py-2">
-              Solutions
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#6311f4] dark:bg-indigo-400 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#tech" className="relative group text-on-surface/80 hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors duration-200 font-body-md text-sm font-medium no-underline py-2">
-              Technology
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#6311f4] dark:bg-indigo-400 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#contact" className="relative group text-on-surface/80 hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors duration-200 font-body-md text-sm font-medium no-underline py-2">
-              Contact
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#6311f4] dark:bg-indigo-400 transition-all duration-300 group-hover:w-full"></span>
-            </a>
+            <a href="#product" className="text-on-surface/85 dark:text-zinc-300 hover:text-[#6311f4] dark:hover:text-[#a07cff] transition-colors duration-300 font-bold text-sm tracking-tight">Product</a>
+            <a href="#features" className="text-on-surface/85 dark:text-zinc-300 hover:text-[#6311f4] dark:hover:text-[#a07cff] transition-colors duration-300 font-bold text-sm tracking-tight">Features</a>
+            <a href="#solutions" className="text-on-surface/85 dark:text-zinc-300 hover:text-[#6311f4] dark:hover:text-[#a07cff] transition-colors duration-300 font-bold text-sm tracking-tight">Solutions</a>
+            <a href="#tech" className="text-on-surface/85 dark:text-zinc-300 hover:text-[#6311f4] dark:hover:text-[#a07cff] transition-colors duration-300 font-bold text-sm tracking-tight">Technology</a>
+            <a href="#contact" className="text-on-surface/85 dark:text-zinc-300 hover:text-[#6311f4] dark:hover:text-[#a07cff] transition-colors duration-300 font-bold text-sm tracking-tight">Contact</a>
           </div>
 
-          {/* CTAs and Switcher */}
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            {/* Sliding segment theme selector */}
-            <div className="flex bg-slate-100 dark:bg-zinc-900/80 p-0.5 rounded-full border border-zinc-200/60 dark:border-zinc-800/60 gap-0.5 transition-all">
+          <div className="flex items-center space-x-4">
+            {/* Theme Selector */}
+            <div className="relative" ref={themeRef}>
               <button
-                onClick={() => selectTheme('light')}
-                className={`p-1.5 rounded-full transition-all duration-200 ${theme === 'light' ? 'bg-white dark:bg-zinc-800 text-amber-500 shadow-xs' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                title="Light Mode"
+                onClick={() => setShowThemeMenu(!showThemeMenu)}
+                className="flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 dark:border-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all cursor-pointer bg-transparent"
+                aria-label="Toggle Theme"
               >
-                <Sun className="w-3.5 h-3.5" />
+                <span className="material-symbols-outlined text-[20px] leading-none">
+                  {theme === 'light' ? 'light_mode' : theme === 'dark' ? 'dark_mode' : 'desktop_windows'}
+                </span>
               </button>
-              <button
-                onClick={() => selectTheme('dark')}
-                className={`p-1.5 rounded-full transition-all duration-200 ${theme === 'dark' ? 'bg-white dark:bg-zinc-850 text-indigo-400 shadow-xs' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                title="Dark Mode"
-              >
-                <Moon className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => selectTheme('system')}
-                className={`p-1.5 rounded-full transition-all duration-200 ${theme === 'system' ? 'bg-white dark:bg-zinc-850 text-slate-500 dark:text-slate-400 shadow-xs' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                title="System Preferences"
-              >
-                <Laptop className="w-3.5 h-3.5" />
-              </button>
+              {showThemeMenu && (
+                <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-xl p-1.5 z-[200] animate-scale-in">
+                  {['light', 'dark', 'system'].map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        selectTheme(mode);
+                        setShowThemeMenu(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer capitalize ${
+                        theme === mode
+                          ? 'bg-[#6311f4]/10 text-[#6311f4] dark:text-zinc-200'
+                          : 'text-on-surface-variant dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-850 hover:text-on-surface dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px] leading-none">
+                        {mode === 'light' ? 'light_mode' : mode === 'dark' ? 'dark_mode' : 'desktop_windows'}
+                      </span>
+                      <span>{mode}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            <Link to="/login" className="hidden sm:inline-flex px-5 py-2 bg-[#6311f4] hover:bg-[#520dd4] text-white rounded-full text-sm font-semibold transition-colors duration-200 active:scale-95 shadow-md shadow-[#6311f4]/15 no-underline">
-              Get Started
-            </Link>
+            <Link to="/login" className="px-6 py-2.5 bg-[#6311f4] hover:bg-[#510cc4] text-white rounded-full text-sm font-bold transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-md">Sign In</Link>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-36 sm:pt-44 pb-20 sm:pb-24 overflow-hidden">
-        {/* Signature ambient grid — sets the "operations grid" motif used across the page */}
-        <div
-          className="absolute inset-0 opacity-[0.4] dark:opacity-[0.25] pointer-events-none"
-          style={{
-            backgroundImage: 'linear-gradient(to right, rgba(99,17,244,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(99,17,244,0.06) 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-            maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)',
-            WebkitMaskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)'
-          }}
-        ></div>
+      <section className="relative pt-36 pb-20 overflow-hidden bg-gradient-glow bg-gradient-to-br from-[#ffffff] via-[#FAF8FF] to-[#f4f0ff] dark:from-[#141316] dark:via-[#161224] dark:to-[#120f1f]">
+        {/* Glow Spheres */}
+        <div className="absolute top-1/4 left-1/10 w-96 h-96 rounded-full bg-[#6311f4]/5 dark:bg-[#6311f4]/10 blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-1/10 right-1/10 w-96 h-96 rounded-full bg-[#61f6ea]/5 dark:bg-[#61f6ea]/10 blur-[120px] pointer-events-none"></div>
 
-        <div className="max-w-container-max mx-auto px-4 sm:px-6 lg:px-margin-desktop grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center relative">
-          <div className="reveal">
-            <div className="inline-flex items-center space-x-2 bg-emerald-500/10 px-4 py-1.5 rounded-full mb-8 border border-emerald-500/20">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-emerald-500 dark:text-emerald-400 font-bold text-label-sm uppercase tracking-widest">Live across 105+ outlets</span>
+        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+          <div className="lg:col-span-6 reveal">
+            <div className="inline-flex items-center space-x-2 bg-[#6311f4]/10 dark:bg-[#6311f4]/25 px-4 py-1.5 rounded-full mb-8 border border-[#6311f4]/20">
+              <Sparkles className="w-4 h-4 text-[#6311f4] dark:text-[#a07cff]" />
+              <span className="text-[#6311f4] dark:text-[#a07cff] font-bold text-xs uppercase tracking-widest">Version 2.0 AI Copilot Ready</span>
             </div>
-            <h1 className="font-display-lg text-display-lg leading-[1.1] mb-8 text-on-surface">
-              Run every outlet<br />
-              like it's <span className="text-[#6311f4] dark:text-indigo-400">one restaurant.</span>
+            
+            <h1 className="font-display-lg text-display-lg leading-[1.08] mb-6 text-on-surface dark:text-white">
+              One Unified Platform.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6311f4] to-[#fc8a63] dark:from-[#a07cff] dark:to-[#fc8a63]">Every Restaurant</span><br />
+              Operation.
             </h1>
-            <p className="text-on-surface-variant text-body-lg mb-10 max-w-lg">
-              OmniServe puts your kitchen, billing, inventory, and every delivery channel on one live feed — so nothing runs on guesswork, at one outlet or two hundred.
+            
+            <p className="text-on-surface/80 dark:text-zinc-300 text-body-lg mb-8 max-w-xl">
+              Integrate your billing, smart kitchen displays, automatic stock sheets, and delivery aggregators into a single, real-time sync network.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 mb-12">
-              <Link to="/login" className="px-8 py-4 bg-[#6311f4] text-white rounded-xl font-bold flex items-center justify-center space-x-2 hover:bg-[#520dd4] transition-colors duration-200 shadow-lg shadow-[#6311f4]/20 no-underline">
-                <span>Get Started</span>
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-              <button onClick={scrollToContact} className="px-8 py-4 bg-white dark:bg-zinc-900 border border-lp-border dark:border-zinc-800 rounded-xl font-bold flex items-center justify-center space-x-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors duration-200 text-on-surface shadow-xs">
-                <PlayCircle className="w-5 h-5 text-[#6311f4]" />
-                <span>Book a Demo</span>
-              </button>
-            </div>
-            {/* Trust stat bar — concrete, not decorative */}
-            <div className="flex items-center gap-8 sm:gap-10 border-t border-lp-border dark:border-zinc-800/60 pt-6">
-              {heroStats.map((stat) => (
-                <div key={stat.label}>
-                  <div className="font-headline-lg text-headline-lg text-on-surface leading-none mb-1">{stat.value}</div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="relative reveal delay-200">
-            <div className="absolute -inset-10 bg-indigo-500/10 blur-[100px] rounded-full z-0 pointer-events-none"></div>
-            <div className="relative rounded-3xl border border-zinc-200/50 dark:border-zinc-800/60 overflow-hidden bg-white/5 backdrop-blur-md shadow-2xl max-w-[580px] mx-auto">
-              <ThemedImage
-                lightSrc="/images/landingpage/omniserve_hub.png"
-                darkSrc="/images/landingpage/omniserve_hub_dark.png"
-                alt="OmniServe Operations Hub Connections"
-                className="w-full h-auto object-contain rounded-3xl"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Integrations Control Center */}
-      <section id="solutions" className="py-24 bg-surface-container-low border-y border-lp-border">
-        <div className="max-w-container-max mx-auto px-4 sm:px-6 lg:px-margin-desktop reveal">
-          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] relative overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="inline-flex items-center space-x-2 bg-indigo-500/10 px-3.5 py-1 rounded-full mb-6 border border-indigo-500/20">
-                  <span className="text-[#6311f4] dark:text-indigo-400 font-bold text-xs uppercase tracking-widest">Integrations</span>
-                </div>
-                <h2 className="font-headline-xl text-headline-xl mb-4 text-on-surface">One inbox for every channel</h2>
-                <p className="text-on-surface-variant mb-8 text-body-md leading-relaxed">
-                  Swiggy, Zomato, ONDC, and your direct orders land in the same queue. Watch sync health, catch failed webhooks, and reconcile transactions without switching tabs.
-                </p>
-                <div className="flex gap-4">
-                  <button onClick={scrollToContact} className="px-6 py-3 bg-[#6311f4] hover:bg-[#520dd4] text-white font-bold rounded-xl text-xs transition-colors duration-200 shadow-md">
-                    Connect Your Channels
-                  </button>
-                </div>
-              </div>
-              <div>
-                <IntegrationsDeviceMockup />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Platform Modules Bento */}
-      <section className="py-24" id="product">
-        <div className="max-w-container-max mx-auto px-4 sm:px-6 lg:px-margin-desktop mb-16 text-center">
-          <div className="reveal">
-            <div className="inline-flex items-center space-x-2 bg-[#fc8a63]/10 px-3.5 py-1 rounded-full mb-4 border border-[#fc8a63]/20">
-              <span className="text-[#fc8a63] font-bold text-xs uppercase tracking-widest">Core Modules</span>
-            </div>
-            <h2 className="font-headline-xl text-headline-xl mb-4 text-on-surface">Everything a kitchen needs, one dashboard</h2>
-            <p className="text-on-surface-variant max-w-xl mx-auto text-body-md">
-              Tap a module to see what it does.
-            </p>
-          </div>
-        </div>
-        <div className="max-w-container-max mx-auto px-4 sm:px-6 lg:px-margin-desktop grid grid-cols-1 md:grid-cols-4 gap-6 reveal">
-          {bentoModules.map((mod) => {
-            const IconComponent = mod.icon;
-            const isHighlighted = activeBentoModule === mod.id;
-            return (
-              <div
-                key={mod.id}
-                onClick={() => setActiveBentoModule(isHighlighted ? null : mod.id)}
-                className={`glass-card p-8 rounded-3xl cursor-pointer select-none transition-all duration-300 ${mod.size} ${
-                  isHighlighted ? 'ring-2 ring-[#6311f4] bg-indigo-500/5' : ''
-                }`}
-              >
-                <div className="flex justify-between items-start mb-6">
-                  <div className={`p-3 rounded-2xl ${isHighlighted ? 'bg-[#6311f4] text-white' : 'bg-slate-100 dark:bg-zinc-800 text-[#6311f4] dark:text-indigo-400'} transition-colors duration-200`}>
-                    <IconComponent className="w-6 h-6" />
-                  </div>
-                  {isHighlighted && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 font-bold text-[9px] rounded-full border border-emerald-500/20">Selected</span>}
-                </div>
-                <h3 className="font-bold text-lg mb-2 text-on-surface">{mod.title}</h3>
-                <p className="text-sm text-on-surface-variant leading-relaxed">{mod.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Product Screen Preview / Operations Cockpit */}
-      <section className="py-24 bg-slate-950 text-white overflow-hidden border-y border-slate-900">
-        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="reveal">
-            <div className="inline-flex items-center space-x-2 bg-indigo-500/10 px-3.5 py-1 rounded-full mb-6 border border-indigo-500/20">
-              <span className="text-indigo-400 font-bold text-xs uppercase tracking-widest">Kitchen routing</span>
-            </div>
-            <h2 className="font-headline-xl text-headline-xl mb-6 text-white">The Operations Cockpit</h2>
-            <p className="text-slate-400 mb-8 leading-relaxed">
-              Dine-in, takeaway, and delivery orders route themselves to the right kitchen display the moment they land — no prep bottlenecks, no missed tickets.
-            </p>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-4 p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700 transition-colors duration-200">
-                <Layout className="text-indigo-400 shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-bold text-white mb-1">Super Admin Console</h4>
-                  <p className="text-xs text-slate-400">One dashboard for outlet permissions and every open checkout.</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-4 p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700 transition-colors duration-200">
-                <Activity className="text-indigo-400 shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-bold text-white mb-1">Real-time Order Flow</h4>
-                  <p className="text-xs text-slate-400">Prep stages and waiter dispatch, synced under a second.</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-4 p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700 transition-colors duration-200">
-                <TrendingUp className="text-indigo-400 shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-bold text-white mb-1">SLA Analytics</h4>
-                  <p className="text-xs text-slate-400">Know exactly which station is slowing an order down.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="relative reveal delay-200">
-            <div className="absolute -inset-10 bg-indigo-500/10 blur-[100px] rounded-full z-0 pointer-events-none"></div>
-            <div className="relative w-full max-w-[580px] mx-auto py-6 select-none">
-              {/* Laptop Mockup Wrapper */}
-              <div className="relative mx-auto w-[90%] aspect-[16/10] bg-zinc-950 rounded-t-2xl border-[6px] border-zinc-800 dark:border-zinc-900 shadow-2xl overflow-hidden z-10">
-                {/* Screen Bezel Detail */}
-                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-zinc-900 flex items-center justify-center">
-                  <div className="w-0.5 h-0.5 rounded-full bg-zinc-700"></div>
-                </div>
-
-                {/* Viewport Screen */}
-                <div className="w-full h-full bg-slate-900 overflow-hidden relative">
-                  <ThemedImage
-                    lightSrc="/images/landingpage/operations-light.png"
-                    darkSrc="/images/landingpage/operations-dark.png"
-                    src="/images/landingpage/operations_cockpit.png"
-                    alt="OmniServe Operations Cockpit"
-                    className="w-full h-full object-fill hover:scale-[1.02] transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none"></div>
-                </div>
-              </div>
-
-              {/* Laptop Base */}
-              <div className="relative mx-auto w-[100%] h-3 bg-zinc-700 dark:bg-zinc-800 rounded-b-xl shadow-lg border-t border-zinc-600 dark:border-zinc-705 z-10">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-zinc-850 dark:bg-zinc-900 rounded-b-md"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Analytics Section */}
-      <section className="py-24 bg-surface-container-low border-b border-lp-border">
-        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="reveal order-2 lg:order-1">
-            <div className="relative w-full max-w-[580px] mx-auto py-6 select-none">
-              {/* Laptop Mockup Wrapper */}
-              <div className="relative mx-auto w-[90%] aspect-[16/10] bg-zinc-950 rounded-t-2xl border-[6px] border-zinc-800 dark:border-zinc-900 shadow-2xl overflow-hidden z-10">
-                {/* Screen Bezel Detail */}
-                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-zinc-900 flex items-center justify-center">
-                  <div className="w-0.5 h-0.5 rounded-full bg-zinc-700"></div>
-                </div>
-
-                {/* Viewport Screen */}
-                <div className="w-full h-full bg-slate-900 overflow-hidden relative">
-                  <ThemedImage
-                    lightSrc="/images/landingpage/analytics-light.png"
-                    darkSrc="/images/landingpage/analytics-dark.png"
-                    src="/images/landingpage/super_admin.png"
-                    alt="OmniServe Super Admin Dashboard"
-                    className="w-full h-full object-fill hover:scale-[1.02] transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none"></div>
-                </div>
-              </div>
-
-              {/* Laptop Base */}
-              <div className="relative mx-auto w-[100%] h-3 bg-zinc-700 dark:bg-zinc-800 rounded-b-xl shadow-lg border-t border-zinc-600 dark:border-zinc-705 z-10">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-zinc-850 dark:bg-zinc-900 rounded-b-md"></div>
-              </div>
-            </div>
-          </div>
-          <div className="reveal order-1 lg:order-2">
-            <div className="inline-flex items-center space-x-2 bg-amber-500/10 px-3.5 py-1 rounded-full mb-6 border border-amber-500/20">
-              <span className="text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-widest">Live Analytics</span>
-            </div>
-            <h2 className="font-headline-xl text-headline-xl mb-6 text-on-surface">See revenue as it happens</h2>
-            <p className="text-on-surface-variant mb-8 text-body-md leading-relaxed">
-              Revenue, order mix, and outlet performance update live. Drill into one location or view the whole chain — no end-of-day spreadsheet needed.
-            </p>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="glass-card p-6 rounded-2xl">
-                <div className="text-[#6311f4] dark:text-indigo-400 font-bold text-3xl mb-1">105+</div>
-                <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Outlets in Scope</p>
-              </div>
-              <div className="glass-card p-6 rounded-2xl">
-                <div className="text-[#6311f4] dark:text-indigo-400 font-bold text-3xl mb-1">₹85,070</div>
-                <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Daily Avg Revenue</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Alternating Feature Grid */}
-      <section className="py-24">
-        <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-16 reveal">
-          <div className="inline-flex items-center space-x-2 bg-[#6311f4]/10 px-3.5 py-1 rounded-full mb-4 border border-[#6311f4]/20">
-            <span className="text-[#6311f4] dark:text-indigo-400 font-bold text-xs uppercase tracking-widest">Why Teams Switch</span>
-          </div>
-          <h2 className="font-headline-xl text-headline-xl mb-4 text-on-surface">Built to disappear into the background</h2>
-          <p className="text-on-surface-variant max-w-2xl mx-auto text-body-md">
-            The best operations software is the kind your staff stops noticing. That's the bar we hold ourselves to.
-          </p>
-        </div>
-        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 lg:grid-cols-5 gap-6 reveal">
-          {/* Card 1: Continuous Innovation (col-span-3) */}
-          <div className="lg:col-span-3 flex flex-col md:flex-row justify-between items-center bg-surface-container/30 border border-lp-border dark:border-zinc-800/60 p-8 md:p-10 rounded-[2.5rem] shadow-xs hover:border-[#6311f4]/30 dark:hover:border-indigo-400/30 transition-colors duration-300 overflow-hidden relative">
-            <div className="max-w-xs space-y-4 text-left">
-              <h3 className="font-bold text-xl text-on-surface flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#6311f4] dark:text-indigo-400" />
-                Weekly Releases
-              </h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                We ship improvements every week with zero downtime — you get the update, your staff never notices the deploy.
-              </p>
-            </div>
-            {/* Visual Micro-Illustration */}
-            <div className="relative w-44 h-36 bg-slate-900/10 dark:bg-zinc-950/40 rounded-2xl border border-lp-border dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0 mt-6 md:mt-0">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#6311f4]/5 to-indigo-500/5 pointer-events-none"></div>
-              <div className="relative flex flex-col items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[8px] font-bold border border-emerald-500/20">
-                  Active Sync
-                </span>
-                <div className="flex gap-1.5 items-center">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                  <span className="text-[10px] text-on-surface font-bold">v1.12.0</span>
-                </div>
-                <div className="w-16 h-1 bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: '70%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Pricing (col-span-2) */}
-          <div className="lg:col-span-2 flex flex-col justify-between bg-surface-container/30 border border-lp-border dark:border-zinc-800/60 p-8 md:p-10 rounded-[2.5rem] shadow-xs hover:border-[#6311f4]/30 dark:hover:border-indigo-400/30 transition-colors duration-300 overflow-hidden relative text-left">
-            <div className="space-y-4">
-              <h3 className="font-bold text-xl text-on-surface flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-[#6311f4] dark:text-indigo-400" />
-                Flat, Transparent Pricing
-              </h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                No setup fee. One flat transaction rate that scales with your volume, not against it.
-              </p>
-            </div>
-            {/* Visual Micro-Illustration */}
-            <div className="relative w-full h-24 bg-slate-900/10 dark:bg-zinc-950/40 rounded-2xl border border-lp-border dark:border-zinc-800 flex items-center justify-between p-4 mt-6 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#6311f4]/5 to-indigo-500/5 pointer-events-none"></div>
-              <div className="flex flex-col justify-between h-full">
-                <span className="text-[9px] uppercase font-bold text-on-surface-variant">Setup Charges</span>
-                <span className="text-lg font-black text-emerald-500">₹0 Free</span>
-              </div>
-              <div className="w-0.5 h-full bg-lp-border dark:bg-zinc-800"></div>
-              <div className="flex flex-col justify-between h-full text-right">
-                <span className="text-[9px] uppercase font-bold text-on-surface-variant">Integration Fee</span>
-                <span className="text-lg font-black text-indigo-500">Flat 1.5%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Simplicity (col-span-2) */}
-          <div className="lg:col-span-2 flex flex-col justify-between bg-surface-container/30 border border-lp-border dark:border-zinc-800/60 p-8 md:p-10 rounded-[2.5rem] shadow-xs hover:border-[#6311f4]/30 dark:hover:border-indigo-400/30 transition-colors duration-300 overflow-hidden relative text-left">
-            <div className="space-y-4">
-              <h3 className="font-bold text-xl text-on-surface flex items-center gap-2">
-                <Layout className="w-5 h-5 text-[#6311f4] dark:text-indigo-400" />
-                Zero-Training Interface
-              </h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                Tap, select, done. New staff run a shift on OmniServe within their first hour.
-              </p>
-            </div>
-            {/* Visual Micro-Illustration */}
-            <div className="relative w-full h-24 bg-slate-900/10 dark:bg-zinc-950/40 rounded-2xl border border-lp-border dark:border-zinc-800 flex items-center justify-center p-4 mt-6 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#6311f4]/5 to-indigo-500/5 pointer-events-none"></div>
-              {/* Minimal tablet interface */}
-              <div className="w-4/5 h-4/5 bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-lp-border dark:border-zinc-800 p-2 flex flex-col justify-between">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-                  </div>
-                  <span className="text-[7px] text-slate-400">Simple View</span>
-                </div>
-                <div className="flex gap-2 justify-center py-1">
-                  <div className="px-2 py-1 bg-indigo-500/10 text-indigo-500 rounded text-[7px] font-bold">POS OK</div>
-                  <div className="px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded text-[7px] font-bold">KDS LIVE</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Support (col-span-3) */}
-          <div className="lg:col-span-3 flex flex-col md:flex-row justify-between items-center bg-surface-container/30 border border-lp-border dark:border-zinc-800/60 p-8 md:p-10 rounded-[2.5rem] shadow-xs hover:border-[#6311f4]/30 dark:hover:border-indigo-400/30 transition-colors duration-300 overflow-hidden relative">
-            <div className="max-w-xs space-y-4 text-left">
-              <h3 className="font-bold text-xl text-on-surface flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#6311f4] dark:text-indigo-400" />
-                24x7 Support
-              </h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                Real people on standby for network, checkout, and device issues — most resolved in under two minutes.
-              </p>
-            </div>
-            {/* Visual Micro-Illustration */}
-            <div className="relative w-44 h-36 bg-slate-900/10 dark:bg-zinc-950/40 rounded-2xl border border-lp-border dark:border-zinc-800 flex flex-col justify-between p-3 shrink-0 mt-6 md:mt-0 overflow-hidden text-left">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#6311f4]/5 to-indigo-500/5 pointer-events-none"></div>
-              <div className="flex justify-between items-center border-b border-lp-border dark:border-zinc-800 pb-1.5">
-                <span className="text-[8px] font-bold text-on-surface flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                  OmniSupport
-                </span>
-                <span className="text-[7px] text-slate-400">Online</span>
-              </div>
-              <div className="space-y-1">
-                <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-lg border border-lp-border dark:border-zinc-800 text-[8px] max-w-[85%]">
-                  Operational issue?
-                </div>
-                <div className="bg-indigo-500 text-white p-1.5 rounded-lg text-[8px] max-w-[85%] ml-auto text-right">
-                  Resolved under 2 mins!
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Staff Management */}
-      <section className="py-24 bg-surface-container-low border-y border-lp-border">
-        <div className="max-w-container-max mx-auto px-4 sm:px-6 lg:px-margin-desktop grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          <div className="lg:col-span-5 reveal">
-            <div className="inline-flex items-center space-x-2 bg-indigo-500/10 px-3.5 py-1 rounded-full mb-6 border border-indigo-500/20">
-              <span className="text-[#6311f4] dark:text-indigo-400 font-bold text-xs uppercase tracking-widest">Role Control</span>
-            </div>
-            <h2 className="font-headline-xl text-headline-xl mb-6 text-on-surface">Staff access, without the spreadsheet</h2>
-            <p className="text-on-surface-variant mb-8 text-body-md leading-relaxed">
-              Grant, restrict, and revoke access across hundreds of outlets from one console. Invite a new hire in seconds.
-            </p>
-            <ul className="space-y-4">
-              <li className="flex items-center space-x-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#6311f4]"></span>
-                <span className="font-semibold text-on-surface text-body-md">Role-based access control (RBAC)</span>
+            {/* Core Feature Bullet Grid (Petpooja style) */}
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-8 text-sm font-semibold text-on-surface-variant dark:text-zinc-400">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-[#6311f4] dark:text-[#a07cff] shrink-0" />
+                <span>GST-Ready Billing & KDS</span>
               </li>
-              <li className="flex items-center space-x-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#6311f4]"></span>
-                <span className="font-semibold text-on-surface text-body-md">Outlet-specific permissions</span>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-[#6311f4] dark:text-[#a07cff] shrink-0" />
+                <span>Aggregator Auto-Sync</span>
               </li>
-              <li className="flex items-center space-x-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#6311f4]"></span>
-                <span className="font-semibold text-on-surface text-body-md">Centralized security audit logs</span>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-[#6311f4] dark:text-[#a07cff] shrink-0" />
+                <span>Live Floor & Table QR Orders</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-[#6311f4] dark:text-[#a07cff] shrink-0" />
+                <span>Smart Recipe & Auto-Stock Sheets</span>
               </li>
             </ul>
+            
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/login" className="px-8 py-4 bg-gradient-to-r from-[#6311f4] to-[#510cc4] text-white rounded-2xl font-bold flex items-center justify-center space-x-2 hover:scale-[1.02] transition-all shadow-lg">
+                <span>Let's Get Started</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a href="#contact" className="px-8 py-4 bg-white dark:bg-zinc-900 text-on-surface dark:text-zinc-200 border border-gray-200 dark:border-zinc-800 rounded-2xl font-bold flex items-center justify-center space-x-2 hover:bg-gray-50 dark:hover:bg-zinc-850 hover:scale-[1.02] transition-all shadow-sm">
+                <PlayCircle className="w-4 h-4 text-[#6311f4] dark:text-[#a07cff]" />
+                <span>Book Demo</span>
+              </a>
+            </div>
           </div>
-          <div className="lg:col-span-7 reveal delay-200">
-            <ProductShowcase
-              lightSrc="/images/landingpage/staff-light.png"
-              darkSrc="/images/landingpage/staff-dark.png"
-              src="/images/landingpage/staff.png"
-              alt="OmniServe staff management directory with role badges and outlet assignments"
-            />
+          
+          <div className="lg:col-span-6 relative reveal delay-200">
+            <div className="relative p-2 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[2.5rem] border border-white/30 dark:border-zinc-800/30 shadow-2xl animate-float">
+              <img src={images.hero} className="w-full h-auto object-cover rounded-[2rem] shadow-lg" alt="OmniServe Dashboard Preview" />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Technology Stack / Built for Scale */}
-      <section className="py-24" id="tech">
-        <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-20 reveal">
-          <div className="inline-flex items-center space-x-2 bg-emerald-500/10 px-3.5 py-1 rounded-full mb-4 border border-emerald-500/20">
-            <span className="text-emerald-500 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest">Architecture</span>
+      {/* Interactive Metric Bar */}
+      <section className="py-10 bg-surface-container-low dark:bg-zinc-950 border-y border-outline-variant dark:border-zinc-900 transition-colors duration-300">
+        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div>
+            <h3 className="text-3xl font-extrabold text-[#6311f4] dark:text-[#a07cff] mb-1">1,200+</h3>
+            <p className="text-xs uppercase tracking-wider text-on-surface/60 dark:text-zinc-400 font-bold">Active Outlets</p>
           </div>
-          <h2 className="font-headline-xl text-headline-xl mb-4 text-on-surface">Built for Scale</h2>
-          <p className="text-on-surface-variant max-w-xl mx-auto text-body-md">
-            A distributed stack engineered for 99.99% uptime and sub-second responses, even at peak service.
+          <div>
+            <h3 className="text-3xl font-extrabold text-[#6311f4] dark:text-[#a07cff] mb-1">&lt;50ms</h3>
+            <p className="text-xs uppercase tracking-wider text-on-surface/60 dark:text-zinc-400 font-bold">Network Latency</p>
+          </div>
+          <div>
+            <h3 className="text-3xl font-extrabold text-[#6311f4] dark:text-[#a07cff] mb-1">99.99%</h3>
+            <p className="text-xs uppercase tracking-wider text-on-surface/60 dark:text-zinc-400 font-bold">System Uptime</p>
+          </div>
+          <div>
+            <h3 className="text-3xl font-extrabold text-[#6311f4] dark:text-[#a07cff] mb-1">20M+</h3>
+            <p className="text-xs uppercase tracking-wider text-on-surface/60 dark:text-zinc-400 font-bold">Orders Synced</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Bento Grid Features */}
+      <section className="py-section-gap" id="product">
+        <div className="max-w-container-max mx-auto px-margin-desktop mb-16 text-center reveal">
+          <h2 className="font-headline-xl text-headline-xl mb-4">Core Operating Ecosystem</h2>
+          <p className="text-on-surface/75 dark:text-zinc-300 max-w-2xl mx-auto">
+            Experience complete synergy. Every module is linked to a single data highway for zero-leakage management.
+          </p>
+        </div>
+
+        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 md:grid-cols-3 gap-6 reveal">
+          {/* Asymmetrical Card 1: Double Column */}
+          <div className="glass-card p-10 rounded-[2rem] md:col-span-2 flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center mb-6">
+                <Monitor className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3 dark:text-zinc-100">Super Operations Cockpit</h3>
+              <p className="text-on-surface/75 dark:text-zinc-300 max-w-xl">
+                Observe live orders, active dining room sessions, waiter statuses, and sync integrations across all restaurant locations in real time.
+              </p>
+            </div>
+            <div className="mt-8 flex gap-4 text-xs font-bold text-blue-500 dark:text-blue-400">
+              <span>● Real-time Sockets</span>
+              <span>● Integrated Maps</span>
+              <span>● SLA Alerts</span>
+            </div>
+          </div>
+
+          {/* Card 2: Single Column */}
+          <div className="glass-card p-10 rounded-[2rem] flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center mb-6">
+                <ChefHat className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3 dark:text-zinc-100">Smart KDS Routing</h3>
+              <p className="text-on-surface/75 dark:text-zinc-300">
+                Route order components to preparation stations instantly, tracking dish preparation timers.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-purple-500 dark:text-purple-400">
+              <span>● Kitchen Station Display</span>
+            </div>
+          </div>
+
+          {/* Card 3: Single Column */}
+          <div className="glass-card p-10 rounded-[2rem] flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-6">
+                <Package className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3 dark:text-zinc-100">Auto Inventory Sheets</h3>
+              <p className="text-on-surface/75 dark:text-zinc-300">
+                Track ingredients, waste audits, and item availability seamlessly as orders flow.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-emerald-500 dark:text-emerald-400">
+              <span>● Automatic Reordering</span>
+            </div>
+          </div>
+
+          {/* Asymmetrical Card 4: Double Column */}
+          <div className="glass-card p-10 rounded-[2rem] md:col-span-2 flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-500 flex items-center justify-center mb-6">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3 dark:text-zinc-100">AI Copilot Engine</h3>
+              <p className="text-on-surface/75 dark:text-zinc-300 max-w-xl">
+                Suggest menu optimizations, track revenue forecasts, and manage customer loyalty data using our embedded semantic model search.
+              </p>
+            </div>
+            <div className="mt-8 flex gap-4 text-xs font-bold text-orange-500 dark:text-orange-400">
+              <span>● VectorDB Search</span>
+              <span>● Revenue Models</span>
+              <span>● Staff Recommendations</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Tabbed Interactive Feature Showcase */}
+      <section className="py-section-gap bg-surface-container-low dark:bg-zinc-900/30 transition-colors duration-300" id="features">
+        <div className="max-w-container-max mx-auto px-margin-desktop">
+          <div className="text-center mb-12 reveal">
+            <h2 className="font-headline-xl text-headline-xl mb-4">Deep Interface Control</h2>
+            <p className="text-on-surface/75 dark:text-zinc-300 max-w-2xl mx-auto">
+              Click through our live modules to preview the user interfaces built for light and dark layouts.
+            </p>
+          </div>
+
+          {/* Tabs switch */}
+          <div className="flex justify-center space-x-2 mb-10 reveal">
+            {[
+              { id: 'cockpit', label: 'Live Cockpit', icon: Monitor },
+              { id: 'integrations', label: 'Sync Hub', icon: LinkIcon },
+              { id: 'analytics', label: 'Insights & Charts', icon: BarChart3 },
+              { id: 'orders', label: 'Order Lists', icon: FileText }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-6 py-3.5 rounded-full font-bold text-xs flex items-center space-x-2 transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-[#6311f4] text-white shadow-md'
+                      : 'bg-white dark:bg-zinc-800 text-on-surface/70 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-850 border border-gray-100 dark:border-zinc-750'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Tab Preview Frame */}
+          <div className="reveal">
+            <div className="glass-card p-3 rounded-[2.5rem] bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-white/30 dark:border-zinc-800/30 shadow-xl overflow-hidden">
+              <div className="relative group">
+                <img
+                  src={images[activeTab]}
+                  alt={`${activeTab} Interface Screenshot`}
+                  className="w-full h-auto rounded-[2rem] shadow-lg transform transition-transform duration-700 group-hover:scale-[1.01]"
+                />
+              </div>
+            </div>
+            <p className="text-center mt-6 italic text-sm text-on-surface/70 dark:text-zinc-400">
+              * Showing dynamic {isDark ? 'dark mode' : 'light mode'} layout screenshots. Switch theme in nav to preview the counterpart.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Designed for Every Restaurant Format (Petpooja style) */}
+      <section className="py-section-gap" id="solutions">
+        <div className="max-w-container-max mx-auto px-margin-desktop mb-20 text-center reveal">
+          <h2 className="font-headline-xl text-headline-xl mb-4 font-bold">One Platform for All Restaurant Types</h2>
+          <p className="text-on-surface/75 dark:text-zinc-300 max-w-2xl mx-auto">
+            OmniServe's operating system is modularized and custom-tailored to power every format of the food and beverage industry.
+          </p>
+        </div>
+
+        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 reveal">
+          {/* Fine Dine */}
+          <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-150 dark:border-zinc-800 p-8 rounded-[2rem] shadow-sm hover:border-[#6311f4] dark:hover:border-[#a07cff] transition-all duration-300 flex flex-col justify-between group">
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4]/10 dark:bg-[#6311f4]/20 flex items-center justify-center mb-6 text-2xl">
+                🍷
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-zinc-100 font-sans">Fine Dine & Table Service</h3>
+              <p className="text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                Manage physical floor layouts, guest table reservations, waiter captain call-outs, split bills, and course-by-course kitchen fire tickets.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-[#6311f4] dark:text-[#a07cff] flex items-center gap-1">
+              <span>Explore Fine Dine Features</span>
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+
+          {/* QSR */}
+          <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-150 dark:border-zinc-800 p-8 rounded-[2rem] shadow-sm hover:border-[#6311f4] dark:hover:border-[#a07cff] transition-all duration-300 flex flex-col justify-between group">
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4]/10 dark:bg-[#6311f4]/20 flex items-center justify-center mb-6 text-2xl">
+                ⚡
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-zinc-100 font-sans">Quick Service (QSR)</h3>
+              <p className="text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                Maximize counter throughput with lightning-fast billing, customer display integrations, automated token queue printouts, and offline billing modes.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-[#6311f4] dark:text-[#a07cff] flex items-center gap-1">
+              <span>Explore QSR Features</span>
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+
+          {/* Cafe & Bakery */}
+          <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-150 dark:border-zinc-800 p-8 rounded-[2rem] shadow-sm hover:border-[#6311f4] dark:hover:border-[#a07cff] transition-all duration-300 flex flex-col justify-between group">
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4]/10 dark:bg-[#6311f4]/20 flex items-center justify-center mb-6 text-2xl">
+                ☕
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-zinc-100 font-sans">Cafés, Bakeries & Bars</h3>
+              <p className="text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                Control raw material stock, manage precise menu item recipes, track batch expiry dates, and leverage happy-hour auto pricing tables.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-[#6311f4] dark:text-[#a07cff] flex items-center gap-1">
+              <span>Explore Cafe Features</span>
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+
+          {/* Cloud Kitchens */}
+          <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-150 dark:border-zinc-800 p-8 rounded-[2rem] shadow-sm hover:border-[#6311f4] dark:hover:border-[#a07cff] transition-all duration-300 flex flex-col justify-between group">
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4]/10 dark:bg-[#6311f4]/20 flex items-center justify-center mb-6 text-2xl">
+                ☁️
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-zinc-100 font-sans">Multi-Brand Cloud Kitchens</h3>
+              <p className="text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                Consolidate multiple brand channels (Swiggy, Zomato) into a unified dashboard, syncing central menu edits and route prep stations automatically.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-[#6311f4] dark:text-[#a07cff] flex items-center gap-1">
+              <span>Explore Cloud Kitchen Features</span>
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+
+          {/* Food Courts */}
+          <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-150 dark:border-zinc-800 p-8 rounded-[2rem] shadow-sm hover:border-[#6311f4] dark:hover:border-[#a07cff] transition-all duration-300 flex flex-col justify-between group">
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4]/10 dark:bg-[#6311f4]/20 flex items-center justify-center mb-6 text-2xl">
+                🏢
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-zinc-100 font-sans">Food Courts & Canteens</h3>
+              <p className="text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                Deploy central POS prepaid card checkouts, manage commission payouts per vendor brand, and coordinate KDS displays across disparate kitchens.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-[#6311f4] dark:text-[#a07cff] flex items-center gap-1">
+              <span>Explore Food Court Features</span>
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+
+          {/* Large Scale Franchise */}
+          <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-150 dark:border-zinc-800 p-8 rounded-[2rem] shadow-sm hover:border-[#6311f4] dark:hover:border-[#a07cff] transition-all duration-300 flex flex-col justify-between group">
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4]/10 dark:bg-[#6311f4]/20 flex items-center justify-center mb-6 text-2xl">
+                👑
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-zinc-100 font-sans">Enterprise Franchises</h3>
+              <p className="text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                Scale operations with global catalog managers, outlet-level inventory audits, hierarchical role permissions, and aggregated real-time financial reporting.
+              </p>
+            </div>
+            <div className="mt-8 text-xs font-bold text-[#6311f4] dark:text-[#a07cff] flex items-center gap-1">
+              <span>Explore Enterprise Features</span>
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Technology Stack Grid */}
+      <section className="py-section-gap bg-surface-container-low dark:bg-zinc-950/20 transition-colors duration-300" id="tech">
+        <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-16 reveal">
+          <h2 className="font-headline-xl text-headline-xl mb-4 font-bold">Built for Extreme Scale</h2>
+          <p className="text-on-surface/75 dark:text-zinc-300 max-w-xl mx-auto">
+            Our technology grid delivers sub-second synchronization and offline fail-safes.
           </p>
         </div>
 
         <div className="max-w-container-max mx-auto px-margin-desktop reveal">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {techStackGroups.map((group, index) => {
-              const IconComponent = group.icon;
-              return (
-                <div key={index} className="glass-card p-8 rounded-3xl">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2.5 rounded-xl bg-[#6311f4]/10 text-[#6311f4] dark:text-indigo-400">
-                      <IconComponent className="w-5 h-5" />
-                    </div>
-                    <h4 className="font-bold text-base text-on-surface">{group.category}</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {group.techs.map((tech, tIdx) => (
-                      <span
-                        key={tIdx}
-                        className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${tech.badge}`}
-                      >
-                        {tech.name}
-                      </span>
-                    ))}
-                  </div>
+          <div className="grid grid-cols-2 md:grid-cols-9 gap-6 text-center items-start">
+            {[
+              { label: 'React', desc: 'Frontend', color: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400' },
+              { label: 'Node', desc: 'Backend', color: 'bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400' },
+              { label: 'Redis', desc: 'Caching', color: 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400' },
+              { label: 'Mongo', desc: 'Database', color: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' },
+              { label: 'WS', desc: 'Real-time', color: 'bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400' },
+              { label: 'Bus', desc: 'Events', color: 'bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400' },
+              { label: 'Vector', desc: 'VectorDB', color: 'bg-teal-50 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400' },
+              { label: 'Graph', desc: 'GraphDB', color: 'bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400' },
+              { label: 'RAG', desc: 'RAG Engine', color: 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400' }
+            ].map((tech) => (
+              <div key={tech.label} className="space-y-3 group cursor-default">
+                <div className={`h-20 w-20 mx-auto rounded-2xl flex items-center justify-center font-bold text-lg transition-transform duration-300 group-hover:scale-105 ${tech.color} border border-black/5 dark:border-white/5 shadow-xs`}>
+                  {tech.label}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Why OmniServe Comparative Grid */}
-      <section className="py-24 bg-surface-container border-y border-lp-border">
-        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 md:grid-cols-2 gap-12 reveal">
-          <div className="bg-slate-100 dark:bg-zinc-900 border border-lp-border dark:border-zinc-800 p-10 md:p-12 rounded-[2.5rem] shadow-xs">
-            <h3 className="font-headline-lg text-headline-lg mb-8 text-on-surface/40 dark:text-slate-500">Without OmniServe</h3>
-            <ul className="space-y-6">
-              <li className="flex items-start space-x-4">
-                <XCircle className="text-red-500 shrink-0 mt-1" />
-                <p className="text-on-surface-variant font-medium">Data scattered across 5+ disconnected apps</p>
-              </li>
-              <li className="flex items-start space-x-4">
-                <XCircle className="text-red-500 shrink-0 mt-1" />
-                <p className="text-on-surface-variant font-medium">Delivery and offline reports collated by hand</p>
-              </li>
-              <li className="flex items-start space-x-4">
-                <XCircle className="text-red-500 shrink-0 mt-1" />
-                <p className="text-on-surface-variant font-medium">No visibility into SLA breaches or wastage until it's too late</p>
-              </li>
-            </ul>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 p-10 md:p-12 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <CheckCheck className="w-32 h-32 text-indigo-400" />
-            </div>
-            <h3 className="font-headline-lg text-headline-lg mb-8 text-indigo-400">With OmniServe</h3>
-            <ul className="space-y-6">
-              <li className="flex items-start space-x-4">
-                <CheckCircle className="text-emerald-400 shrink-0 mt-1" />
-                <p className="text-slate-200 font-medium">One source of truth for every checkout and session</p>
-              </li>
-              <li className="flex items-start space-x-4">
-                <CheckCircle className="text-emerald-400 shrink-0 mt-1" />
-                <p className="text-slate-200 font-medium">Billing and inventory sync automatically</p>
-              </li>
-              <li className="flex items-start space-x-4">
-                <CheckCircle className="text-emerald-400 shrink-0 mt-1" />
-                <p className="text-slate-200 font-medium">Predictive alerts catch waste and delays before they cost you</p>
-              </li>
-            </ul>
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-on-surface/50 dark:text-zinc-500 font-bold">{tech.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -1239,288 +1043,198 @@ export default function LandingPage() {
       {/* Meet Our Team */}
       <section className="py-24">
         <div className="max-w-container-max mx-auto px-margin-desktop text-center mb-16 reveal">
-          <div className="inline-flex items-center space-x-2 bg-[#6311f4]/10 px-3.5 py-1 rounded-full mb-4 border border-[#6311f4]/20">
-            <span className="text-[#6311f4] dark:text-indigo-400 font-bold text-xs uppercase tracking-widest">Founding Team</span>
-          </div>
-          <h2 className="font-headline-xl text-headline-xl mb-4 text-on-surface">The Minds Behind OmniServe</h2>
-          <p className="text-on-surface-variant max-w-lg mx-auto text-body-md">
-            Engineers and designers building enterprise SaaS tools for global hospitality.
-          </p>
+          <h2 className="font-headline-xl text-headline-xl mb-4 font-bold">The Minds Behind OmniServe</h2>
+          <p className="text-on-surface/75 dark:text-zinc-300">Experts in operations, scale engineering, and product systems.</p>
         </div>
         <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 reveal">
           {teamMembers.map((member) => (
-            <div key={member.name} className="text-center group">
-              <div className="w-48 h-48 mx-auto mb-6 relative">
-                <div className="absolute inset-0 bg-[#6311f4]/5 rounded-full"></div>
+            <div key={member.name} className="text-center group bg-white/30 dark:bg-zinc-900/30 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 transition-all hover:-translate-y-1">
+              <div className="w-40 h-40 mx-auto mb-6 relative">
+                <div className="absolute inset-0 bg-[#6311f4]/15 rounded-full group-hover:scale-105 transition-transform duration-500"></div>
                 <img
-                  className="w-40 h-40 rounded-full mx-auto relative top-4 object-cover border-2 border-lp-border group-hover:border-[#6311f4]/50 transition-colors duration-300"
+                  className="w-32 h-32 rounded-full mx-auto relative top-4 object-cover"
                   src={member.image}
                   alt={member.name}
                 />
               </div>
-              <h4 className="font-bold text-lg text-on-surface">{member.name}</h4>
+              <h4 className="font-bold text-lg dark:text-zinc-100">{member.name}</h4>
+              <p className="text-xs text-[#6311f4] dark:text-[#a07cff] font-bold uppercase tracking-wider mt-1.5">{member.role}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="py-24 bg-surface-container-low border-y border-lp-border">
+      <section className="py-section-gap bg-surface-container-low dark:bg-zinc-950/20 transition-colors duration-300">
         <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 md:grid-cols-3 gap-8 reveal">
-          {/* Review 1: 5 Stars */}
-          <div className="glass-card p-10 rounded-[2rem] flex flex-col justify-between">
-            <div>
-              <div className="flex mb-6 space-x-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="fill-[#FFB800] text-[#FFB800] w-4.5 h-4.5" />
-                ))}
-              </div>
-              <p className="italic text-lg text-on-surface font-medium leading-relaxed mb-8">
-                "OmniServe reduced our operational leakage by 22% in the first quarter alone. The inventory automation is unmatched."
-              </p>
+          <div className="glass-card p-10 rounded-[2rem]">
+            <div className="flex text-amber-500 mb-6 space-x-1">
+              {[...Array(5)].map((_, i) => <Star key={i} className="fill-current w-4 h-4 text-amber-400 fill-amber-400" />)}
             </div>
-            <div className="flex items-center space-x-4 border-t border-lp-border pt-4">
-              <div className="w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center font-bold text-[#6311f4] bg-[#6311f4]/15">JM</div>
+            <p className="italic text-lg mb-8">"OmniServe reduced our operational leakage by 22% in the first quarter alone. The inventory automation is unmatched."</p>
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-sm select-none border border-teal-500/20">JM</div>
               <div>
-                <p className="font-bold text-on-surface text-sm">Julia Mendez</p>
-                <p className="text-xs text-on-surface-variant">Director, Gusto Group</p>
+                <p className="font-bold dark:text-zinc-100 font-sans">Julia Mendez</p>
+                <p className="text-xs dark:text-zinc-400 font-sans">Director, Gusto Group</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="glass-card p-10 rounded-[2rem]">
+            <div className="flex text-amber-500 mb-6 space-x-1">
+              {[...Array(5)].map((_, i) => <Star key={i} className="fill-current w-4 h-4 text-amber-400 fill-amber-400" />)}
+            </div>
+            <p className="italic text-lg mb-8">"Finally, a platform that understands the complexity of multi-outlet kitchen displays. Real-time updates are truly real-time."</p>
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-full bg-[#fc8a63]/10 text-[#fc8a63] dark:text-[#ff9c7a] flex items-center justify-center font-bold text-sm select-none border border-[#fc8a63]/20">KW</div>
+              <div>
+                <p className="font-bold dark:text-zinc-100 font-sans">Kenji Wu</p>
+                <p className="text-xs dark:text-zinc-400 font-sans">Operations Lead, Urban Eats</p>
               </div>
             </div>
           </div>
 
-          {/* Review 2: 5 Stars */}
-          <div className="glass-card p-10 rounded-[2rem] flex flex-col justify-between">
-            <div>
-              <div className="flex mb-6 space-x-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="fill-[#FFB800] text-[#FFB800] w-4.5 h-4.5" />
-                ))}
-              </div>
-              <p className="italic text-lg text-on-surface font-medium leading-relaxed mb-8">
-                "Finally, a platform that understands the complexity of multi-outlet kitchen displays. Real-time updates are truly real-time."
-              </p>
+          <div className="glass-card p-10 rounded-[2rem]">
+            <div className="flex text-amber-500 mb-6 space-x-1">
+              {[...Array(5)].map((_, i) => <Star key={i} className="fill-current w-4 h-4 text-amber-400 fill-amber-400" />)}
             </div>
-            <div className="flex items-center space-x-4 border-t border-lp-border pt-4">
-              <div className="w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center font-bold text-[#6311f4] bg-[#6311f4]/15">KW</div>
+            <p className="italic text-lg mb-8">"Integrating with Swiggy and Zomato used to be a nightmare. With OmniServe, it's a one-click setup. Absolute game changer."</p>
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-full bg-[#6311f4]/10 text-[#6311f4] dark:text-[#b490ff] flex items-center justify-center font-bold text-sm select-none border border-[#6311f4]/20">RH</div>
               <div>
-                <p className="font-bold text-on-surface text-sm">Kenji Wu</p>
-                <p className="text-xs text-on-surface-variant">Operations Lead, Urban Eats</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Review 3: 4 Stars */}
-          <div className="glass-card p-10 rounded-[2rem] flex flex-col justify-between">
-            <div>
-              <div className="flex mb-6 space-x-1">
-                {[...Array(4)].map((_, i) => (
-                  <Star key={i} className="fill-[#FFB800] text-[#FFB800] w-4.5 h-4.5" />
-                ))}
-                <Star className="text-slate-300 dark:text-zinc-700 w-4.5 h-4.5" />
-              </div>
-              <p className="italic text-lg text-on-surface font-medium leading-relaxed mb-8">
-                "Integrating with Swiggy and Zomato used to be a nightmare. With OmniServe, it's a one-click setup. Absolute game changer."
-              </p>
-            </div>
-            <div className="flex items-center space-x-4 border-t border-lp-border pt-4">
-              <div className="w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center font-bold text-[#6311f4] bg-[#6311f4]/15">RH</div>
-              <div>
-                <p className="font-bold text-on-surface text-sm">Robert Hart</p>
-                <p className="text-xs text-on-surface-variant">Founder, Bistro Cloud</p>
+                <p className="font-bold dark:text-zinc-100 font-sans">Robert Hart</p>
+                <p className="text-xs dark:text-zinc-400 font-sans">Founder, Bistro Cloud</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Frequently Asked Questions */}
-      <section className="py-24">
+      {/* FAQ accordion section */}
+      <section className="py-section-gap">
         <div className="max-w-3xl mx-auto px-margin-desktop reveal">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center space-x-2 bg-indigo-500/10 px-3.5 py-1 rounded-full mb-4 border border-indigo-500/20">
-              <span className="text-[#6311f4] dark:text-indigo-400 font-bold text-xs uppercase tracking-widest">Support Portal</span>
-            </div>
-            <h2 className="font-headline-xl text-headline-xl mb-4 text-on-surface">Frequently Asked Questions</h2>
-            <p className="text-on-surface-variant text-body-md">
-              Clear answers to the most common queries regarding implementation, billing and setup.
-            </p>
-          </div>
+          <h2 className="font-headline-xl text-headline-xl mb-12 text-center font-bold">Frequently Asked Questions</h2>
           <div className="space-y-4">
             {[
-              { q: 'What is OmniServe?', a: 'OmniServe is a next-generation Restaurant Operating System that merges your POS, Kitchen Display Systems (KDS), Table QR ordering, Inventory logs, and delivery channels into a unified network.' },
-              { q: 'Who is it built for?', a: 'It is built specifically for enterprise restaurant operators, multi-brand cloud kitchens, franchises, and food tech groups looking to scale operations.' },
-              { q: 'Can I manage multiple outlets?', a: 'Yes. OmniServe supports hierarchical tenant scopes allowing admins to toggle between, compare, and modify settings across hundreds of outlets.' },
-              { q: 'Does it support QR ordering?', a: 'Absolutely. Customers can scan table-specific QR codes to review live digital menus and execute payments without needing an app download.' },
-              { q: 'Can I integrate with existing POS systems?', a: 'Yes, OmniServe integrates natively with leading POS systems and legacy ERP solutions like SAP and Oracle via our REST APIs.' },
-              { q: 'Is onboarding easy?', a: 'Yes. Single outlets can go live in 48 hours. Mid-size chains with up to 50 outlets typically complete rollout and employee onboarding within 2 weeks.' },
-              { q: 'Does OmniServe provide real-time analytics?', a: 'Yes. We track gross and net sales, order volume mix, preparation SLAs, and kitchen bottlenecks on real-time webhooks.' },
-              { q: 'What security measures are in place?', a: 'All data is encrypted in transit and at rest. We provide granular Role-Based Access Control (RBAC) and maintain full system audit logs.' },
-              { q: 'How does offline mode function?', a: 'Our local sync node continues running billing terminals and kitchen displays even during internet outages, updating automatically once connectivity returns.' },
-              { q: 'What support SLA is available?', a: 'Enterprise plans feature 24/7 dedicated support, emergency phone response, and an assigned implementation architect.' }
-            ].map((faq, index) => {
-              const isOpen = !!faqOpen[index];
-              return (
-                <div key={index} className="glass-card rounded-2xl overflow-hidden border border-lp-border">
-                  <button
-                    className="w-full p-6 text-left font-bold flex justify-between items-center hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors text-on-surface focus:outline-hidden"
-                    onClick={() => toggleFaq(index)}
-                    aria-expanded={isOpen}
-                  >
-                    <span className="text-base">{faq.q}</span>
-                    <ChevronDown className={`w-5 h-5 text-[#6311f4] dark:text-indigo-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
-                  </button>
-                  <div
-                    className="px-6 transition-all duration-300 overflow-hidden"
-                    style={{
-                      maxHeight: isOpen ? '160px' : '0px',
-                      paddingBottom: isOpen ? '1.5rem' : '0px',
-                      paddingTop: isOpen ? '0.5rem' : '0px'
-                    }}
-                  >
-                    <p className="text-on-surface-variant text-sm leading-relaxed">{faq.a}</p>
-                  </div>
+              { q: 'How long does implementation take?', a: 'Typically, a single outlet can be live within 48 hours. Enterprise groups with 50+ locations usually complete roll-out in 2-3 weeks.' },
+              { q: 'Do you support offline mode?', a: 'Yes. Our local sync engine ensures KDS and Billing continue to function even during internet outages, syncing automatically when connection returns.' },
+              { q: 'Can we integrate our ERP?', a: 'Absolutely. OmniServe has native webhooks and a RESTful API to connect with SAP, Oracle, and custom ERP solutions.' },
+              { q: 'How does OmniServe ensure high availability and scale?', a: 'OmniServe is built on a distributed, event-driven architecture utilizing high-performance Redis caching, MongoDB databases, and PGVector database search. Our multi-tenant system is engineered to sustain high concurrency during peak dining hours.' },
+              { q: 'What payment modes and aggregators are supported?', a: 'We support out-of-the-box integrations with major delivery channels like Swiggy and Zomato, as well as multiple digital payment methods (UPI, cards, wallets) through pre-integrated enterprise payment gateways.' },
+              { q: 'Can I manage permissions and roles for different staff members?', a: 'Yes, OmniServe has built-in role-based access control. You can assign roles such as Super Admin, Outlet Manager, and Kitchen Staff, configuring specific permissions per location.' }
+            ].map((faq, index) => (
+              <div key={index} className="glass-card rounded-2xl overflow-hidden border border-gray-100 dark:border-zinc-800">
+                <button
+                  className="w-full p-6 text-left font-bold flex justify-between items-center hover:bg-gray-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer"
+                  onClick={() => toggleFaq(index)}
+                >
+                  <span className="text-on-surface dark:text-zinc-100 text-base">{faq.q}</span>
+                  <ChevronDown className={`w-5 h-5 text-on-surface/50 dark:text-zinc-400 transition-transform duration-300 ${faqOpen[index] ? 'rotate-180' : 'rotate-0'}`} />
+                </button>
+                <div
+                  className="px-6 transition-all duration-300 overflow-hidden"
+                  style={{
+                    maxHeight: faqOpen[index] ? '200px' : '0px',
+                    paddingBottom: faqOpen[index] ? '1.5rem' : '0px',
+                    paddingTop: faqOpen[index] ? '0.5rem' : '0px'
+                  }}
+                >
+                  <p className="text-on-surface/85 dark:text-zinc-350 text-sm leading-relaxed">{faq.a}</p>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Contact Us Section */}
-      <section id="contact" className="py-20 sm:py-24 bg-surface-container border-y border-lp-border">
-        <div className="max-w-container-max mx-auto px-4 sm:px-6 lg:px-margin-desktop reveal">
-          <div className="glass-card p-6 sm:p-8 md:p-12 lg:p-16 rounded-[2rem] md:rounded-[3rem] overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#6311f4]/5 rounded-full -mr-32 -mt-32 pointer-events-none"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-10 lg:gap-12 items-center relative z-10">
+      {/* Contact Section */}
+      <section id="contact" className="py-section-gap bg-surface-container-low dark:bg-zinc-950/20 transition-colors duration-300">
+        <div className="max-w-container-max mx-auto px-margin-desktop reveal">
+          <div className="glass-card p-12 md:p-20 rounded-[3rem] bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 shadow-xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#6311f4]/5 rounded-full -mr-32 -mt-32"></div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
               <div>
-                <div className="inline-flex items-center space-x-2 bg-[#fc8a63]/10 px-3.5 py-1 rounded-full mb-6 border border-[#fc8a63]/20">
-                  <span className="text-[#fc8a63] font-bold text-xs uppercase tracking-widest">Get In Touch</span>
-                </div>
-                <h2 className="font-headline-xl text-headline-xl md:font-display-lg md:text-display-lg mb-6 text-on-surface">Contact Us</h2>
-                <p className="text-on-surface-variant text-body-lg mb-10 leading-relaxed">
-                  Ready to bring your operations onto one platform? Reach out for a system audit and consultation, tailored to your outlets.
+                <h2 className="font-display-lg text-display-lg mb-6 text-on-surface dark:text-white">Reach Our Enterprise Team</h2>
+                <p className="text-on-surface/80 dark:text-zinc-300 text-body-lg mb-10">
+                  Ready to optimize your restaurant operations? Contact our solutions experts for a custom setup blueprint.
                 </p>
+                
                 <div className="space-y-6">
-                  <div className="flex items-center space-x-5">
-                    <div className="w-12 h-12 bg-[#6311f4]/10 flex items-center justify-center rounded-xl text-[#6311f4] dark:text-indigo-400">
-                      <Mail className="w-5 h-5" />
+                  <div className="flex items-center space-x-6">
+                    <div className="w-14 h-14 bg-secondary-container dark:bg-zinc-800 flex items-center justify-center rounded-2xl border border-[#61f6ea]/20">
+                      <Mail className="text-secondary dark:text-zinc-300 w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Email Us</p>
-                      <a className="text-base font-bold text-[#6311f4] dark:text-indigo-400 hover:underline no-underline" href="mailto:yusuf.rgpv@gmail.com">yusuf.rgpv@gmail.com</a>
+                      <p className="text-xs font-bold uppercase tracking-wider text-on-surface/50 dark:text-zinc-500">Email Us</p>
+                      <a className="text-lg font-bold hover:text-brand-accent transition-colors dark:text-zinc-200" href="mailto:omniserve.team@gmail.com">omniserve.team@gmail.com</a>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-5">
-                    <div className="w-12 h-12 bg-[#6311f4]/10 flex items-center justify-center rounded-xl text-[#6311f4] dark:text-indigo-400">
-                      <Phone className="w-5 h-5" />
+                  
+                  <div className="flex items-center space-x-6">
+                    <div className="w-14 h-14 bg-secondary-container dark:bg-zinc-800 flex items-center justify-center rounded-2xl border border-[#61f6ea]/20">
+                      <Phone className="text-secondary dark:text-zinc-300 w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Call Us</p>
-                      <a className="text-base font-bold text-[#6311f4] dark:text-indigo-400 hover:underline no-underline" href="tel:+919939608743">+91 99396 08743</a>
+                      <p className="text-xs font-bold uppercase tracking-wider text-on-surface/50 dark:text-zinc-500">Call Us</p>
+                      <a className="text-lg font-bold hover:text-brand-accent transition-colors dark:text-zinc-200" href="tel:+919939608743">+91 99396 08743</a>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-zinc-950 p-5 sm:p-6 md:p-8 rounded-3xl border border-lp-border dark:border-zinc-800 shadow-md">
-                {formStatus === 'success' ? (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <CheckCheck className="w-8 h-8" />
-                    </div>
-                    <h3 className="font-bold text-xl mb-3 text-on-surface">Message Sent!</h3>
-                    <p className="text-on-surface-variant text-sm leading-relaxed max-w-sm mx-auto">
-                      Thank you for contacting OmniServe support. Our enterprise team will reply to <span className="font-semibold">{submittedEmail}</span>.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setFormData({ firstName: '', lastName: '', phone: '', email: '', message: '' });
-                        setSubmittedEmail('');
-                        setFormStatus('idle');
-                      }}
-                      className="mt-6 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-on-surface rounded-xl text-xs font-bold transition-colors"
-                    >
-                      Send another message
-                    </button>
+              <div className="bg-[#f7f6fc] dark:bg-zinc-950 p-8 rounded-3xl border border-gray-200 dark:border-zinc-850">
+                <form className="space-y-4" onSubmit={handleContactSubmit}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input 
+                      required 
+                      className="w-full px-6 py-4 rounded-xl border border-outline-variant dark:border-zinc-800 focus:ring-brand-accent focus:border-brand-accent bg-white dark:bg-zinc-900 dark:text-zinc-200 font-sans text-sm outline-none" 
+                      placeholder="First Name" 
+                      type="text" 
+                      value={contactForm.firstName}
+                      onChange={(e) => setContactForm({ ...contactForm, firstName: e.target.value })}
+                    />
+                    <input 
+                      required 
+                      className="w-full px-6 py-4 rounded-xl border border-outline-variant dark:border-zinc-800 focus:ring-brand-accent focus:border-brand-accent bg-white dark:bg-zinc-900 dark:text-zinc-200 font-sans text-sm outline-none" 
+                      placeholder="Last Name" 
+                      type="text" 
+                      value={contactForm.lastName}
+                      onChange={(e) => setContactForm({ ...contactForm, lastName: e.target.value })}
+                    />
                   </div>
-                ) : (
-                  <form className="space-y-4" onSubmit={handleContactSubmit}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-on-surface-variant mb-1.5">First Name *</label>
-                        <input
-                          className="w-full px-4 py-3 rounded-xl border border-lp-border dark:border-zinc-800 focus:outline-hidden focus:ring-1 focus:ring-[#6311f4] bg-slate-50/50 dark:bg-zinc-900/50 text-on-surface text-sm"
-                          placeholder="First Name"
-                          type="text"
-                          required
-                          disabled={formStatus === 'submitting'}
-                          value={formData.firstName}
-                          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-on-surface-variant mb-1.5">Last Name</label>
-                        <input
-                          className="w-full px-4 py-3 rounded-xl border border-lp-border dark:border-zinc-800 focus:outline-hidden focus:ring-1 focus:ring-[#6311f4] bg-slate-50/50 dark:bg-zinc-900/50 text-on-surface text-sm"
-                          placeholder="Second Name"
-                          type="text"
-                          disabled={formStatus === 'submitting'}
-                          value={formData.lastName}
-                          onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-on-surface-variant mb-1.5">Mobile Number</label>
-                      <input
-                        className="w-full px-4 py-3 rounded-xl border border-lp-border dark:border-zinc-800 focus:outline-hidden focus:ring-1 focus:ring-[#6311f4] bg-slate-50/50 dark:bg-zinc-900/50 text-on-surface text-sm"
-                        placeholder="e.g. +91 99396 08743"
-                        type="tel"
-                        disabled={formStatus === 'submitting'}
-                        value={formData.phone || ''}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-on-surface-variant mb-1.5">Email Address *</label>
-                      <input
-                        className="w-full px-4 py-3 rounded-xl border border-lp-border dark:border-zinc-800 focus:outline-hidden focus:ring-1 focus:ring-[#6311f4] bg-slate-50/50 dark:bg-zinc-900/50 text-on-surface text-sm"
-                        placeholder="xyz@omniserve.io"
-                        type="email"
-                        required
-                        disabled={formStatus === 'submitting'}
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-on-surface-variant mb-1.5">Message *</label>
-                      <textarea
-                        className="w-full px-4 py-3 rounded-xl border border-lp-border dark:border-zinc-800 focus:outline-hidden focus:ring-1 focus:ring-[#6311f4] bg-slate-50/50 dark:bg-zinc-900/50 text-on-surface text-sm"
-                        placeholder="Tell us about your restaurant operations..."
-                        rows="4"
-                        required
-                        disabled={formStatus === 'submitting'}
-                        value={formData.message}
-                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      ></textarea>
-                    </div>
-
-                    {formStatus === 'error' && (
-                      <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-xs rounded-xl font-medium">
-                        {formError}
-                      </div>
-                    )}
-
-                    <button
-                      className="w-full py-4 bg-[#6311f4] hover:bg-[#520dd4] disabled:bg-slate-300 text-white rounded-xl font-bold transition-all shadow-md shadow-[#6311f4]/15"
-                      type="submit"
-                      disabled={formStatus === 'submitting'}
-                    >
-                      {formStatus === 'submitting' ? 'Submitting Message...' : 'Send Message'}
-                    </button>
-                  </form>
-                )}
+                  <input 
+                    required 
+                    className="w-full px-6 py-4 rounded-xl border border-outline-variant dark:border-zinc-800 focus:ring-brand-accent focus:border-brand-accent bg-white dark:bg-zinc-900 dark:text-zinc-200 font-sans text-sm outline-none" 
+                    placeholder="Work Email" 
+                    type="email" 
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  />
+                  <input 
+                    className="w-full px-6 py-4 rounded-xl border border-outline-variant dark:border-zinc-800 focus:ring-brand-accent focus:border-brand-accent bg-white dark:bg-zinc-900 dark:text-zinc-200 font-sans text-sm outline-none" 
+                    placeholder="Phone Number (Optional)" 
+                    type="tel" 
+                    value={contactForm.phone}
+                    onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  />
+                  <textarea 
+                    required 
+                    className="w-full px-6 py-4 rounded-xl border border-outline-variant dark:border-zinc-800 focus:ring-brand-accent focus:border-brand-accent bg-white dark:bg-zinc-900 dark:text-zinc-200 font-sans text-sm outline-none" 
+                    placeholder="How can we help?" 
+                    rows="4"
+                    value={contactForm.message}
+                    onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                  ></textarea>
+                  <button 
+                    disabled={contactSubmitting} 
+                    className="w-full py-4.5 bg-gradient-to-r from-[#6311f4] to-[#510cc4] disabled:from-gray-400 disabled:to-gray-555 text-white rounded-xl font-bold hover:scale-[1.01] transition-all shadow-md cursor-pointer border-none" 
+                    type="submit"
+                  >
+                    {contactSubmitting ? 'Sending...' : 'Send Message'}
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -1528,90 +1242,73 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-24 max-w-container-max mx-auto px-margin-desktop reveal">
-        <div className="bg-slate-900 rounded-[3rem] p-12 md:p-20 text-center text-white relative overflow-hidden border border-slate-800 shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#6311f4]/25 to-transparent pointer-events-none"></div>
+      <section className="py-section-gap max-w-container-max mx-auto px-margin-desktop reveal">
+        <div className="bg-[#0b1f4a] dark:bg-zinc-950 rounded-[3rem] p-16 md:p-24 text-center text-white relative overflow-hidden border border-white/5 shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#6311f4]/20 to-transparent"></div>
           <div className="relative z-10 max-w-2xl mx-auto">
-            <h2 className="font-display-lg text-display-lg mb-6 text-white leading-tight">Ready to run one operation?</h2>
-            <p className="text-lg text-slate-300 mb-10">
-              Join 1,200+ restaurant groups worldwide who moved off spreadsheets and onto OmniServe.
+            <h2 className="font-display-lg text-display-lg mb-8 leading-tight">Ready to Modernize Your Operations?</h2>
+            <p className="text-lg text-zinc-200 mb-12">
+              Join 1,200+ restaurant groups scaling seamlessly with OmniServe's integrated modules.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link className="px-10 py-4.5 bg-[#6311f4] hover:bg-[#520dd4] text-white rounded-xl font-bold text-base transition-colors shadow-lg shadow-[#6311f4]/20 no-underline" to="/login">
-                Get Started
-              </Link>
-              <button onClick={scrollToContact} className="px-10 py-4.5 bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl font-bold text-base border border-white/15 transition-colors text-white">
-                Schedule a Call
-              </button>
+              <Link className="px-10 py-5 bg-white text-[#6311f4] hover:bg-gray-50 rounded-2xl font-bold text-base hover:scale-105 transition-all shadow-md" to="/login">Let's Get Started</Link>
+              <a href="#contact" className="px-10 py-5 bg-white/10 backdrop-blur-md rounded-2xl font-bold text-base border border-white/20 hover:bg-white/20 hover:scale-105 transition-all flex items-center justify-center text-white">Schedule a Call</a>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-zinc-950 rounded-t-[3rem] border-t border-lp-border dark:border-zinc-900 pt-20 pb-10 transition-colors relative overflow-hidden">
-        {/* Decorative top border highlight */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#6311f4]/30 to-transparent"></div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 px-margin-desktop max-w-container-max mx-auto reveal mb-16">
-          <div className="md:col-span-4 space-y-6">
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="OmniServe Logo" className="w-9 h-9 object-contain rounded-xl shadow-xs" />
-              <span className="font-hanken font-bold text-xl text-on-surface tracking-tight">OmniServe</span>
-            </div>
-            <p className="text-on-surface-variant text-sm leading-relaxed max-w-sm">
+      <footer className="bg-surface-container-lowest dark:bg-[#0f0e11] rounded-t-[3rem] border-t border-outline-variant dark:border-zinc-850 transition-colors duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-16 max-w-container-max mx-auto reveal">
+          <div className="space-y-6">
+            <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2 select-none cursor-pointer">
+              <img src="/omniserve_logo.png" alt="OmniServe Logo" className="h-9 w-auto object-contain" />
+              <span className="font-headline-lg text-headline-lg font-bold text-on-surface dark:text-zinc-100 tracking-tight">OmniServe</span>
+            </Link>
+            <p className="text-on-surface dark:text-zinc-355 text-sm leading-relaxed font-sans">
               Empowering the world's best restaurants with the most advanced operational software on the market.
             </p>
-            <div className="flex space-x-3.5 pt-2">
-              <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-zinc-900 border border-lp-border dark:border-zinc-800 flex items-center justify-center cursor-pointer hover:bg-[#6311f4] hover:text-white dark:hover:bg-indigo-500 dark:hover:text-zinc-950 transition-colors duration-200 text-on-surface-variant">
-                <TwitterIcon className="w-4 h-4" />
-              </div>
-              <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-zinc-900 border border-lp-border dark:border-zinc-800 flex items-center justify-center cursor-pointer hover:bg-[#6311f4] hover:text-white dark:hover:bg-indigo-500 dark:hover:text-zinc-950 transition-colors duration-200 text-on-surface-variant">
-                <LinkedinIcon className="w-4 h-4" />
-              </div>
-              <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-zinc-900 border border-lp-border dark:border-zinc-800 flex items-center justify-center cursor-pointer hover:bg-[#6311f4] hover:text-white dark:hover:bg-indigo-500 dark:hover:text-zinc-950 transition-colors duration-200 text-on-surface-variant">
-                <InstagramIcon className="w-4 h-4" />
-              </div>
+            <div className="flex space-x-4">
+              <TwitterIcon className="w-5 h-5 text-on-surface dark:text-zinc-300 cursor-pointer hover:text-brand-accent dark:hover:text-[#a07cff] transition-colors" />
+              <LinkedinIcon className="w-5 h-5 text-on-surface dark:text-zinc-300 cursor-pointer hover:text-brand-accent dark:hover:text-[#a07cff] transition-colors" />
+              <InstagramIcon className="w-5 h-5 text-on-surface dark:text-zinc-300 cursor-pointer hover:text-brand-accent dark:hover:text-[#a07cff] transition-colors" />
             </div>
           </div>
-
-          <div className="md:col-span-2">
-            <h4 className="font-bold text-xs uppercase tracking-widest text-[#6311f4] dark:text-indigo-400 mb-6">Product</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant p-0 m-0 list-none">
-              <li><a href="#product" className="inline-block hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors no-underline text-inherit font-medium">Operations Cockpit</a></li>
-              <li><a href="#product" className="inline-block hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors no-underline text-inherit font-medium">Smart Inventory</a></li>
-              <li><a href="#product" className="inline-block hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors no-underline text-inherit font-medium">Unified Billing</a></li>
-              <li><a href="#product" className="inline-block hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors no-underline text-inherit font-medium">KDS Engine</a></li>
+          <div>
+            <h4 className="font-bold mb-6 dark:text-zinc-200">Platform</h4>
+            <ul className="space-y-4 text-sm text-on-surface dark:text-zinc-400">
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Operations Cockpit</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Smart Inventory</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Unified Billing</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">KDS Engine</li>
             </ul>
           </div>
-
-          <div className="md:col-span-3">
-            <h4 className="font-bold text-xs uppercase tracking-widest text-[#6311f4] dark:text-indigo-400 mb-6">Security & Trust</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant p-0 m-0 list-none">
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">Enterprise SLA</li>
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">Privacy Protocol</li>
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">Encryption Standards</li>
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">Global Audit Logs</li>
+          <div>
+            <h4 className="font-bold mb-6 dark:text-zinc-200">Security</h4>
+            <ul className="space-y-4 text-sm text-on-surface dark:text-zinc-400">
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Enterprise SLA</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Privacy Policy</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Data Encryption</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Audit Logs</li>
             </ul>
           </div>
-
-          <div className="md:col-span-3">
-            <h4 className="font-bold text-xs uppercase tracking-widest text-[#6311f4] dark:text-indigo-400 mb-6">Support</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant p-0 m-0 list-none">
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">System Documentation</li>
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">Customer Case Studies</li>
-              <li className="hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors cursor-pointer font-medium">Knowledge Base</li>
-              <li><a href="#contact" className="inline-block hover:text-[#6311f4] dark:hover:text-indigo-400 duration-200 transition-colors no-underline text-inherit font-medium">Contact Support</a></li>
+          <div>
+            <h4 className="font-bold mb-6 dark:text-zinc-200">Support</h4>
+            <ul className="space-y-4 text-sm text-on-surface dark:text-zinc-400">
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">API Docs</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Case Studies</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Knowledge Base</li>
+              <li className="hover:text-brand-accent transition-colors cursor-pointer">Contact Us</li>
             </ul>
           </div>
         </div>
-
-        <div className="max-w-container-max mx-auto px-margin-desktop pt-8 border-t border-lp-border dark:border-zinc-900 flex flex-col sm:flex-row justify-between items-center text-xs text-on-surface-variant gap-4">
-          <p className="font-medium">© 2026 OmniServe Enterprise Solutions. All rights reserved.</p>
-          <div className="flex space-x-6 font-medium">
-            <span className="cursor-pointer hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors">Terms of Service</span>
-            <span className="cursor-pointer hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors">Privacy Policy</span>
-            <span className="cursor-pointer hover:text-[#6311f4] dark:hover:text-indigo-400 transition-colors">Cookies Policy</span>
+        <div className="max-w-container-max mx-auto px-margin-desktop py-8 border-t border-outline-variant/30 dark:border-zinc-800/40 flex justify-between items-center text-xs dark:text-zinc-400">
+          <p>© 2024 OmniServe Enterprise Solutions. All rights reserved.</p>
+          <div className="flex space-x-6">
+            <span className="cursor-pointer hover:underline">Terms of Service</span>
+            <span className="cursor-pointer hover:underline">Privacy Policy</span>
+            <span className="cursor-pointer hover:underline">Cookies</span>
           </div>
         </div>
       </footer>

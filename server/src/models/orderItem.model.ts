@@ -19,6 +19,7 @@ export interface IOrderItem extends Document {
   notes?: string;
   course: 'IMMEDIATE' | 'STARTERS' | 'MAINS' | 'DESSERTS';
   holdStatus: 'HELD' | 'FIRE_REQUESTED' | 'FIRED';
+  status: 'ACTIVE' | 'CANCELLED';
   firedAt?: Date | null;
   kdsStation?: string | null;  // e.g. "HOT", "COLD", "BAR", "GRILL"
   createdBy: Types.ObjectId | null;
@@ -97,6 +98,14 @@ const orderItemSchema = new Schema<IOrderItem>(
         message: 'Invalid hold status: {VALUE}',
       },
       default: 'FIRED',
+    },
+    status: {
+      type: String,
+      enum: {
+        values: ['ACTIVE', 'CANCELLED'],
+        message: 'Invalid order item status: {VALUE}',
+      },
+      default: 'ACTIVE',
     },
     firedAt: {
       type: Date,

@@ -25,8 +25,8 @@ export default function CheckoutPage() {
     !!localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-");
 
   // Form states
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerName, setCustomerName] = useState(() => localStorage.getItem("guestName") || "");
+  const [customerPhone, setCustomerPhone] = useState(() => localStorage.getItem("guestPhone") || "");
   const [customerEmail, setCustomerEmail] = useState("");
 
   const [fulfillmentType, setFulfillmentType] = useState(hasTableSession ? "DINE_IN" : "DELIVERY");
@@ -140,6 +140,24 @@ export default function CheckoutPage() {
 
     setCheckingOut(true);
 
+    let customerLocation = undefined;
+    if (fulfillmentType === "DINE_IN") {
+      try {
+        const coords = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+            (err) => reject(err),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        });
+        customerLocation = coords;
+      } catch (locationErr) {
+        alert("Location permission is required to place a dine-in order. Please enable location services in your browser.");
+        setCheckingOut(false);
+        return;
+      }
+    }
+
     // Extract UTM attributes
     const query = new URLSearchParams(window.location.search);
     const utmSource = query.get("utm_source") || "";
@@ -150,6 +168,7 @@ export default function CheckoutPage() {
     const payload = {
       cartId: cart._id,
       couponCode: appliedCoupon || undefined,
+      customerLocation,
       customer: {
         name: customerName,
         phone: customerPhone,

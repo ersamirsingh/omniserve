@@ -29,7 +29,10 @@ export class WaiterTaskService {
       SPOON: 300000,        // 5 minutes
       BILL: 180000,         // 3 minutes
       CLEANING: 600000,     // 10 minutes
-      CUSTOM: 300000        // 5 minutes
+      CUSTOM: 300000,       // 5 minutes
+      ORDER_CANCEL_REQUEST: 120000, // 2 minutes
+      TABLE_LEAVE_REQUEST: 180000,  // 3 minutes
+      PAYMENT_ASSISTANCE: 180000    // 3 minutes
     };
     return defaults[taskType] || 300000;
   }
@@ -294,6 +297,47 @@ export class WaiterTaskService {
     );
 
     return updatedTask;
+  }
+
+  /**
+   * Escalate a waiter task manually or automatically
+   */
+  static async escalateTask(taskId: string | Types.ObjectId): Promise<IWaiterTask> {
+    const now = new Date();
+    const task = await WaiterTask.findOneAndUpdate(
+      { _id: new Types.ObjectId(taskId), status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS"] }, isDeleted: false },
+      {
+        $set: {
+          status: "ESCALATED",
+          escalatedAt: now
+        }
+      },
+      { new: true }
+    );
+
+    if (!task) {
+      throw new Error(`Task not found or already completed/cancelled/escalated: ${taskId}`);
+    }
+
+    // Publish event
+    await EventBusService.publishWaiterTaskEscalated(
+      task.tenantId,
+      task.outletId,
+      task._id,
+      {
+        taskId: task._id.toString(),
+        taskType: task.taskType,
+        escalatedAt: task.escalatedAt,
+        priority: task.priority,
+        source: task.source,
+        tableId: task.tableId.toString(),
+        sessionId: task.sessionId.toString(),
+        metadata: task.metadata
+      },
+      { correlationId: task.sessionId.toString() }
+    );
+
+    return task;
   }
 
   /**
