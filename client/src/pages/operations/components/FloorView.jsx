@@ -42,6 +42,8 @@ export default function FloorView({ onNavigate }) {
 
   // Operations modal states
   const [opModal, setOpModal] = useState({ open: false, type: '', data: {} });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [opLoading, setOpLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -61,6 +63,7 @@ export default function FloorView({ onNavigate }) {
       if (areas.length > 0 && !selectedAreaId) {
         setSelectedAreaId(areas[0]._id || areas[0].id);
       }
+      return allTables;
     } catch (err) {
       addToast('Failed to load floor layout', 'error');
     } finally {
@@ -107,12 +110,17 @@ export default function FloorView({ onNavigate }) {
     ];
 
     if (tableEvents.includes(event)) {
-      fetchData().then(() => {
-        if (selectedTable) {
-          const updatedTable = tables.find(t => t._id === selectedTable._id || t.id === selectedTable.id);
+      fetchData().then((latestTables) => {
+        if (selectedTable && latestTables) {
+          const updatedTable = latestTables.find(t => t._id === selectedTable._id || t.id === selectedTable.id);
           if (updatedTable) {
             setSelectedTable(updatedTable);
-            loadDrawerDetails(updatedTable);
+            if (updatedTable.activeSessionId) {
+              loadDrawerDetails(updatedTable);
+            } else {
+              setBillDetails(null);
+              setTableTimeline([]);
+            }
           }
         }
       });
@@ -135,10 +143,12 @@ export default function FloorView({ onNavigate }) {
     }
     setDrawerOpen(false);
     setSelectedTable(null);
+    setShowAdvanced(false);
   };
 
   // Perform operational commands on backend
   const runOperation = async (operationType, payload) => {
+    setOpLoading(true);
     try {
       await executeDiningOperationApi({
         operationType,
@@ -146,9 +156,24 @@ export default function FloorView({ onNavigate }) {
       });
       addToast(`Operation ${operationType} succeeded`, 'success');
       setOpModal({ open: false, type: '', data: {} });
-      fetchData();
+      
+      const latestTables = await fetchData();
+      if (selectedTable && latestTables) {
+        const updatedTable = latestTables.find(t => t._id === selectedTable._id || t.id === selectedTable.id);
+        if (updatedTable) {
+          setSelectedTable(updatedTable);
+          if (updatedTable.activeSessionId) {
+            await loadDrawerDetails(updatedTable);
+          } else {
+            setBillDetails(null);
+            setTableTimeline([]);
+          }
+        }
+      }
     } catch (err) {
       addToast(err.response?.data?.message || 'Operation failed', 'error');
+    } finally {
+      setOpLoading(false);
     }
   };
 
@@ -246,214 +271,267 @@ export default function FloorView({ onNavigate }) {
           </div>
 
           {/* Drawer Body Scroll */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* Navigation Actions */}
-            <div className="space-y-2 pb-4 border-b border-border-base dark:border-zinc-900">
-              <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider">Navigation</h3>
-              <div className="grid grid-cols-2 gap-2">
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {selectedTable.operationalStatus === 'CLEANING' ? (
+              /* Cleaning Mode: Show ONLY the Cleaning Done action for simplicity */
+              <div className="space-y-4 py-4">
+                <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 p-4 rounded-2xl text-center space-y-2">
+                  <span className="text-2xl block">🧹</span>
+                  <h4 className="text-xs font-bold text-purple-950 dark:text-purple-300">Table needs cleaning</h4>
+                  <p className="text-[11px] text-purple-700 dark:text-purple-400">Previous guest session has ended. Mark it clean to make it available for new scans.</p>
+                </div>
                 <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    sessionStorage.setItem('selectedTableNumber', selectedTable.tableNumber);
-                    if (onNavigate) onNavigate('waiters');
-                  }}
-                  className="font-bold text-xs"
+                  size="md"
+                  variant="primary"
+                  className="w-full text-white bg-purple-600 hover:bg-purple-700 py-3 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer border-none"
+                  disabled={opLoading}
+                  onClick={() => runOperation('COMPLETE_CLEANING', { tableId: selectedTable._id || selectedTable.id })}
                 >
-                  Go to Waiter Tasks
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    sessionStorage.setItem('selectedTableId', selectedTable._id || selectedTable.id);
-                    if (onNavigate) onNavigate('billing');
-                  }}
-                  className="font-bold text-xs"
-                >
-                  Go to Billing Splits
+                  ✅ Cleaning Done - Mark Available
                 </Button>
               </div>
-            </div>
-
-            {/* Quick Actions Panel */}
-            <div className="space-y-2">
-              <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider">Operational Actions</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {selectedTable.activeSessionId ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setOpModal({ open: true, type: 'TRANSFER_TABLE', data: { fromTableId: selectedTable._id } })}
-                    >
-                      Transfer Table
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setOpModal({ open: true, type: 'MERGE_TABLE', data: { primaryTableId: selectedTable._id } })}
-                    >
-                      Merge Table
-                    </Button>
-                    {selectedTable.isMerged && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="col-span-2"
-                        onClick={() => runOperation('UNMERGE_TABLE', { primaryTableId: selectedTable._id })}
-                      >
-                        Unmerge Table
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setOpModal({ open: true, type: 'CHANGE_WAITER', data: { sessionId: selectedTable.activeSessionId } })}
-                    >
-                      Assign Waiter
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setOpModal({ open: true, type: 'CHANGE_GUEST_COUNT', data: { tableId: selectedTable._id, currentCap: selectedTable.seatCount } })}
-                    >
-                      Guest Capacity
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => runOperation('START_CLEANING', { tableId: selectedTable._id })}
-                    >
-                      Start Cleaning
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => runOperation('REQUEST_BILL', { sessionId: selectedTable.activeSessionId })}
-                    >
-                      Request Bill
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="col-span-2 w-full text-red-500 border-red-550 hover:bg-red-50 dark:hover:bg-red-950/20"
-                      onClick={() => runOperation('CLOSE_SESSION', { sessionId: selectedTable.activeSessionId })}
-                    >
-                      Close Session
-                    </Button>
-                  </>
-                ) : (
-                  <div className="col-span-2 text-center text-xs text-on-surface-variant dark:text-zinc-550 border border-dashed p-4 rounded-lg">
-                    No active session to run operations. Scan QR or seat a reservation to occupy this table.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Session Information */}
-            {selectedTable.activeSessionId && billDetails ? (
-              <div className="space-y-4">
-                <div className="border-t border-border-base dark:border-zinc-900 pt-4">
-                  <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider mb-2">Live Session Details</h3>
-                  <div className="bg-surface-container-low dark:bg-zinc-900/40 p-4 rounded-lg space-y-2.5 text-[13px]">
+            ) : selectedTable.activeSessionId ? (
+              /* Dining Mode */
+              <div className="space-y-5">
+                {/* Active Session Info Card */}
+                {billDetails && (
+                  <div className="bg-surface-subtle dark:bg-zinc-900/40 border border-border-base dark:border-zinc-850 p-4 rounded-2xl space-y-2 text-[12px]">
                     <div className="flex justify-between">
-                      <span className="text-on-surface-variant dark:text-zinc-400">Assigned Waiter:</span>
-                      <span className="font-bold">{billDetails.billSession?.waiterName || 'None'}</span>
+                      <span className="text-on-surface-variant dark:text-zinc-400 font-semibold">Waiter:</span>
+                      <span className="font-bold text-on-surface dark:text-zinc-200">{billDetails.billSession?.waiterName || 'None'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-on-surface-variant dark:text-zinc-400">Split Mode:</span>
-                      <span className="font-bold uppercase">{billDetails.billSession?.splitType || 'None'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant dark:text-zinc-400">Total Bill Amount:</span>
-                      <span className="font-bold text-primary dark:text-primary-fixed-dim">
+                      <span className="text-on-surface-variant dark:text-zinc-400 font-semibold">Total Amount:</span>
+                      <span className="font-extrabold text-primary dark:text-primary-fixed-dim">
                         ${billDetails.billSession?.totalAmount?.toFixed(2) || '0.00'}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant dark:text-zinc-400">Outstanding:</span>
-                      <span className="font-bold text-red-500">
+                    <div className="flex justify-between border-t border-border-base/40 dark:border-zinc-800/40 pt-1.5">
+                      <span className="text-on-surface-variant dark:text-zinc-400 font-semibold">Outstanding:</span>
+                      <span className="font-extrabold text-red-500">
                         ${billDetails.billSession?.outstandingBalance?.toFixed(2) || '0.00'}
                       </span>
                     </div>
                   </div>
+                )}
+
+                {/* Primary Operations Panel */}
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40 dark:text-zinc-500">Primary Actions</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="w-full font-bold text-xs"
+                      disabled={opLoading}
+                      onClick={() => runOperation('REQUEST_BILL', { sessionId: selectedTable.activeSessionId })}
+                    >
+                      💵 Request Bill
+                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="font-bold text-xs"
+                        disabled={opLoading}
+                        onClick={() => runOperation('START_CLEANING', { tableId: selectedTable._id })}
+                      >
+                        🧹 Start Cleaning
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="font-bold text-xs text-red-550 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        variant="outline"
+                        disabled={opLoading}
+                        onClick={() => runOperation('CLOSE_SESSION', { sessionId: selectedTable.activeSessionId })}
+                      >
+                        🚪 Close Session
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Seat management display inside drawer */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider">Seats Occupied</h3>
-                    <button 
-                      onClick={() => setOpModal({ open: true, type: 'ADD_SEAT', data: { sessionId: selectedTable.activeSessionId } })}
-                      className="text-primary text-[12px] font-bold flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <HiOutlinePlus /> Add Seat
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {billDetails.orders?.map((order, index) => (
-                      <div key={order._id || order.id} className="border border-border-base dark:border-zinc-900 p-3 rounded-lg flex flex-col justify-between bg-white dark:bg-zinc-950">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <HiOutlineUser className="text-on-surface-variant" />
-                          <span className="font-bold text-[12px]">Seat {order.diningContext?.seatNumber || (index + 1)}</span>
-                        </div>
-                        <span className="text-[11px] text-on-surface-variant dark:text-zinc-550 mb-2 truncate">
-                          Order: #{order.orderNumber || ''}
-                        </span>
-                        
-                        {/* Status action button */}
-                        <div className="mb-2">
-                          <OrderLifecycleActions 
-                            order={order} 
-                            onStatusChanged={() => loadDrawerDetails(selectedTable)} 
-                          />
-                        </div>
+                {/* Collapsible Advanced Panel */}
+                <div className="border-t border-border-base dark:border-zinc-900 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full flex justify-between items-center text-left text-[11px] font-black uppercase tracking-wider text-on-surface-variant/60 dark:text-zinc-400 hover:text-primary dark:hover:text-primary-fixed-dim transition-colors cursor-pointer border-none bg-transparent"
+                  >
+                    <span>⚙️ Advanced Actions & Seat List</span>
+                    <span>{showAdvanced ? 'Collapse ▲' : 'Expand ▼'}</span>
+                  </button>
 
-                        <div className="flex justify-between items-center gap-1.5 border-t border-border-base dark:border-zinc-800 pt-2">
-                          <span className="text-[11px] font-bold">${order.totalAmount?.toFixed(2)}</span>
-                          <div className="flex gap-1">
+                  {showAdvanced && (
+                    <div className="space-y-5 mt-4 pt-4 border-t border-dashed border-border-base dark:border-zinc-800 animate-fade-in">
+                      {/* Navigation Actions */}
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-500 uppercase tracking-widest block">Dashboard Shortcuts</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={opLoading}
+                            onClick={() => {
+                              sessionStorage.setItem('selectedTableNumber', selectedTable.tableNumber);
+                              if (onNavigate) onNavigate('waiters');
+                            }}
+                            className="font-bold text-[11px]"
+                          >
+                            Go to Waiters
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={opLoading}
+                            onClick={() => {
+                              sessionStorage.setItem('selectedTableId', selectedTable._id || selectedTable.id);
+                              if (onNavigate) onNavigate('billing');
+                            }}
+                            className="font-bold text-[11px]"
+                          >
+                            Go to Splits
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Structural operations */}
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-500 uppercase tracking-widest block">Structure Updates</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="font-semibold text-[11px]"
+                            disabled={opLoading}
+                            onClick={() => setOpModal({ open: true, type: 'TRANSFER_TABLE', data: { fromTableId: selectedTable._id } })}
+                          >
+                            Transfer Table
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="font-semibold text-[11px]"
+                            disabled={opLoading}
+                            onClick={() => setOpModal({ open: true, type: 'MERGE_TABLE', data: { primaryTableId: selectedTable._id } })}
+                          >
+                            Merge Table
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="font-semibold text-[11px]"
+                            disabled={opLoading}
+                            onClick={() => setOpModal({ open: true, type: 'CHANGE_WAITER', data: { sessionId: selectedTable.activeSessionId } })}
+                          >
+                            Assign Waiter
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="font-semibold text-[11px]"
+                            disabled={opLoading}
+                            onClick={() => setOpModal({ open: true, type: 'CHANGE_GUEST_COUNT', data: { tableId: selectedTable._id, currentCap: selectedTable.seatCount } })}
+                          >
+                            Guest Capacity
+                          </Button>
+                          {selectedTable.isMerged && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="col-span-2 font-semibold text-[11px]"
+                              disabled={opLoading}
+                              onClick={() => runOperation('UNMERGE_TABLE', { primaryTableId: selectedTable._id })}
+                            >
+                              Unmerge Table
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Seats occupied */}
+                      {billDetails && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-550 uppercase tracking-widest">Seats List</span>
                             <button
-                              title="Move/Swap Seat"
-                              onClick={() => setOpModal({ open: true, type: 'MOVE_SEAT', data: { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber } })}
-                              className="text-primary hover:bg-indigo-50 dark:hover:bg-zinc-900 p-1 rounded text-xs cursor-pointer"
+                              disabled={opLoading}
+                              onClick={() => setOpModal({ open: true, type: 'ADD_SEAT', data: { sessionId: selectedTable.activeSessionId } })}
+                              className="text-primary text-[10px] font-bold flex items-center gap-0.5 hover:underline cursor-pointer bg-transparent border-none disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <HiArrowsRightLeft />
-                            </button>
-                            <button 
-                              onClick={() => runOperation('REMOVE_SEAT', { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber })}
-                              className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-xs cursor-pointer"
-                            >
-                              <HiOutlineTrash />
+                              + Add Seat
                             </button>
                           </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {billDetails.orders?.map((order, index) => (
+                              <div key={order._id || order.id} className="border border-border-base dark:border-zinc-900 p-2.5 rounded-xl flex flex-col justify-between bg-zinc-50 dark:bg-zinc-900/40">
+                                <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold text-on-surface dark:text-zinc-200">
+                                  <HiOutlineUser className="text-on-surface-variant" />
+                                  <span>Seat {order.diningContext?.seatNumber || (index + 1)}</span>
+                                </div>
+                                <span className="text-[10px] text-on-surface-variant dark:text-zinc-550 mb-2 truncate">
+                                  Order #{order.orderNumber || ''}
+                                </span>
+
+                                <div className="mb-2 scale-95 origin-left">
+                                  <OrderLifecycleActions
+                                    order={order}
+                                    onStatusChanged={() => loadDrawerDetails(selectedTable)}
+                                  />
+                                </div>
+
+                                <div className="flex justify-between items-center gap-1.5 border-t border-border-base dark:border-zinc-800/60 pt-1.5">
+                                  <span className="text-[11px] font-bold">${order.totalAmount?.toFixed(2)}</span>
+                                  <div className="flex gap-0.5">
+                                    <button
+                                      disabled={opLoading}
+                                      title="Move/Swap Seat"
+                                      onClick={() => setOpModal({ open: true, type: 'MOVE_SEAT', data: { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber } })}
+                                      className="text-primary hover:bg-indigo-50 dark:hover:bg-zinc-900 p-1 rounded text-xs cursor-pointer border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <HiArrowsRightLeft />
+                                    </button>
+                                    <button
+                                      disabled={opLoading}
+                                      onClick={() => runOperation('REMOVE_SEAT', { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber })}
+                                      className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-xs cursor-pointer border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <HiOutlineTrash />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Timeline */}
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-555 uppercase tracking-widest block">Live Table Timeline</span>
+                        <div className="relative border-l border-border-base dark:border-zinc-800 pl-3.5 space-y-3.5 ml-1">
+                          {tableTimeline.slice(-5).reverse().map((event, idx) => (
+                            <div key={idx} className="relative text-[11px] leading-tight">
+                              <span className="absolute -left-4.75 top-1.5 w-2 h-2 rounded-full bg-primary dark:bg-primary-fixed-dim" />
+                              <span className="text-on-surface-variant dark:text-zinc-500 text-[9px] block">
+                                {new Date(event.timestamp).toLocaleTimeString()}
+                              </span>
+                              <span className="font-bold text-on-background block">{event.status}</span>
+                              <p className="text-on-surface-variant dark:text-zinc-400 text-[10px] mt-0.5">{event.notes}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Table Chronological Activity Feed */}
-                <div className="space-y-3">
-                  <h3 className="text-[12px] font-bold text-on-surface-variant/70 uppercase tracking-wider">Live Table Timeline</h3>
-                  <div className="relative border-l border-border-base dark:border-zinc-800 pl-4 space-y-4 ml-1">
-                    {tableTimeline.slice(-5).reverse().map((event, idx) => (
-                      <div key={idx} className="relative text-[12px]">
-                        <span className="absolute -left-5.25 top-1.5 w-2.5 h-2.5 rounded-full bg-primary dark:bg-primary-fixed-dim" />
-                        <span className="text-on-surface-variant dark:text-zinc-500 text-[10px] block">
-                          {new Date(event.timestamp).toLocaleTimeString()}
-                        </span>
-                        <span className="font-bold text-on-background block">{event.status}</span>
-                        <p className="text-on-surface-variant dark:text-zinc-400 text-[11px] mt-0.5">{event.notes}</p>
-                      </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant dark:text-zinc-550 border border-dashed border-border-base dark:border-zinc-800 rounded-xl">
-                <span>No active session.</span>
-                <span className="text-[11px] mt-0.5">Table is currently empty and available.</span>
+              /* Available / Empty Mode */
+              <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant dark:text-zinc-555 border border-dashed border-border-base dark:border-zinc-855 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/10 gap-2">
+                <span className="text-2xl">🍽️</span>
+                <span className="font-bold text-xs text-on-surface dark:text-zinc-300">Table is Available</span>
+                <span className="text-[10px] text-on-surface-variant dark:text-zinc-455">Scan QR or seat a reservation to occupy this table.</span>
               </div>
             )}
           </div>
@@ -564,10 +642,10 @@ export default function FloorView({ onNavigate }) {
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border-base dark:border-zinc-900">
-              <Button size="sm" variant="outline" onClick={() => setOpModal({ open: false, type: '', data: {} })}>
+              <Button size="sm" variant="outline" disabled={opLoading} onClick={() => setOpModal({ open: false, type: '', data: {} })}>
                 Cancel
               </Button>
-              <Button size="sm" variant="primary" onClick={() => {
+              <Button size="sm" variant="primary" disabled={opLoading} loading={opLoading} onClick={() => {
                 if (opModal.type === 'ADD_SEAT') {
                   const num = document.getElementById('seatNumberInput')?.value;
                   if (num) runOperation('ADD_SEAT', { sessionId: opModal.data.sessionId, seatNumber: num });

@@ -94,30 +94,33 @@ export class OutletController {
         return;
       }
 
-      // Process and validate location
+      // Process and validate location (REQUIRED)
       let parsedLocation = undefined;
-      if (location) {
-        if (!location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
-          ApiResponseHandler.badRequest(res, 'location.coordinates must be an array of [longitude, latitude]');
-          return;
-        }
-
-        const [lng, lat] = location.coordinates.map(Number);
-        if (isNaN(lng) || isNaN(lat)) {
-          ApiResponseHandler.badRequest(res, 'Coordinates must be valid numbers');
-          return;
-        }
-
-        if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-          ApiResponseHandler.badRequest(res, 'Longitude must be between -180 and 180, and Latitude between -90 and 90');
-          return;
-        }
-
-        parsedLocation = {
-          type: 'Point',
-          coordinates: [lng, lat],
-        };
+      if (!location || !location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
+        ApiResponseHandler.badRequest(res, 'Location coordinates are required as an array of [longitude, latitude]');
+        return;
       }
+
+      const [lng, lat] = location.coordinates.map(Number);
+      if (isNaN(lng) || isNaN(lat)) {
+        ApiResponseHandler.badRequest(res, 'Coordinates must be valid numbers');
+        return;
+      }
+
+      if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        ApiResponseHandler.badRequest(res, 'Longitude must be between -180 and 180, and Latitude between -90 and 90');
+        return;
+      }
+
+      if (lng === 0 && lat === 0) {
+        ApiResponseHandler.badRequest(res, 'Valid non-zero coordinates are required for the outlet location');
+        return;
+      }
+
+      parsedLocation = {
+        type: 'Point',
+        coordinates: [lng, lat],
+      };
 
       // Process and validate operatingHours
       const parsedOperatingHours: any[] = [];
@@ -402,29 +405,33 @@ export class OutletController {
         return;
       }
 
+      // Process and validate location (REQUIRED)
       let parsedLocation = undefined;
-      if (location) {
-        if (!location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
-          ApiResponseHandler.badRequest(res, 'location.coordinates must be [longitude, latitude]');
-          return;
-        }
-
-        const [lng, lat] = location.coordinates.map(Number);
-        if (isNaN(lng) || isNaN(lat)) {
-          ApiResponseHandler.badRequest(res, 'Coordinates must be valid numbers');
-          return;
-        }
-
-        if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-          ApiResponseHandler.badRequest(res, 'Longitude must be between -180 and 180, and Latitude between -90 and 90');
-          return;
-        }
-
-        parsedLocation = {
-          type: 'Point',
-          coordinates: [lng, lat],
-        };
+      if (!location || !location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
+        ApiResponseHandler.badRequest(res, 'Location coordinates are required as [longitude, latitude]');
+        return;
       }
+
+      const [lng, lat] = location.coordinates.map(Number);
+      if (isNaN(lng) || isNaN(lat)) {
+        ApiResponseHandler.badRequest(res, 'Coordinates must be valid numbers');
+        return;
+      }
+
+      if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        ApiResponseHandler.badRequest(res, 'Longitude must be between -180 and 180, and Latitude between -90 and 90');
+        return;
+      }
+
+      if (lng === 0 && lat === 0) {
+        ApiResponseHandler.badRequest(res, 'Valid non-zero coordinates are required for the outlet location');
+        return;
+      }
+
+      parsedLocation = {
+        type: 'Point',
+        coordinates: [lng, lat],
+      };
 
       const updateData = {
         restaurantId,
@@ -521,6 +528,16 @@ export class OutletController {
         ApiResponseHandler.notFound(res, 'Outlet not found');
         return;
       }
+      
+      // Enforce location coordinates check when opening/activating the outlet
+      if (userStatus === UserStatus.ACTIVE) {
+        const coords = oldOutlet.location?.coordinates;
+        if (!coords || coords.length !== 2 || (coords[0] === 0 && coords[1] === 0)) {
+          ApiResponseHandler.badRequest(res, 'Outlet location coordinates must be configured before opening/activating the outlet.');
+          return;
+        }
+      }
+
       const previousStatus = oldOutlet.status;
 
       const updatedOutlet = await OutletService.updateOutletStatus(

@@ -15,6 +15,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers['x-session-token'] = token;
     }
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
+      config.headers['Authorization'] = `Bearer ${accessToken}`;
+    }
     const outletId = localStorage.getItem('selectedOutletId');
     if (outletId) {
       config.headers['x-outlet-id'] = outletId;
@@ -57,10 +61,15 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshRes = await api.post('/auth/refresh');
+        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshRes = await api.post('/auth/refresh', { refreshToken });
         const newAccessToken = refreshRes.data?.data?.accessToken;
+        const newRefreshToken = refreshRes.data?.data?.refreshToken;
         if (newAccessToken) {
           localStorage.setItem('accessToken', newAccessToken);
+        }
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
         }
         processQueue(null);
         return api(originalRequest);

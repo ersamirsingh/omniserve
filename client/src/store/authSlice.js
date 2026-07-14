@@ -81,6 +81,9 @@ const authSlice = createSlice({
         if (action.payload?.accessToken) {
           localStorage.setItem('accessToken', action.payload.accessToken);
         }
+        if (action.payload?.refreshToken) {
+          localStorage.setItem('refreshToken', action.payload.refreshToken);
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = 'failed';
@@ -104,6 +107,7 @@ const authSlice = createSlice({
         state.loading = 'idle';
         state.authChecked = true;
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       })
       .addCase(fetchCurrentUser.pending, (state) => {
         state.loading = 'pending';
@@ -116,12 +120,17 @@ const authSlice = createSlice({
         if (action.payload?.accessToken) {
           localStorage.setItem('accessToken', action.payload.accessToken);
         }
+        if (action.payload?.refreshToken) {
+          localStorage.setItem('refreshToken', action.payload.refreshToken);
+        }
       })
       .addCase(fetchCurrentUser.rejected, (state) => {
         state.loading = 'failed';
         state.user = null;
         state.isAuthenticated = false;
         state.authChecked = true;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       });
   },
 });

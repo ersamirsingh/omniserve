@@ -76,7 +76,7 @@ export class RestaurantOperationsService {
   static async executeOperation(command: {
     tenantId: string | Types.ObjectId;
     outletId: string | Types.ObjectId;
-    operationType: 'TRANSFER_TABLE' | 'MERGE_TABLE' | 'UNMERGE_TABLE' | 'MOVE_SEAT' | 'SWAP_SEAT' | 'ADD_SEAT' | 'REMOVE_SEAT' | 'CHANGE_GUEST_COUNT' | 'CHANGE_WAITER' | 'CLOSE_SESSION' | 'REQUEST_BILL' | 'START_CLEANING' | 'ACKNOWLEDGE_TASK' | 'START_TASK' | 'COMPLETE_TASK' | 'ESCALATE_TASK' | 'APPROVE_ORDER_CANCEL' | 'REJECT_ORDER_CANCEL';
+    operationType: 'TRANSFER_TABLE' | 'MERGE_TABLE' | 'UNMERGE_TABLE' | 'MOVE_SEAT' | 'SWAP_SEAT' | 'ADD_SEAT' | 'REMOVE_SEAT' | 'CHANGE_GUEST_COUNT' | 'CHANGE_WAITER' | 'CLOSE_SESSION' | 'REQUEST_BILL' | 'START_CLEANING' | 'COMPLETE_CLEANING' | 'ACKNOWLEDGE_TASK' | 'START_TASK' | 'COMPLETE_TASK' | 'ESCALATE_TASK' | 'APPROVE_ORDER_CANCEL' | 'REJECT_ORDER_CANCEL';
     payload: any;
     triggeredById?: string | Types.ObjectId;
   }): Promise<IOperationResult> {
@@ -723,6 +723,37 @@ export class RestaurantOperationsService {
           break;
         }
 
+        case 'COMPLETE_CLEANING': {
+          const { tableId } = payload;
+          const tableDoc = await Table.findOne({ _id: new Types.ObjectId(tableId), tenantId, isDeleted: false }).session(dbSession || null);
+          if (!tableDoc) throw new Error(`Table ${tableId} not found`);
+
+          affectedTables.add(tableDoc._id.toString());
+
+          const updateOptions: { correlationId?: string; triggeredById?: string } = {};
+          if (correlationId) updateOptions.correlationId = correlationId.toString();
+          if (command.triggeredById) updateOptions.triggeredById = command.triggeredById.toString();
+
+          await TableService.updateTableOperationalStatus(tenantId, outletId, tableDoc._id, 'AVAILABLE', updateOptions);
+
+          // Also complete any outstanding waiter tasks of type 'CLEANING' for this table
+          const WaiterTaskModel = (await import("../../models/waitertask.model.js")).default;
+          const openTask = await WaiterTaskModel.findOne({
+            tenantId,
+            tableId: tableDoc._id,
+            taskType: 'CLEANING',
+            status: { $nin: ['COMPLETED', 'CANCELLED'] }
+          }).session(dbSession || null);
+
+          if (openTask) {
+            openTask.status = 'COMPLETED';
+            openTask.completedAt = new Date();
+            await openTask.save();
+            waiterTasksList.push(openTask._id.toString());
+          }
+          break;
+        }
+
         case 'ACKNOWLEDGE_TASK': {
           const { taskId } = payload;
           const task = await WaiterTaskService.acknowledgeTask(taskId, (command.triggeredById || new Types.ObjectId().toString()).toString());
@@ -753,6 +784,17 @@ export class RestaurantOperationsService {
           if (task) {
             affectedSessions.add(task.sessionId.toString());
             waiterTasksList.push(task._id.toString());
+
+            // If the waiter task was a cleaning task, update the table back to AVAILABLE
+            if (task.taskType === 'CLEANING') {
+              affectedTables.add(task.tableId.toString());
+              
+              const updateOptions: { correlationId?: string; triggeredById?: string } = {};
+              if (command.triggeredById) updateOptions.triggeredById = command.triggeredById.toString();
+
+              await TableService.updateTableOperationalStatus(tenantId, outletId, task.tableId, 'AVAILABLE', updateOptions);
+            }
+
             const { RealtimeService } = await import("../../sockets/realtime.service.js");
             RealtimeService.sendToSession(task.sessionId.toString(), "WAITER_TASK_COMPLETED" as any, { taskId: task._id.toString(), status: "COMPLETED" });
           }
