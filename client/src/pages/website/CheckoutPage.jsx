@@ -152,7 +152,6 @@ export default function CheckoutPage() {
     const payload = {
       cartId: cart._id,
       couponCode: appliedCoupon || undefined,
-      customerLocation,
       customer: {
         name: customerName,
         phone: customerPhone,

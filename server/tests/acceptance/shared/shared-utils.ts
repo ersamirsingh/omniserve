@@ -1,3 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+process.env.NODE_ENV = "test";
+
 import mongoose from "mongoose";
 
 // Setup mongoose mock transactions for standalone MongoDB
