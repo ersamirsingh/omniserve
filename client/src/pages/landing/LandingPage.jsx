@@ -606,7 +606,7 @@ export default function LandingPage() {
   };
 
   const teamMembers = [
-    { name: 'Md Yusuf', role: 'Full Stack Developer', image: '/images/landingpage/yusuf.png' },
+    { name: 'Md Yusuf', role: 'Full stack and System architecture engineer', image: '/images/landingpage/yusuf.png' },
     { name: 'Samir Kumar Singh', role: 'AI Engineer', image: '/images/landingpage/samir.jpg' },
     { name: 'Nitish Kumar', role: 'Full Stack Developer', image: '/images/landingpage/nitish.jpg' },
     { name: 'Ajay Rathore', role: 'Full Stack Developer', image: '/images/landingpage/ajay.jpg' }

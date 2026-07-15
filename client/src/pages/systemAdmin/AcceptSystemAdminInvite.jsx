@@ -89,7 +89,7 @@ export default function AcceptSystemAdminInvite() {
         
         {/* Brand */}
         <div className="flex flex-col items-center gap-2">
-          <img src="/logo.png" alt="OmniServe Logo" className="w-12 h-12 object-contain rounded-xl" />
+          <img src="/omniserve_logo.png" alt="OmniServe Logo" className="w-12 h-12 object-contain rounded-xl" />
           <h1 className="font-hanken text-2xl font-black text-primary dark:text-primary-fixed-dim tracking-tight mt-1">
             OmniServe Operations OS
           </h1>

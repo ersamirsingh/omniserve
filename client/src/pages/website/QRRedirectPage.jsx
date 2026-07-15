@@ -40,44 +40,76 @@ export default function QRRedirectPage() {
 
   const handleResolve = (action = null) => {
     setLoading(true);
-    resolveQrCodeApi(tableToken, action ? { action } : {})
-      .then((res) => {
-        const data = res.data.data;
+    setError(null);
 
-        if (data.promptRequired) {
-          setPromptData(data);
-          setLoading(false);
-          return;
-        }
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser. Please contact staff.");
+      setLoading(false);
+      return;
+    }
 
-        // Clear prompt state
-        setPromptData(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const params = {
+          latitude,
+          longitude,
+          ...(action && { action })
+        };
 
-        const { outletSlug, sessionToken, outletId, guestSessionToken, guestSession, lockRemainingSeconds } = data;
-        
-        // Save tokens
-        localStorage.setItem('sessionToken', sessionToken);
-        localStorage.setItem('selectedOutletId', outletId);
-        localStorage.setItem('guestSessionToken', guestSessionToken);
-        localStorage.setItem('tableToken', tableToken);
-        if (lockRemainingSeconds) {
-          localStorage.setItem('lockExpiresAt', String(Date.now() + lockRemainingSeconds * 1000));
+        resolveQrCodeApi(tableToken, params)
+          .then((res) => {
+            const data = res.data.data;
+
+            if (data.promptRequired) {
+              setPromptData(data);
+              setLoading(false);
+              return;
+            }
+
+            // Clear prompt state
+            setPromptData(null);
+
+            const { outletSlug, sessionToken, outletId, guestSessionToken, guestSession, lockRemainingSeconds } = data;
+            
+            // Save tokens
+            localStorage.setItem('sessionToken', sessionToken);
+            localStorage.setItem('selectedOutletId', outletId);
+            localStorage.setItem('guestSessionToken', guestSessionToken);
+            localStorage.setItem('tableToken', tableToken);
+            if (lockRemainingSeconds) {
+              localStorage.setItem('lockExpiresAt', String(Date.now() + lockRemainingSeconds * 1000));
+            }
+            
+            // Check if name is default "Guest" to ask for details first
+            if (!guestSession || guestSession.name === "Guest") {
+              setResolvedPayload(data);
+              setShowWelcome(true);
+              setLoading(false);
+            } else {
+              // Profile already setup, navigate straight to the menu page
+              navigate(`/public/w/${outletSlug}/menu`);
+            }
+          })
+          .catch((err) => {
+            setError(err.response?.data?.message || 'Failed to resolve QR Code scan');
+            setLoading(false);
+          });
+      },
+      (error) => {
+        let msg = "Please allow location access to order from this table.";
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = "Location permission is required to scan the table QR and place orders. Please enable location permissions for this site in your browser settings.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          msg = "Your location is currently unavailable. Please ensure GPS is active.";
+        } else if (error.code === error.TIMEOUT) {
+          msg = "Acquiring location timed out. Please try again.";
         }
-        
-        // Check if name is default "Guest" to ask for details first
-        if (!guestSession || guestSession.name === "Guest") {
-          setResolvedPayload(data);
-          setShowWelcome(true);
-          setLoading(false);
-        } else {
-          // Profile already setup, navigate straight to the menu page
-          navigate(`/public/w/${outletSlug}/menu`);
-        }
-      })
-      .catch((err) => {
-        setError(err.response?.data?.message || 'Failed to resolve QR Code scan');
+        setError(msg);
         setLoading(false);
-      });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   const handleWelcomeSubmit = async (e) => {
@@ -197,7 +229,7 @@ export default function QRRedirectPage() {
             <h2 className="text-base font-extrabold tracking-tight">OmniServe Table Order</h2>
             <div className="flex items-center justify-center gap-2.5 text-zinc-400 text-xs">
               <Spinner size="sm" />
-              <span>Setting your table, loading the menu...</span>
+              <span>Acquiring GPS location & setting your table...</span>
             </div>
           </div>
         </div>

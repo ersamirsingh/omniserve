@@ -21,7 +21,7 @@ async function checkExpiredTableLocks() {
             // Count active orders (exclude cancelled ones)
             const ordersCount = await Order.countDocuments({
               "diningContext.sessionId": session._id,
-              status: { $ne: "CANCELLED" }
+              orderStatus: { $ne: "CANCELLED" }
             });
 
             if (ordersCount === 0) {
@@ -108,7 +108,7 @@ async function checkExpiredTableLocks() {
           if (session.openedAt <= fiveMinutesAgo) {
             const ordersCount = await Order.countDocuments({
               "diningContext.sessionId": session._id,
-              status: { $ne: "CANCELLED" }
+              orderStatus: { $ne: "CANCELLED" }
             });
 
             if (ordersCount === 0) {

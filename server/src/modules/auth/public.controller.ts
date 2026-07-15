@@ -1242,46 +1242,6 @@ export class PublicController {
       let seatNumber = undefined;
 
       if (fulfillment?.type === "DINE_IN") {
-        if (!customerLocation || typeof customerLocation.latitude !== 'number' || typeof customerLocation.longitude !== 'number') {
-          ApiResponseHandler.badRequest(res, "Location coordinates are required to place a dine-in table order.");
-          return;
-        }
-
-        const OutletModel = (await import("../../models/outlet.model.js")).default;
-        const outlet = await OutletModel.findOne({ _id: cart.outletId, isDeleted: false });
-        if (!outlet) {
-          ApiResponseHandler.badRequest(res, "Associated outlet not found");
-          return;
-        }
-
-        const outletCoords = outlet.location?.coordinates;
-        if (!outletCoords || outletCoords.length !== 2 || (outletCoords[0] === 0 && outletCoords[1] === 0)) {
-          ApiResponseHandler.badRequest(res, "Outlet coordinates are not configured. Please contact support.");
-          return;
-        }
-
-        const outletLng = outletCoords[0];
-        const outletLat = outletCoords[1];
-        const customerLat = customerLocation.latitude;
-        const customerLng = customerLocation.longitude;
-
-        const R = 6371; // Earth radius in km
-        const dLat = (customerLat - outletLat) * (Math.PI / 180);
-        const dLng = (customerLng - outletLng) * (Math.PI / 180);
-        const a = 
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(outletLat * (Math.PI / 180)) * Math.cos(customerLat * (Math.PI / 180)) * 
-          Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
-
-        console.info(`[DineInGeofence] Table order distance: ${distance.toFixed(4)} km (Limit: 0.5 km)`);
-
-        if (distance > 0.5) {
-          ApiResponseHandler.badRequest(res, `Dine-in ordering is restricted. You must be physically at the restaurant to place an order (you are ${(distance).toFixed(2)} km away).`);
-          return;
-        }
-
         const qrSession = await QRSession.findOne({ sessionToken: cart.sessionToken, isDeleted: false });
         const activeSession = qrSession;
         if (activeSession && activeSession.tableId) {
@@ -1885,6 +1845,41 @@ export class PublicController {
       const outlet = await Outlet.findOne({ _id: activeTable.outletId, isDeleted: false });
       if (!outlet) {
         ApiResponseHandler.notFound(res, "Outlet not found");
+        return;
+      }
+
+      // Check Location coordinates instantly on QR scan
+      const latitude = req.query.latitude ? Number(req.query.latitude) : undefined;
+      const longitude = req.query.longitude ? Number(req.query.longitude) : undefined;
+
+      if (typeof latitude !== 'number' || typeof longitude !== 'number' || isNaN(latitude) || isNaN(longitude)) {
+        ApiResponseHandler.badRequest(res, "Location coordinates are required to scan table QR code.");
+        return;
+      }
+
+      const outletCoords = outlet.location?.coordinates;
+      if (!outletCoords || outletCoords.length !== 2 || (outletCoords[0] === 0 && outletCoords[1] === 0)) {
+        ApiResponseHandler.badRequest(res, "Outlet coordinates are not configured. Please contact support.");
+        return;
+      }
+
+      const outletLng = outletCoords[0];
+      const outletLat = outletCoords[1];
+
+      const R = 6371; // Earth radius in km
+      const dLat = (latitude - outletLat) * (Math.PI / 180);
+      const dLng = (longitude - outletLng) * (Math.PI / 180);
+      const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(outletLat * (Math.PI / 180)) * Math.cos(latitude * (Math.PI / 180)) * 
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c;
+
+      console.info(`[DineInGeofence] Table scan distance: ${distance.toFixed(4)} km (Limit: 0.5 km)`);
+
+      if (distance > 0.5) {
+        ApiResponseHandler.badRequest(res, `Table scan is restricted. You must be physically at the restaurant to scan the table QR (you are ${(distance).toFixed(2)} km away).`);
         return;
       }
 
