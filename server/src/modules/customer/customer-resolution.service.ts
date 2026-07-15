@@ -58,6 +58,14 @@ export class CustomerResolutionService {
         totalSpent: 0,
         isActive: true,
       });
+    } else if (args.name && args.name.trim() !== "" && args.name !== "Guest Customer") {
+      const nameParts = args.name.trim().split(" ");
+      const firstName = nameParts[0] || "Guest";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      customer.firstName = firstName;
+      customer.lastName = lastName;
+      await customer.save();
     }
 
     return (customer._id as Types.ObjectId).toString();

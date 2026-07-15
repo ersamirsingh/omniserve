@@ -23,7 +23,7 @@ export default function Sidebar({ isOpen, onClose, userRole }) {
           to="/dashboard"
           className="flex items-center gap-2.5 px-6 h-16 border-b border-border-base dark:border-zinc-900 shrink-0 hover:opacity-85 transition-opacity no-underline"
         >
-          <img src="/logo.png" alt="OmniServe Logo" className="w-8 h-8 object-contain rounded-lg shrink-0" />
+          <img src="/omniserve_logo.png" alt="OmniServe Logo" className="w-8 h-8 object-contain rounded-lg shrink-0" />
           <div className="flex flex-col">
             <span className="font-hanken text-[16px] font-bold text-primary dark:text-primary-fixed-dim leading-none">
               OmniServe

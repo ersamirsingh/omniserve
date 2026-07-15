@@ -140,23 +140,7 @@ export default function CheckoutPage() {
 
     setCheckingOut(true);
 
-    let customerLocation = undefined;
-    if (fulfillmentType === "DINE_IN") {
-      try {
-        const coords = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-            (err) => reject(err),
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          );
-        });
-        customerLocation = coords;
-      } catch (locationErr) {
-        alert("Location permission is required to place a dine-in order. Please enable location services in your browser.");
-        setCheckingOut(false);
-        return;
-      }
-    }
+
 
     // Extract UTM attributes
     const query = new URLSearchParams(window.location.search);
