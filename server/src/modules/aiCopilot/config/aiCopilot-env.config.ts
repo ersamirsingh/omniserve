@@ -1,7 +1,7 @@
 /**
  * Configuration manager for VectorDB (Qdrant), GraphDB (Neo4j), and LLM (Gemini).
  */
-export interface IRagConfig {
+export interface ICopilotConfig {
   gemini: {
     apiKey: string;
     modelName: string;
@@ -18,7 +18,7 @@ export interface IRagConfig {
   };
 }
 
-export const RAG_CONFIG: IRagConfig = {
+export const COPILOT_CONFIG: ICopilotConfig = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
     modelName: process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash',
@@ -39,13 +39,13 @@ export const RAG_CONFIG: IRagConfig = {
  * Validates that the required environment variables are present.
  * Logs a warning if any are missing.
  */
-export function validateRagConfig(): void {
+export function validateCopilotConfig(): void {
   const missing: string[] = [];
-  if (!RAG_CONFIG.gemini.apiKey) missing.push('GEMINI_API_KEY');
-  if (!RAG_CONFIG.qdrant.url) missing.push('QDRANT_URL');
-  if (!RAG_CONFIG.neo4j.uri) missing.push('NEO4J_URI');
+  if (!COPILOT_CONFIG.gemini.apiKey) missing.push('GEMINI_API_KEY');
+  if (!COPILOT_CONFIG.qdrant.url) missing.push('QDRANT_URL');
+  if (!COPILOT_CONFIG.neo4j.uri) missing.push('NEO4J_URI');
 
   if (missing.length > 0) {
-    console.warn(`[RAG Config Warning] The following environment variables are missing: ${missing.join(', ')}. Some RAG services may not function correctly.`);
+    console.warn(`[AI Copilot Config Warning] The following environment variables are missing: ${missing.join(', ')}. Some AI Copilot services may not function correctly.`);
   }
 }

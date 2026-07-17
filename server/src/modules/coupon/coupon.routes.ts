@@ -1,12 +1,11 @@
 import express, { Router } from "express";
 import { CouponController } from "./coupon.controller.js";
-import { verifyToken } from "../../middlewares/auth.middleware.js";
-import { requireSystemAdmin } from "../../middlewares/rbac.middleware.js";
+import { verifyToken, authorizeRole } from "../../middlewares/auth.middleware.js";
+import { UserRole } from "../../models/enums.js";
 
 const couponRouter: Router = express.Router();
 
-// All CRUD coupon routes are restricted to System Admins only
-couponRouter.use(verifyToken, requireSystemAdmin);
+couponRouter.use(verifyToken, authorizeRole(UserRole.SYSTEM_ADMIN, UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER));
 
 couponRouter.get("/", CouponController.listCoupons);
 couponRouter.post("/", CouponController.createCoupon);

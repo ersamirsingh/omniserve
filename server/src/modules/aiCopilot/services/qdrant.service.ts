@@ -1,5 +1,5 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
-import { RAG_CONFIG } from '../config/rag-env.config.js';
+import { COPILOT_CONFIG } from '../config/aiCopilot-env.config.js';
 
 export interface IQdrantPayload {
   tenantId?: string;
@@ -26,8 +26,8 @@ export class QdrantService {
   static getClient(): any {
     if (clientInstance) return clientInstance;
 
-    const url = RAG_CONFIG.qdrant.url;
-    const apiKey = RAG_CONFIG.qdrant.apiKey;
+    const url = COPILOT_CONFIG.qdrant.url;
+    const apiKey = COPILOT_CONFIG.qdrant.apiKey;
 
     if (!url) {
       console.warn('[QdrantService] QDRANT_URL is missing. Operating in MOCK mode.');
@@ -91,7 +91,7 @@ export class QdrantService {
    */
   static async ensureCollection(): Promise<void> {
     const client = this.getClient();
-    const collectionName = RAG_CONFIG.qdrant.collectionName;
+    const collectionName = COPILOT_CONFIG.qdrant.collectionName;
 
     if (client.isMock) return;
 
@@ -117,7 +117,7 @@ export class QdrantService {
    */
   static async upsertDocuments(points: IQdrantPoint[]): Promise<void> {
     const client = this.getClient();
-    const collectionName = RAG_CONFIG.qdrant.collectionName;
+    const collectionName = COPILOT_CONFIG.qdrant.collectionName;
 
     if (!points || points.length === 0) return;
 
@@ -139,7 +139,7 @@ export class QdrantService {
     limit: number = 5
   ): Promise<Array<{ id: string | number; score: number; payload: IQdrantPayload }>> {
     const client = this.getClient();
-    const collectionName = RAG_CONFIG.qdrant.collectionName;
+    const collectionName = COPILOT_CONFIG.qdrant.collectionName;
 
     const mustFilters: any[] = [];
 

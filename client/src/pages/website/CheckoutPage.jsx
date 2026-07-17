@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getCartApi, checkoutCartApi } from "../../api/models/public.api";
+import { getCartApi, checkoutCartApi, validateCouponApi } from "../../api/models/public.api";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -112,10 +112,29 @@ export default function CheckoutPage() {
       ];
 
   const handleApplyCoupon = async (e) => {
-    e?.preventDefault();
-    setCouponError("Promo coupons are not supported for storefront orders.");
-    setAppliedCoupon(null);
-    setCouponDiscount(0);
+    if (e) e.preventDefault();
+    if (!couponInput.trim()) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    setValidatingCoupon(true);
+    setCouponError(null);
+    setCouponSuccess(null);
+
+    try {
+      const res = await validateCouponApi(outletSlug, couponInput.trim().toUpperCase(), subtotal);
+      const { code, discount } = res.data.data;
+      setAppliedCoupon(code);
+      setCouponDiscount(discount);
+      setCouponSuccess(`Coupon "${code}" applied successfully! You saved ₹${discount.toFixed(2)}.`);
+    } catch (err) {
+      setCouponError(err.response?.data?.message || "Invalid coupon code");
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+    } finally {
+      setValidatingCoupon(false);
+    }
   };
 
   const handleRemoveCoupon = () => {
@@ -185,6 +204,9 @@ export default function CheckoutPage() {
     try {
       const res = await checkoutCartApi(payload);
       const orderId = res.data.data.processedOrder.internalOrderId;
+
+      // Clear session timer lock since they have placed an order and occupied the table
+      localStorage.removeItem("lockExpiresAt");
 
       // Clear sessionToken only if not a dine-in QR session order
       if (fulfillmentType !== "DINE_IN") {

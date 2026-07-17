@@ -58,7 +58,7 @@ export default function CopilotPage() {
 
   const fetchSessions = async () => {
     try {
-      const res = await api.get('/rag/chats');
+      const res = await api.get('/ai-copilot/chats');
       if (res.data?.success) {
         setSessions(res.data.sessions || []);
       }
@@ -72,7 +72,7 @@ export default function CopilotPage() {
     setLoading(true);
     setCurrentSessionId(sid);
     try {
-      const res = await api.get(`/rag/chats/${sid}`);
+      const res = await api.get(`/ai-copilot/chats/${sid}`);
       if (res.data?.success) {
         const history = res.data.session.messages.map((m, idx) => ({
           id: m._id || idx.toString(),
@@ -92,7 +92,7 @@ export default function CopilotPage() {
 
   const handleNewChat = async () => {
     try {
-      const res = await api.post('/rag/chats', { title: 'New Chat' });
+      const res = await api.post('/ai-copilot/chats', { title: 'New Chat' });
       if (res.data?.success) {
         const newSess = res.data.session;
         setSessions(prev => [newSess, ...prev]);
@@ -109,7 +109,7 @@ export default function CopilotPage() {
     if (!confirm('Are you sure you want to delete this chat session?')) return;
     
     try {
-      const res = await api.delete(`/rag/chats/${sid}`);
+      const res = await api.delete(`/ai-copilot/chats/${sid}`);
       if (res.data?.success) {
         setSessions(prev => prev.filter(s => s._id !== sid));
         if (currentSessionId === sid) {
@@ -139,7 +139,7 @@ export default function CopilotPage() {
     setLoading(true);
 
     try {
-      const response = await api.post('/rag/chat', { 
+      const response = await api.post('/ai-copilot/chat', { 
         message: prompt,
         sessionId: currentSessionId 
       });
@@ -170,7 +170,7 @@ export default function CopilotPage() {
       const errMsg = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        text: `Error: ${err.response?.data?.message || err.message || 'Failed to reach RAG backend.'}`,
+        text: `Error: ${err.response?.data?.message || err.message || 'Failed to reach AI Copilot backend.'}`,
         isError: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -186,7 +186,7 @@ export default function CopilotPage() {
     setSyncStatus('syncing');
 
     try {
-      const response = await api.post('/rag/sync?force=false');
+      const response = await api.post('/ai-copilot/sync?force=false');
       if (response.data?.success) {
         setSyncStatus('success');
         const details = response.data.details;

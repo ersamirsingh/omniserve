@@ -1,11 +1,12 @@
 import 'dotenv/config';
 
 import dns from 'dns';
-try {
-   // Force public DNS resolvers to handle local ISP/DNS SRV query issues for MongoDB Atlas
-   dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {
-   console.warn('Unable to set custom DNS servers, using system defaults:', e);
+if(process.env.NODE_ENV !== 'production'){
+   try {
+      dns.setServers(['8.8.8.8', '1.1.1.1']);
+   } catch (e) {
+      console.warn('Unable to set custom DNS servers, using system defaults:', e);
+   }
 }
 
 import http from 'http';

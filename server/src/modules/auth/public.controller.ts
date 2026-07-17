@@ -1805,8 +1805,10 @@ export class PublicController {
     try {
       const { tableToken } = req.params;
       const { action } = req.query; // 'join' or 'new'
-      const clientGuestToken = req.headers["x-guest-session-token"];
-      console.log(`[resolveQrCode] tableToken=${tableToken}, action=${action}, guestToken=${clientGuestToken}, referer=${req.headers.referer}, user-agent=${req.headers['user-agent']}`);
+      const requestedGuestCount = Math.max(1, Math.min(20, parseInt(req.query.guestCount as string) || 1));
+      const headers = req.headers || {};
+      const clientGuestToken = headers["x-guest-session-token"];
+      console.log(`[resolveQrCode] tableToken=${tableToken}, action=${action}, guestCount=${requestedGuestCount}, guestToken=${clientGuestToken}, referer=${headers.referer}, user-agent=${headers['user-agent']}`);
 
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       const activeTable = table;
@@ -1848,8 +1850,9 @@ export class PublicController {
         return;
       }
 
-      // Check Location coordinates instantly on QR scan (skip in test environment)
-      if (process.env.NODE_ENV !== "test") {
+      // Check Location coordinates instantly on QR scan (skip in test or bypass environment)
+      const bypassGeofence = req.query.bypassGeofence === "true" || req.query.bypass === "true";
+      if (process.env.NODE_ENV !== "test" && !bypassGeofence) {
         const latitude = req.query.latitude ? Number(req.query.latitude) : undefined;
         const longitude = req.query.longitude ? Number(req.query.longitude) : undefined;
 
@@ -1860,28 +1863,28 @@ export class PublicController {
 
         const outletCoords = outlet.location?.coordinates;
         if (!outletCoords || outletCoords.length !== 2 || (outletCoords[0] === 0 && outletCoords[1] === 0)) {
-          ApiResponseHandler.badRequest(res, "Outlet coordinates are not configured. Please contact support.");
-          return;
-        }
+          // If coordinates are default [0, 0], geofence is bypassed automatically
+          console.info("[DineInGeofence] Geofence bypassed automatically: Outlet coordinates are [0, 0]");
+        } else {
+          const outletLng = outletCoords[0];
+          const outletLat = outletCoords[1];
 
-        const outletLng = outletCoords[0];
-        const outletLat = outletCoords[1];
+          const R = 6371; // Earth radius in km
+          const dLat = (latitude - outletLat) * (Math.PI / 180);
+          const dLng = (longitude - outletLng) * (Math.PI / 180);
+          const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(outletLat * (Math.PI / 180)) * Math.cos(latitude * (Math.PI / 180)) * 
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
 
-        const R = 6371; // Earth radius in km
-        const dLat = (latitude - outletLat) * (Math.PI / 180);
-        const dLng = (longitude - outletLng) * (Math.PI / 180);
-        const a = 
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(outletLat * (Math.PI / 180)) * Math.cos(latitude * (Math.PI / 180)) * 
-          Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
+          console.info(`[DineInGeofence] Table scan distance: ${distance.toFixed(4)} km (Limit: 0.5 km)`);
 
-        console.info(`[DineInGeofence] Table scan distance: ${distance.toFixed(4)} km (Limit: 0.5 km)`);
-
-        if (distance > 0.5) {
-          ApiResponseHandler.badRequest(res, `Table scan is restricted. You must be physically at the restaurant to scan the table QR (you are ${(distance).toFixed(2)} km away).`);
-          return;
+          if (distance > 0.5) {
+            ApiResponseHandler.badRequest(res, `Table scan is restricted. You must be physically at the restaurant to scan the table QR (you are ${(distance).toFixed(2)} km away).`);
+            return;
+          }
         }
       }
 
@@ -1892,14 +1895,21 @@ export class PublicController {
 
       const hasActiveSession = session && session.status !== "CLOSED" && session.status !== "EXPIRED";
 
+      if (hasActiveSession && !session.joinCode) {
+        session.joinCode = Math.floor(1000 + Math.random() * 9000).toString();
+        await session.save();
+      }
+
       // 1. Check for existing active guests to prompt join vs new group
-      if (hasActiveSession && !action) {
+      const code = req.query.code ? String(req.query.code).trim() : undefined;
+
+      if (hasActiveSession) {
         const activeGuests = await GuestSession.find({
           qrsessionId: session._id,
           status: "ACTIVE"
         });
 
-        // If other guests are active at this table, require explicit confirmation
+        // If other guests are active at this table, require verification
         if (activeGuests.length > 0) {
           // If the user already has a valid active GuestSession token matching this table, allow auto-rejoin
           let existingGuest = null;
@@ -1912,15 +1922,55 @@ export class PublicController {
           }
 
           if (!existingGuest) {
-            ApiResponseHandler.success(res, 200, "Active group session exists. Prompt join flow.", {
-              promptRequired: true,
-              activeGuestsCount: activeGuests.length,
-              activeGuestsNames: activeGuests.map(g => g.name),
-              outletSlug: outlet.slug,
-              tableNumber: activeTable.tableNumber,
-              lockRemainingSeconds
-            });
-            return;
+            if (action === "join") {
+              if (!code) {
+                ApiResponseHandler.badRequest(res, "Verification PIN is required to join this active dining table.");
+                return;
+              }
+              if (session.joinCode && session.joinCode !== code) {
+                ApiResponseHandler.badRequest(res, "Invalid table Session PIN. Please verify with other guests at the table.");
+                return;
+              }
+
+              // Seat availability check: sum guestCount from all active guest sessions
+              const totalOccupiedSeats = activeGuests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
+
+              // Calculate effective capacity (primary table + merged tables)
+              let effectiveCapacity = activeTable.seatCount || 4;
+              if (activeTable.isMerged && (activeTable.mergedWithTableIds?.length ?? 0) > 0) {
+                const mergedTables = await Table.find({ _id: { $in: activeTable.mergedWithTableIds }, isDeleted: false });
+                effectiveCapacity += mergedTables.reduce((sum: number, t: any) => sum + (t.seatCount || 0), 0);
+              }
+
+              if (totalOccupiedSeats + requestedGuestCount > effectiveCapacity) {
+                ApiResponseHandler.badRequest(res, `Table is full. Only ${Math.max(0, effectiveCapacity - totalOccupiedSeats)} seat(s) remaining out of ${effectiveCapacity} total.`);
+                return;
+              }
+
+              // Pin verified and seats available! Let them proceed to join
+            } else {
+              // Calculate seats info for prompt response
+              const totalOccupiedSeats = activeGuests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
+              let effectiveCapacity = activeTable.seatCount || 4;
+              if (activeTable.isMerged && (activeTable.mergedWithTableIds?.length ?? 0) > 0) {
+                const mergedTables = await Table.find({ _id: { $in: activeTable.mergedWithTableIds }, isDeleted: false });
+                effectiveCapacity += mergedTables.reduce((sum: number, t: any) => sum + (t.seatCount || 0), 0);
+              }
+
+              ApiResponseHandler.success(res, 200, "Active group session exists. Prompt join flow.", {
+                promptRequired: true,
+                requiresJoinCode: true,
+                activeGuestsCount: activeGuests.length,
+                activeGuestsNames: activeGuests.map(g => g.name),
+                outletSlug: outlet.slug,
+                tableNumber: activeTable.tableNumber,
+                seatCount: effectiveCapacity,
+                occupiedSeats: totalOccupiedSeats,
+                availableSeats: Math.max(0, effectiveCapacity - totalOccupiedSeats),
+                lockRemainingSeconds
+              });
+              return;
+            }
           }
         }
       }
@@ -1954,6 +2004,58 @@ export class PublicController {
 
       // 3. Resolve or initialize QRSession
       if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
+        const joinCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Capacity check for first-time scan: if guestCount exceeds table capacity, suggest merge
+        const tableSeatCount = activeTable.seatCount || 4;
+        if (requestedGuestCount > tableSeatCount) {
+          // Find available tables in the same outlet that could be merged
+          const mergeQuery: any = {
+            outletId: activeTable.outletId,
+            _id: { $ne: activeTable._id },
+            status: "ACTIVE",
+            operationalStatus: "AVAILABLE",
+            isMerged: { $ne: true },
+            isDeleted: false
+          };
+          // Prefer same dining area
+          if (activeTable.diningAreaId) {
+            mergeQuery.diningAreaId = activeTable.diningAreaId;
+          }
+          const availableTables = await Table.find(mergeQuery)
+            .sort({ seatCount: -1 })
+            .limit(10)
+            .lean();
+
+          // Find the minimum set of tables to cover the deficit
+          const deficit = requestedGuestCount - tableSeatCount;
+          let accumulatedSeats = 0;
+          const suggestedMergeTables = [];
+          for (const t of availableTables) {
+            if (accumulatedSeats >= deficit) break;
+            suggestedMergeTables.push({
+              tableId: (t as any)._id.toString(),
+              tableNumber: t.tableNumber,
+              seatCount: t.seatCount
+            });
+            accumulatedSeats += t.seatCount;
+          }
+
+          ApiResponseHandler.success(res, 200, "Party size exceeds table capacity. Merge tables suggested.", {
+            capacityExceeded: true,
+            outletSlug: outlet.slug,
+            tableNumber: activeTable.tableNumber,
+            seatCount: tableSeatCount,
+            requestedGuestCount,
+            deficit,
+            canMerge: accumulatedSeats >= deficit,
+            suggestedMergeTables,
+            totalMergedCapacity: tableSeatCount + accumulatedSeats,
+            lockRemainingSeconds
+          });
+          return;
+        }
+
         const newSession = await QRSession.create({
           tenantId: activeTable.tenantId,
           outletId: activeTable.outletId,
@@ -1961,6 +2063,7 @@ export class PublicController {
           status: "ACTIVE",
           openedAt: new Date(),
           menuViewedAt: new Date(),
+          joinCode,
           seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }],
           waiterId: activeTable.defaultWaiterId || null
         });
@@ -2034,6 +2137,7 @@ export class PublicController {
           qrsessionId: session._id,
           guestSessionToken,
           name: "Guest",
+          guestCount: requestedGuestCount,
           role: activeGuestsCount === 0 ? "HOST" : "MEMBER",
           status: "ACTIVE",
           joinedAt: new Date(),
@@ -2051,6 +2155,13 @@ export class PublicController {
         if (da) diningAreaName = da.name;
       }
 
+      // Calculate effective seat capacity for response
+      let effectiveSeatCount = activeTable.seatCount || 4;
+      if (activeTable.isMerged && (activeTable.mergedWithTableIds?.length ?? 0) > 0) {
+        const mergedTables = await Table.find({ _id: { $in: activeTable.mergedWithTableIds }, isDeleted: false });
+        effectiveSeatCount += mergedTables.reduce((sum: number, t: any) => sum + (t.seatCount || 0), 0);
+      }
+
       ApiResponseHandler.success(res, 200, "QR Code resolved successfully", {
         outletSlug: outlet.slug,
         outletName: outlet.name,
@@ -2059,6 +2170,8 @@ export class PublicController {
         outletId: activeTable.outletId.toString(),
         tableId: activeTable._id.toString(),
         tableNumber: activeTable.tableNumber,
+        seatCount: effectiveSeatCount,
+        isMerged: activeTable.isMerged || false,
         diningAreaName,
         sessionToken: session.sessionToken,
         sessionId: session._id.toString(),
@@ -2069,11 +2182,157 @@ export class PublicController {
           seatNumber: guestSession.seatNumber,
           guestCount: guestSession.guestCount
         },
+        joinCode: session.joinCode,
         lockRemainingSeconds
       });
     } catch (error: any) {
       console.error("[PublicController] resolveQrCode error:", error);
       ApiResponseHandler.internalError(res, error.message || "Failed to resolve QR Code");
+    }
+  }
+
+  /**
+   * POST /api/public/qr/merge-tables
+   * Merges multiple tables into a single session when party size exceeds a single table's capacity.
+   * Body: { tableToken: string, mergeTableIds: string[], guestCount: number }
+   */
+  static async mergeTablesForSession(req: Request, res: Response): Promise<void> {
+    try {
+      const { tableToken, mergeTableIds, guestCount: rawGuestCount } = req.body;
+      const guestCount = Math.max(1, Math.min(20, parseInt(rawGuestCount) || 1));
+
+      if (!tableToken || !Array.isArray(mergeTableIds) || mergeTableIds.length === 0) {
+        ApiResponseHandler.badRequest(res, "tableToken and mergeTableIds are required.");
+        return;
+      }
+
+      // 1. Find primary table
+      const primaryTable = await Table.findOne({ qrToken: tableToken, isDeleted: false });
+      if (!primaryTable || primaryTable.status !== "ACTIVE") {
+        ApiResponseHandler.notFound(res, "Primary table not found or inactive.");
+        return;
+      }
+
+      if (primaryTable.operationalStatus !== "AVAILABLE") {
+        ApiResponseHandler.badRequest(res, "Primary table is not available for a new session.");
+        return;
+      }
+
+      // 2. Validate merge targets
+      const mergeTables = await Table.find({
+        _id: { $in: mergeTableIds },
+        outletId: primaryTable.outletId,
+        status: "ACTIVE",
+        operationalStatus: "AVAILABLE",
+        isMerged: { $ne: true },
+        isDeleted: false
+      });
+
+      if (mergeTables.length !== mergeTableIds.length) {
+        ApiResponseHandler.badRequest(res, "Some merge tables are unavailable or already merged.");
+        return;
+      }
+
+      // 3. Validate total capacity covers guestCount
+      const totalCapacity = (primaryTable.seatCount || 4) + mergeTables.reduce((sum, t) => sum + (t.seatCount || 0), 0);
+      if (guestCount > totalCapacity) {
+        ApiResponseHandler.badRequest(res, `Combined capacity (${totalCapacity} seats) still insufficient for ${guestCount} guests.`);
+        return;
+      }
+
+      // 4. Create QRSession
+      const joinCode = Math.floor(1000 + Math.random() * 9000).toString();
+      const session = await QRSession.create({
+        tenantId: primaryTable.tenantId,
+        outletId: primaryTable.outletId,
+        tableId: primaryTable._id,
+        status: "ACTIVE",
+        openedAt: new Date(),
+        menuViewedAt: new Date(),
+        joinCode,
+        seats: [{ seatNumber: "Seat 1", joinedAt: new Date() }],
+        waiterId: primaryTable.defaultWaiterId || null
+      });
+
+      // 5. Mark primary table as merged + occupied
+      primaryTable.activeSessionId = session._id;
+      primaryTable.operationalStatus = "OCCUPIED";
+      primaryTable.isMerged = true;
+      primaryTable.mergedWithTableIds = mergeTables.map(t => t._id);
+      await primaryTable.save();
+
+      // 6. Mark merge targets as occupied + merged back to primary
+      for (const mt of mergeTables) {
+        mt.activeSessionId = session._id;
+        mt.operationalStatus = "OCCUPIED";
+        mt.isMerged = true;
+        mt.mergedWithTableIds = [primaryTable._id];
+        await mt.save();
+      }
+
+      // 7. Create GuestSession (HOST)
+      const guestSessionToken = "GUEST-SESS-" + Math.random().toString(36).substring(2, 15).toUpperCase() + "-" + Date.now();
+      const guestSession = await GuestSession.create({
+        qrsessionId: session._id,
+        guestSessionToken,
+        name: "Guest",
+        guestCount,
+        role: "HOST",
+        status: "ACTIVE",
+        joinedAt: new Date(),
+        lastSeenAt: new Date()
+      });
+
+      // 8. Publish event
+      await EventBusService.publishTableOccupied(
+        primaryTable.tenantId,
+        primaryTable.outletId,
+        primaryTable._id,
+        {
+          tableId: primaryTable._id.toString(),
+          tableNumber: primaryTable.tableNumber,
+          status: "OCCUPIED",
+          isMerged: true,
+          mergedTableNumbers: mergeTables.map(t => t.tableNumber),
+          updatedAt: new Date()
+        },
+        { sourceSystem: "QR" }
+      );
+
+      // 9. Fetch outlet for slug
+      const outlet = await Outlet.findById(primaryTable.outletId);
+      let diningAreaName = "Dine-In";
+      if (primaryTable.diningAreaId) {
+        const da = await DiningArea.findById(primaryTable.diningAreaId);
+        if (da) diningAreaName = da.name;
+      }
+
+      ApiResponseHandler.success(res, 201, "Tables merged and session created successfully", {
+        outletSlug: outlet?.slug,
+        outletName: outlet?.name,
+        outletAddress: outlet?.address,
+        tenantId: primaryTable.tenantId.toString(),
+        outletId: primaryTable.outletId.toString(),
+        tableId: primaryTable._id.toString(),
+        tableNumber: primaryTable.tableNumber,
+        seatCount: totalCapacity,
+        isMerged: true,
+        mergedTables: mergeTables.map(t => ({ tableNumber: t.tableNumber, seatCount: t.seatCount })),
+        diningAreaName,
+        sessionToken: session.sessionToken,
+        sessionId: session._id.toString(),
+        guestSessionToken: guestSession.guestSessionToken,
+        guestSession: {
+          name: guestSession.name,
+          role: guestSession.role,
+          seatNumber: guestSession.seatNumber,
+          guestCount: guestSession.guestCount
+        },
+        joinCode: session.joinCode
+      });
+    } catch (error: any) {
+      console.error("[PublicController] mergeTablesForSession error:", error);
+      ApiResponseHandler.internalError(res, error.message || "Failed to merge tables");
     }
   }
 
@@ -2589,13 +2848,22 @@ export class PublicController {
         return;
       }
 
-      // Find active coupons matching conditions matching ICoupon schema
+      // Find active coupons matching conditions matching ICoupon schema for this outlet/tenant or global
       const coupons = await Coupon.find({
+        tenantId: { $in: [outlet.tenantId, null] },
         isActive: true,
         isDeleted: false,
         $or: [
-          { expirationDate: null },
-          { expirationDate: { $gt: new Date() } }
+          { outletId: outlet._id },
+          { outletId: null }
+        ],
+        $and: [
+          {
+            $or: [
+              { expirationDate: null },
+              { expirationDate: { $gt: new Date() } }
+            ]
+          }
         ]
       });
 

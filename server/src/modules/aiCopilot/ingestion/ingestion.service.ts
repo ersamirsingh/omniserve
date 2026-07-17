@@ -1,4 +1,4 @@
-import RAGSyncState from './rag-sync-state.model.js';
+import CopilotSyncState from './aiCopilot-sync-state.model.js';
 import { VectorSyncService } from './vector-sync.service.js';
 import { GraphSyncService } from './graph-sync.service.js';
 
@@ -26,9 +26,9 @@ export class IngestionService {
 
     try {
       // Find or create sync state entry
-      let state = await RAGSyncState.findOne({ serviceName: 'RAG_CHATBOT_PIPELINE' });
+      let state = await CopilotSyncState.findOne({ serviceName: 'RAG_CHATBOT_PIPELINE' });
       if (!state) {
-        state = await RAGSyncState.create({
+        state = await CopilotSyncState.create({
           serviceName: 'RAG_CHATBOT_PIPELINE',
           lastSyncedAt: new Date(0), // Epoch (1970) to index all initial data
           status: 'IDLE',
@@ -38,7 +38,7 @@ export class IngestionService {
 
       const lastSyncTime = forceFullReindex ? new Date(0) : state.lastSyncedAt;
 
-      await RAGSyncState.updateOne(
+      await CopilotSyncState.updateOne(
         { serviceName: 'RAG_CHATBOT_PIPELINE' },
         { status: 'SYNCING' }
       );
@@ -50,7 +50,7 @@ export class IngestionService {
       ]);
 
       // Update sync state on success
-      await RAGSyncState.updateOne(
+      await CopilotSyncState.updateOne(
         { serviceName: 'RAG_CHATBOT_PIPELINE' },
         {
           lastSyncedAt: now,
@@ -67,7 +67,7 @@ export class IngestionService {
       };
     } catch (error: any) {
       console.error('[IngestionService] Ingestion pipeline failed:', error);
-      await RAGSyncState.updateOne(
+      await CopilotSyncState.updateOne(
         { serviceName: 'RAG_CHATBOT_PIPELINE' },
         { status: 'FAILED' }
       );

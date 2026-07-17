@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { RAG_CONFIG } from '../config/rag-env.config.js';
+import { COPILOT_CONFIG } from '../config/aiCopilot-env.config.js';
 
 let genAIInstance: GoogleGenerativeAI | null = null;
 
@@ -15,7 +15,7 @@ export class LlmService {
   static getGenAI(): GoogleGenerativeAI | null {
     if (genAIInstance) return genAIInstance;
 
-    const apiKey = RAG_CONFIG.gemini.apiKey;
+    const apiKey = COPILOT_CONFIG.gemini.apiKey;
     console.log(apiKey);
     if (!apiKey) {
       console.warn('[LlmService] GEMINI_API_KEY is missing. Operating in MOCK mode.');
@@ -75,7 +75,7 @@ export class LlmService {
     tools: any[] = []
   ): Promise<ILlmContentResponse> {
     const ai = this.getGenAI();
-    const modelName = RAG_CONFIG.gemini.modelName;
+    const modelName = COPILOT_CONFIG.gemini.modelName;
 
     if (!ai) {
       console.warn('[LlmService] Gemini in MOCK mode. Returning static response.');

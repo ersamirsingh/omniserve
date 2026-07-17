@@ -82,7 +82,7 @@ export default function AuthLayout() {
                 { title: 'Super Operations Cockpit', desc: 'Monitor orders and guest sessions live.' },
                 { title: 'Smart KDS Dispatcher', desc: 'Lag-free order coordination across stations.' },
                 { title: 'Automatic Inventory Sheets', desc: 'Real-time stock depletion linked to billing.' },
-                { title: 'AI Copilot Predictions', desc: 'Harness VectorDB & RAG to cut ingredient costs.' }
+                { title: 'AI Copilot Predictions', desc: 'Harness VectorDB & AI Copilot to cut ingredient costs.' }
               ].map((item, idx) => (
                 <li key={idx} className="flex items-start space-x-2.5 text-xs">
                   <CheckCircle className="text-green-400 w-4.5 h-4.5 shrink-0 mt-0.5" />

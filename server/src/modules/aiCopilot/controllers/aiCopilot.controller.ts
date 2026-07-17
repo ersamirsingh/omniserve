@@ -6,13 +6,13 @@ import { ToolExecutor } from '../tools/tool-executor.js';
 import { QdrantService } from '../services/qdrant.service.js';
 import { Neo4jService } from '../services/neo4j.service.js';
 import { LlmService } from '../services/llm.service.js';
-import { getSystemPrompt, RagRole } from '../prompts/prompt-registry.js';
+import { getSystemPrompt, CopilotRole } from '../prompts/prompt-registry.js';
 import { IngestionService } from '../ingestion/ingestion.service.js';
 
-export class RagController {
+export class AICopilotController {
   /**
    * List all non-deleted sessions for the authenticated user.
-   * GET /api/rag/chats
+   * GET /api/ai-copilot/chats
    */
   static async listSessions(req: Request, res: Response): Promise<void> {
     try {
@@ -33,7 +33,7 @@ export class RagController {
 
   /**
    * Retrieve a specific session's history.
-   * GET /api/rag/chats/:id
+   * GET /api/ai-copilot/chats/:id
    */
   static async getSession(req: Request, res: Response): Promise<void> {
     try {
@@ -61,7 +61,7 @@ export class RagController {
 
   /**
    * Create a new blank chat session.
-   * POST /api/rag/chats
+   * POST /api/ai-copilot/chats
    */
   static async createSession(req: Request, res: Response): Promise<void> {
     try {
@@ -86,7 +86,7 @@ export class RagController {
 
   /**
    * Soft delete (isDeleted: true) a chat session.
-   * DELETE /api/rag/chats/:id
+   * DELETE /api/ai-copilot/chats/:id
    */
   static async deleteSession(req: Request, res: Response): Promise<void> {
     try {
@@ -117,8 +117,8 @@ export class RagController {
   }
 
   /**
-   * Handles multi-backend secure RAG queries.
-   * POST /api/rag/chat
+   * Handles multi-backend secure AI Copilot queries.
+   * POST /api/ai-copilot/chat
    */
   static async handleChat(req: Request, res: Response): Promise<void> {
     try {
@@ -133,7 +133,7 @@ export class RagController {
         return;
       }
 
-      const role = req.user.role as RagRole;
+      const role = req.user.role as CopilotRole;
 
       // 1. Classify the user query
       const decision: IRouteDecision = await QueryRouter.classifyQuery(message, role);
@@ -259,14 +259,14 @@ Answer:
         },
       });
     } catch (error: any) {
-      console.error('[RagController] Chat error:', error);
-      res.status(500).json({ success: false, message: 'RAG query processing failed', error: error.message });
+      console.error('[AICopilotController] Chat error:', error);
+      res.status(500).json({ success: false, message: 'AI Copilot query processing failed', error: error.message });
     }
   }
 
   /**
    * Triggers ingestion sync job.
-   * POST /api/rag/sync
+   * POST /api/ai-copilot/sync
    */
   static async handleSync(req: Request, res: Response): Promise<void> {
     try {
@@ -290,7 +290,7 @@ Answer:
         });
       }
     } catch (error: any) {
-      console.error('[RagController] Sync trigger error:', error);
+      console.error('[AICopilotController] Sync trigger error:', error);
       res.status(500).json({ success: false, message: 'Sync trigger execution failed', error: error.message });
     }
   }

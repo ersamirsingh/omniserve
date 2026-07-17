@@ -37,8 +37,27 @@ export class CouponController {
 
       const resolvedMinAmount = minAmount !== undefined ? minAmount : minOrderAmount;
 
+      // Determine tenantId and outletId based on user role
+      let tenantId = req.user?.tenantId ? req.user.tenantId : null;
+      let outletId = req.user?.outletId ? req.user.outletId : null;
+
+      if (req.user?.role === "SUPER_ADMIN" || req.user?.role === "RESTAURANT_OWNER") {
+        if (req.body.outletId) {
+          outletId = req.body.outletId;
+        }
+      } else if (req.user?.role === "SYSTEM_ADMIN") {
+        if (req.body.tenantId) {
+          tenantId = req.body.tenantId;
+        }
+        if (req.body.outletId) {
+          outletId = req.body.outletId;
+        }
+      }
+
       const coupon = await CouponService.createCoupon(
         {
+          tenantId,
+          outletId,
           code,
           discountType,
           discountValue,
@@ -64,7 +83,12 @@ export class CouponController {
     try {
       const isActive = req.query.isActive !== undefined ? req.query.isActive === "true" : undefined;
 
-      const coupons = await CouponService.getCoupons({ isActive });
+      const coupons = await CouponService.getCoupons({
+        isActive,
+        tenantId: req.user?.tenantId,
+        outletId: req.user?.outletId,
+        role: req.user?.role
+      });
       ApiResponseHandler.success(res, 200, "Coupons retrieved successfully", coupons);
     } catch (error: any) {
       ApiResponseHandler.badRequest(res, error.message || "Failed to list coupons");
@@ -83,6 +107,18 @@ export class CouponController {
         return;
       }
 
+      // Check access permission
+      if (req.user?.role !== "SYSTEM_ADMIN") {
+        if (coupon.tenantId?.toString() !== req.user?.tenantId?.toString()) {
+          ApiResponseHandler.forbidden(res, "Access denied to this coupon");
+          return;
+        }
+        if (req.user?.role === "OUTLET_MANAGER" && coupon.outletId && coupon.outletId.toString() !== req.user?.outletId?.toString()) {
+          ApiResponseHandler.forbidden(res, "Access denied to this outlet's coupon");
+          return;
+        }
+      }
+
       ApiResponseHandler.success(res, 200, "Coupon retrieved successfully", coupon);
     } catch (error: any) {
       ApiResponseHandler.badRequest(res, error.message || "Failed to get coupon details");
@@ -95,6 +131,24 @@ export class CouponController {
    */
   static async updateCoupon(req: Request, res: Response): Promise<void> {
     try {
+      const coupon = await CouponService.getCouponById(req.params.id as string);
+      if (!coupon) {
+        ApiResponseHandler.notFound(res, "Coupon not found");
+        return;
+      }
+
+      // Check access permission
+      if (req.user?.role !== "SYSTEM_ADMIN") {
+        if (coupon.tenantId?.toString() !== req.user?.tenantId?.toString()) {
+          ApiResponseHandler.forbidden(res, "Access denied to this coupon");
+          return;
+        }
+        if (req.user?.role === "OUTLET_MANAGER" && coupon.outletId && coupon.outletId.toString() !== req.user?.outletId?.toString()) {
+          ApiResponseHandler.forbidden(res, "Access denied to this outlet's coupon");
+          return;
+        }
+      }
+
       const { minAmount, minOrderAmount } = req.body;
       const data = { ...req.body };
       if (minAmount !== undefined) {
@@ -103,18 +157,13 @@ export class CouponController {
         data.minAmount = minOrderAmount;
       }
 
-      const coupon = await CouponService.updateCoupon(
+      const updated = await CouponService.updateCoupon(
         req.params.id as string,
         data,
         req.user?.userId as string
       );
 
-      if (!coupon) {
-        ApiResponseHandler.notFound(res, "Coupon not found");
-        return;
-      }
-
-      ApiResponseHandler.success(res, 200, "Coupon updated successfully", coupon);
+      ApiResponseHandler.success(res, 200, "Coupon updated successfully", updated);
     } catch (error: any) {
       ApiResponseHandler.badRequest(res, error.message || "Failed to update coupon");
     }
@@ -126,16 +175,30 @@ export class CouponController {
    */
   static async deleteCoupon(req: Request, res: Response): Promise<void> {
     try {
-      const coupon = await CouponService.deleteCoupon(
-        req.params.id as string,
-        req.user?.userId as string
-      );
+      const coupon = await CouponService.getCouponById(req.params.id as string);
       if (!coupon) {
         ApiResponseHandler.notFound(res, "Coupon not found");
         return;
       }
 
-      ApiResponseHandler.success(res, 200, "Coupon deleted successfully", coupon);
+      // Check access permission
+      if (req.user?.role !== "SYSTEM_ADMIN") {
+        if (coupon.tenantId?.toString() !== req.user?.tenantId?.toString()) {
+          ApiResponseHandler.forbidden(res, "Access denied to this coupon");
+          return;
+        }
+        if (req.user?.role === "OUTLET_MANAGER" && coupon.outletId && coupon.outletId.toString() !== req.user?.outletId?.toString()) {
+          ApiResponseHandler.forbidden(res, "Access denied to this outlet's coupon");
+          return;
+        }
+      }
+
+      const deleted = await CouponService.deleteCoupon(
+        req.params.id as string,
+        req.user?.userId as string
+      );
+
+      ApiResponseHandler.success(res, 200, "Coupon deleted successfully", deleted);
     } catch (error: any) {
       ApiResponseHandler.badRequest(res, error.message || "Failed to delete coupon");
     }

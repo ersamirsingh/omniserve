@@ -53,3 +53,12 @@ export const getQrSessionBillApi = (sessionToken) =>
 
 export const payQrSessionBillApi = (sessionToken, data) =>
   api.post(`/public/qr/session/${sessionToken}/pay`, data);
+
+export const validateCouponApi = (outletSlug, code, subtotal) =>
+  api.get(`/public/o/${outletSlug}/coupons/validate`, { params: { code, subtotal } });
+
+export const listOutletCouponsApi = (outletSlug) =>
+  api.get(`/public/o/${outletSlug}/coupons`);
+
+export const mergeTablesApi = (data) =>
+  api.post("/public/qr/merge-tables", data);

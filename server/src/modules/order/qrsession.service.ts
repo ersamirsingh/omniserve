@@ -34,8 +34,8 @@ export class QRSessionService {
       throw new Error(`Table ${tableId} is currently ${table.operationalStatus} and cannot be seated with a new session.`);
     }
 
-    // Generate a clean 6-digit numeric join code for group sessions
-    const joinCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate a clean 4-digit numeric join code for group sessions
+    const joinCode = Math.floor(1000 + Math.random() * 9000).toString();
 
     let finalWaiterId = options.waiterId ? new Types.ObjectId(options.waiterId) : null;
     if (!finalWaiterId && options.reservationId) {
@@ -71,11 +71,6 @@ export class QRSessionService {
     // Link session to Table (aggregate root)
     table.activeSessionId = session._id;
     await table.save();
-
-    // Update table state to OCCUPIED
-    await TableService.updateTableOperationalStatus(tenantId, outletId, tableId, "OCCUPIED", {
-      correlationId: session.sessionToken
-    });
 
     return session;
   }

@@ -1,6 +1,8 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
 export interface ICoupon extends Document {
+  tenantId?: Types.ObjectId | null;
+  outletId?: Types.ObjectId | null;
   code: string;
   discountType: "PERCENTAGE" | "FLAT";
   discountValue: number;
@@ -17,6 +19,16 @@ export interface ICoupon extends Document {
 
 const couponSchema = new Schema<ICoupon>(
   {
+    tenantId: {
+      type: Schema.Types.ObjectId,
+      ref: "Tenant",
+      default: null,
+    },
+    outletId: {
+      type: Schema.Types.ObjectId,
+      ref: "Outlet",
+      default: null,
+    },
     code: {
       type: String,
       required: [true, "Coupon code is required"],
@@ -76,7 +88,7 @@ const couponSchema = new Schema<ICoupon>(
   }
 );
 
-couponSchema.index({ code: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
+couponSchema.index({ tenantId: 1, code: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 couponSchema.index({ isDeleted: 1 });
 
 couponSchema.pre("find", function () {

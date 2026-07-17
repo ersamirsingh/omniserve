@@ -11,8 +11,9 @@ export class CouponService {
   ): Promise<{ isValid: boolean; discount: number; reason?: string; coupon?: ICoupon }> {
     const formattedCode = code.trim().toUpperCase();
 
-    // Query active coupon matching code globally
+    // Query active coupon matching code globally (System Admin coupons have tenantId = null)
     const coupon = await Coupon.findOne({
+      tenantId: null,
       code: formattedCode,
       isActive: true,
       isDeleted: false,
@@ -67,12 +68,24 @@ export class CouponService {
   ): Promise<{ isValid: boolean; discount: number; reason?: string; coupon?: ICoupon }> {
     const formattedCode = code.trim().toUpperCase();
 
-    // Query active coupon matching code globally
-    const coupon = await Coupon.findOne({
+    // Query active coupon matching code for this tenant (or global System Admin coupons where tenantId is null)
+    const query: any = {
+      tenantId: { $in: [new Types.ObjectId(tenantId), null] },
       code: formattedCode,
       isActive: true,
       isDeleted: false,
-    });
+    };
+
+    if (outletId) {
+      query.$or = [
+        { outletId: new Types.ObjectId(outletId) },
+        { outletId: null }
+      ];
+    } else {
+      query.outletId = null;
+    }
+
+    const coupon = await Coupon.findOne(query);
 
     if (!coupon) {
       return { isValid: false, discount: 0, reason: "Invalid coupon code" };
@@ -120,9 +133,12 @@ export class CouponService {
     userId?: string
   ): Promise<ICoupon> {
     const formattedCode = data.code.trim().toUpperCase();
+    const tenantIdObj = data.tenantId ? new Types.ObjectId(data.tenantId) : null;
+    const outletIdObj = data.outletId ? new Types.ObjectId(data.outletId) : null;
 
-    // Check global code conflict for non-deleted coupons
+    // Check code conflict for non-deleted coupons scoped by tenant
     const existing = await Coupon.findOne({
+      tenantId: tenantIdObj,
       code: formattedCode,
       isDeleted: false,
     });
@@ -132,6 +148,8 @@ export class CouponService {
     }
 
     const coupon = new Coupon({
+      tenantId: tenantIdObj,
+      outletId: outletIdObj,
       code: formattedCode,
       discountType: data.discountType,
       discountValue: Number(data.discountValue),
@@ -147,10 +165,10 @@ export class CouponService {
   }
 
   /**
-   * List coupons globally (Global - System Admin)
+   * List coupons globally or scoped by tenant/outlet
    */
   static async getCoupons(
-    filters: { isActive?: boolean | undefined } = {}
+    filters: { isActive?: boolean | undefined; tenantId?: any; outletId?: any; role?: string | undefined } = {}
   ): Promise<ICoupon[]> {
     const query: any = {
       isDeleted: false,
@@ -158,6 +176,20 @@ export class CouponService {
 
     if (filters.isActive !== undefined) {
       query.isActive = filters.isActive;
+    }
+
+    if (filters.role !== "SYSTEM_ADMIN") {
+      if (filters.tenantId) {
+        query.tenantId = new Types.ObjectId(filters.tenantId);
+      }
+      if (filters.role === "OUTLET_MANAGER" && filters.outletId) {
+        query.$or = [
+          { outletId: new Types.ObjectId(filters.outletId) },
+          { outletId: null }
+        ];
+      } else if (filters.outletId) {
+        query.outletId = new Types.ObjectId(filters.outletId);
+      }
     }
 
     return await Coupon.find(query).sort({ createdAt: -1 });

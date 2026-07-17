@@ -69,6 +69,7 @@ export const routeComponents = {
   OrderTrackingPage: createLazyPage(() => import('../../pages/website/OrderTrackingPage')),
   QRRedirectPage: createLazyPage(() => import('../../pages/website/QRRedirectPage')),
   TableSessionPage: createLazyPage(() => import('../../pages/website/TableSessionPage')),
+  SessionStatusPage: createLazyPage(() => import('../../pages/website/SessionStatusPage')),
   OperationsCockpitPage: createLazyPage(() => import('../../pages/operations/OperationsCockpit')),
   OnlineOrdersPage: createLazyPage(() => import('../../pages/orders/OrdersPage').then(module => ({ default: (props) => <module.default mode="ONLINE" {...props} /> }))),
   OrderPreparationPage: createLazyPage(() => import('../../pages/operations/OrderPreparationPage')),
@@ -119,6 +120,7 @@ export const dashboardRoutes = [
   // Menu Management Unified Workspace
   { path: '/menu-management', title: 'Menu Management', component: routeComponents.MenuManagementPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Menu Management', icon: HiOutlineSquares2X2 } },
   { path: '/coupons', title: 'Subscription Coupons', component: routeComponents.CouponsPage, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Subscription Coupons', icon: HiOutlineTag } },
+  { path: '/marketing/coupons', title: 'Coupons Management', component: routeComponents.CouponsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Management', label: 'Coupons', icon: HiOutlineTag } },
   
   // Standalone paths (no longer in sidebar, but still routable)
   { path: '/categories', title: 'Categories', component: routeComponents.CategoriesPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER] },
@@ -153,6 +155,7 @@ export const publicWebsiteRoutes = [
   { path: '/public/w/:outletSlug/order-success', component: routeComponents.OrderSuccessPage },
   { path: '/public/w/:outletSlug/track/:orderId', component: routeComponents.OrderTrackingPage },
   { path: '/public/w/:outletSlug/table-session', component: routeComponents.TableSessionPage },
+  { path: '/public/w/:outletSlug/session-status', component: routeComponents.SessionStatusPage },
   { path: '/public/qr/:tableToken', component: routeComponents.QRRedirectPage },
   { path: '/qr/:tableToken', component: routeComponents.QRRedirectPage },
   { path: '/system-admin/accept-invite', component: routeComponents.AcceptSystemAdminInvite },

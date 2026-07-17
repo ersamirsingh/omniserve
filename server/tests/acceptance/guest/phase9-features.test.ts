@@ -413,6 +413,91 @@ async function runPhase9Tests() {
   }
   console.log("-> Custom split verification verified successfully.");
 
+  // 9. Coupon Scoping & Session join code tests
+  console.log("-> Testing QR Session join code PIN protection...");
+  let qrResData: any = null;
+  const mockRes1: any = {
+    status(code: number) { return this; },
+    json(payload: any) { qrResData = payload.data; return this; }
+  };
+
+  await PublicController.resolveQrCode(
+    {
+      params: { tableToken: "qr_token_phase9_test" },
+      query: { bypassGeofence: "true" },
+      headers: {}
+    } as any,
+    mockRes1 as any
+  );
+
+  // Since active guest exists, resolveQrCode returns promptRequired: true. Let's load the active session from database to inspect the joinCode
+  const activeSess = await QRSession.findOne({ tableId: table._id, status: { $nin: ["CLOSED", "EXPIRED"] } });
+  if (!activeSess || !activeSess.joinCode || activeSess.joinCode.length !== 4) {
+    throw new Error("Failed to generate 4-digit joinCode on session resolution");
+  }
+
+  // Attempt to join active session with no code
+  let joinErrData: any = null;
+  const mockRes2: any = {
+    status(code: number) { return this; },
+    json(payload: any) { joinErrData = payload; return this; }
+  };
+
+  await PublicController.resolveQrCode(
+    {
+      params: { tableToken: "qr_token_phase9_test" },
+      query: { action: "join", bypassGeofence: "true" },
+      headers: {}
+    } as any,
+    mockRes2 as any
+  );
+
+  if (!joinErrData || !joinErrData.message.includes("PIN is required")) {
+    throw new Error("Failed to enforce PIN requirement when joining group session");
+  }
+
+  // Attempt to join active session with incorrect code
+  let invalidPinErrData: any = null;
+  const mockRes3: any = {
+    status(code: number) { return this; },
+    json(payload: any) { invalidPinErrData = payload; return this; }
+  };
+
+  await PublicController.resolveQrCode(
+    {
+      params: { tableToken: "qr_token_phase9_test" },
+      query: { action: "join", code: "9999", bypassGeofence: "true" },
+      headers: {}
+    } as any,
+    mockRes3 as any
+  );
+
+  if (!invalidPinErrData || !invalidPinErrData.message.includes("Invalid table Session PIN")) {
+    throw new Error("Failed to block join attempt with incorrect PIN");
+  }
+
+  // Join active session with correct code
+  let joinSuccessData: any = null;
+  const mockRes4: any = {
+    status(code: number) { return this; },
+    json(payload: any) { joinSuccessData = payload.data; return this; }
+  };
+
+  await PublicController.resolveQrCode(
+    {
+      params: { tableToken: "qr_token_phase9_test" },
+      query: { action: "join", code: activeSess.joinCode, bypassGeofence: "true" },
+      headers: {}
+    } as any,
+    mockRes4 as any
+  );
+
+  if (!joinSuccessData || joinSuccessData.joinCode !== activeSess.joinCode) {
+    throw new Error("Failed to join session with correct PIN");
+  }
+
+  console.log("-> QR Session join code PIN protection verified successfully.");
+
   console.log("[Phase9Test] All new Phase 9 Features verified successfully! ✅");
   await closeTestDB();
 }
