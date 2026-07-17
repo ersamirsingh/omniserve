@@ -14,7 +14,7 @@ async function checkExpiredTableLocks() {
     const expiredLocks = await TableLock.find({ expiresAt: { $lte: now } });
     for (const lock of expiredLocks) {
       const table = await Table.findById(lock.tableId);
-      if (table && !["AVAILABLE", "RESERVED", "CLEANING"].includes(table.operationalStatus)) {
+      if (table) {
         if (table.activeSessionId) {
           const session = await QRSession.findById(table.activeSessionId);
           if (session) {
@@ -31,23 +31,28 @@ async function checkExpiredTableLocks() {
               await session.save();
 
               // Free table
+              const statusChanged = !["AVAILABLE", "RESERVED", "CLEANING"].includes(table.operationalStatus);
               table.activeSessionId = null;
-              table.operationalStatus = "AVAILABLE";
+              if (statusChanged) {
+                table.operationalStatus = "AVAILABLE";
+              }
               await table.save();
 
-              // Broadcast event
-              await EventBusService.publishTableAvailable(
-                table.tenantId,
-                table.outletId,
-                table._id,
-                {
-                  tableId: table._id.toString(),
-                  tableNumber: table.tableNumber,
-                  status: "AVAILABLE",
-                  updatedAt: now
-                },
-                { sourceSystem: "SYSTEM" }
-              );
+              if (statusChanged) {
+                // Broadcast event
+                await EventBusService.publishTableAvailable(
+                  table.tenantId,
+                  table.outletId,
+                  table._id,
+                  {
+                    tableId: table._id.toString(),
+                    tableNumber: table.tableNumber,
+                    status: "AVAILABLE",
+                    updatedAt: now
+                  },
+                  { sourceSystem: "SYSTEM" }
+                );
+              }
             }
           } else {
             // Active session record doesn't exist, just free table

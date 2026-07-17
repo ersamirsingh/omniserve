@@ -47,13 +47,13 @@ SECURITY & BOUNDARIES:
 `
 };
 
-export type RagRole = 'SYSTEM_ADMIN' | 'SUPER_ADMIN' | 'RESTAURANT_OWNER' | 'OUTLET_MANAGER' | 'CUSTOMER';
+export type CopilotRole = 'SYSTEM_ADMIN' | 'SUPER_ADMIN' | 'RESTAURANT_OWNER' | 'OUTLET_MANAGER' | 'CUSTOMER';
 
 /**
  * Resolves the personalized system prompt for a specific role and session context.
  * Enforces parameter insertion to ensure the LLM is aware of its scope.
  */
-export function getSystemPrompt(role: RagRole, context: { tenantId?: string; outletId?: string }): string {
+export function getSystemPrompt(role: CopilotRole, context: { tenantId?: string; outletId?: string }): string {
   const basePrompt = PROMPT_REGISTRY[role];
   if (!basePrompt || role === 'CUSTOMER') {
     return 'Self-service customer assistant is currently offline. Phase 2 menu Q&A stub placeholder.';

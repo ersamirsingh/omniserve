@@ -203,6 +203,26 @@ export class OrderService {
 
       await session.commitTransaction();
 
+      // Book table (set table state to OCCUPIED) when the first order is successfully placed
+      if (orderData.diningContext?.tableId) {
+        try {
+          const TableModel = (await import("../../models/table.model.js")).default;
+          const table = await TableModel.findOne({ _id: orderData.diningContext.tableId, isDeleted: false });
+          if (table && table.operationalStatus !== "OCCUPIED" && table.operationalStatus !== "ORDERING" && table.operationalStatus !== "DINING") {
+            const { TableService } = await import("../outlet/table.service.js");
+            await TableService.updateTableOperationalStatus(
+              tenantId,
+              savedOrder.outletId.toString(),
+              orderData.diningContext.tableId.toString(),
+              "OCCUPIED",
+              { correlationId: savedOrder._id.toString() }
+            );
+          }
+        } catch (tableErr) {
+          console.error("Failed to dynamically update table status to OCCUPIED on order placement:", tableErr);
+        }
+      }
+
       // Publish event
       await EventBusService.publishOrderCreated(
         tenantId,

@@ -1,5 +1,5 @@
 import { LlmService } from '../services/llm.service.js';
-import { RagRole } from '../prompts/prompt-registry.js';
+import { CopilotRole } from '../prompts/prompt-registry.js';
 
 export interface IScopeFilter {
   tenantId?: string;
@@ -17,9 +17,9 @@ export class QueryRouter {
   /**
    * Classifies the user query using Gemini.
    */
-  static async classifyQuery(query: string, role: RagRole): Promise<IRouteDecision> {
+  static async classifyQuery(query: string, role: CopilotRole): Promise<IRouteDecision> {
     const classificationPrompt = `
-You are the Query Router for the OmniServe RAG system.
+You are the Query Router for the OmniServe AI Copilot system.
 Your job is to analyze the user's natural language question and classify it into one of the following:
 
 Intents:
@@ -97,7 +97,7 @@ Return raw JSON strictly in this format (do not wrap in markdown code blocks):
     authenticatedUser: { role: string; tenantId?: string; outletId?: string },
     rawParams: Record<string, any> = {}
   ): { scope: IScopeFilter; isAllowed: boolean; refusalReason?: string } {
-    const role = authenticatedUser.role as RagRole;
+    const role = authenticatedUser.role as CopilotRole;
 
     // Phase 2 stub for Customer
     if (role === 'CUSTOMER') {

@@ -1,5 +1,5 @@
 import neo4j, { Driver, Session } from 'neo4j-driver';
-import { RAG_CONFIG } from '../config/rag-env.config.js';
+import { COPILOT_CONFIG } from '../config/aiCopilot-env.config.js';
 
 let driverInstance: any = null;
 
@@ -16,7 +16,7 @@ export class Neo4jService {
   static getDriver(): any {
     if (driverInstance) return driverInstance;
 
-    const { uri, user, password } = RAG_CONFIG.neo4j;
+    const { uri, user, password } = COPILOT_CONFIG.neo4j;
 
     if (!uri || !user || !password) {
       console.warn('[Neo4jService] URI, User, or Password missing. Operating in MOCK mode.');

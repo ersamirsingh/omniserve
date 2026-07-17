@@ -181,7 +181,7 @@ export default function FloorView({ onNavigate }) {
     if (table.operationalStatus === 'CLEANING') return 'bg-purple-500 text-white hover:bg-purple-650';
     if (table.operationalStatus === 'BILL_REQUESTED') return 'bg-yellow-500 text-black hover:bg-yellow-600';
     if (table.operationalStatus === 'RESERVED') return 'bg-blue-500 text-white hover:bg-blue-600';
-    if (table.activeSessionId) return 'bg-red-500 text-white hover:bg-red-600';
+    if (table.activeSessionId && table.operationalStatus !== 'AVAILABLE') return 'bg-red-500 text-white hover:bg-red-600';
     return 'bg-success-green text-white hover:bg-emerald-600';
   };
 

@@ -14,6 +14,10 @@ export default function OrderSuccessPage() {
   const orderId = searchParams.get("orderId");
   const [copied, setCopied] = useState(false);
 
+  // Detect if this is a dine-in table session order
+  const sessionToken = localStorage.getItem("sessionToken");
+  const isTableSession = sessionToken && !sessionToken.startsWith("WEB-SESS-");
+
   const handleCopy = () => {
     if (!orderId) return;
     navigator.clipboard?.writeText(orderId);
@@ -34,7 +38,9 @@ export default function OrderSuccessPage() {
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-on-background font-hanken">Order Placed!</h1>
           <p className="text-sm text-on-surface-variant">
-            Thank you for ordering. Your order has been sent straight to the kitchen.
+            {isTableSession
+              ? "Your order has been sent to the kitchen. You can track its live status and add more items."
+              : "Thank you for ordering. Your order has been sent straight to the kitchen."}
           </p>
         </div>
 
@@ -69,16 +75,45 @@ export default function OrderSuccessPage() {
         </div>
 
         <div className="pt-2 flex flex-col gap-3">
-          {orderId && (
-            <Link to={`/public/w/${outletSlug}/track/${orderId}`}>
+          {/* Primary CTA: Session status for dine-in, or tracking for other orders */}
+          {isTableSession ? (
+            <Link to={`/public/w/${outletSlug}/session-status`}>
               <button
                 type="button"
-                className="w-full bg-primary-fixed hover:brightness-95 text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm"
+                className="w-full bg-primary-fixed hover:brightness-95 text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm flex items-center justify-center gap-2"
               >
-                Track Live Progress
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                </span>
+                View Live Session Status
+              </button>
+            </Link>
+          ) : (
+            orderId && (
+              <Link to={`/public/w/${outletSlug}/track/${orderId}`}>
+                <button
+                  type="button"
+                  className="w-full bg-primary-fixed hover:brightness-95 text-on-primary-fixed font-bold py-3 px-4 rounded-xl shadow-[0_8px_20px_-8px_color-mix(in_srgb,var(--color-brand-accent)_35%,transparent)] transition-all text-sm"
+                >
+                  Track Live Progress
+                </button>
+              </Link>
+            )
+          )}
+
+          {/* Add More Items for dine-in sessions */}
+          {isTableSession && (
+            <Link to={`/public/w/${outletSlug}/menu`}>
+              <button
+                type="button"
+                className="w-full bg-surface-container border border-primary/20 hover:bg-primary/5 text-primary font-bold py-3 px-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                🍔 Add More Items
               </button>
             </Link>
           )}
+
           <Link to={`/public/w/${outletSlug}`}>
             <button
               type="button"

@@ -15,6 +15,9 @@ publicRouter.get("/qr/resolve/:tableToken", PublicController.resolveQrCode);
 // Place a QR order
 publicRouter.post("/qr/orders", PublicController.placeQrOrder);
 
+// Merge tables for larger party
+publicRouter.post("/qr/merge-tables", PublicController.mergeTablesForSession);
+
 // Request customer self-service assistance
 publicRouter.post("/qr/assist", PublicController.requestQrAssistance);
 

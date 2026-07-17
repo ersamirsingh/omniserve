@@ -9,6 +9,8 @@ import PageHeader from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
 import { HiPlus, HiOutlineTag, HiOutlineCheckCircle, HiOutlineXCircle } from 'react-icons/hi2';
 import { listCouponsApi, createCouponApi, updateCouponApi, deleteCouponApi } from '../../api/models/coupon.api';
+import { listOutletsApi } from '../../api/models/outlet.api';
+import useAuth from '../../hooks/useAuth';
 import { getEntityId, getList } from '../../utils/apiData';
 
 const emptyForm = {
@@ -19,6 +21,7 @@ const emptyForm = {
   maxDiscountAmount: '',
   expirationDate: '',
   isActive: true,
+  outletId: '',
 };
 
 export default function CouponsPage() {
@@ -27,7 +30,11 @@ export default function CouponsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [modal, setModal] = useState({ open: false, mode: 'create', item: null });
   const [form, setForm] = useState(emptyForm);
+  const [outlets, setOutlets] = useState([]);
   const { addToast } = useToast();
+  const { user } = useAuth();
+
+  const isSystemAdmin = user?.role === 'SYSTEM_ADMIN';
 
   const fetchData = async () => {
     setLoading(true);
@@ -41,9 +48,21 @@ export default function CouponsPage() {
     }
   };
 
+  const fetchOutlets = async () => {
+    try {
+      const res = await listOutletsApi();
+      setOutlets(getList(res, 'outlets') || res.data || []);
+    } catch (err) {
+      console.error('Failed to load outlets', err);
+    }
+  };
+
   useEffect(() => {
     fetchData();
-  }, []);
+    if (!isSystemAdmin) {
+      fetchOutlets();
+    }
+  }, [user]);
 
   const openCreate = () => {
     setForm({ ...emptyForm });
@@ -59,6 +78,7 @@ export default function CouponsPage() {
       maxDiscountAmount: item.maxDiscountAmount ?? '',
       expirationDate: item.expirationDate ? new Date(item.expirationDate).toISOString().substring(0, 10) : '',
       isActive: item.isActive !== false,
+      outletId: item.outletId || '',
     });
     setModal({ open: true, mode: 'edit', item });
   };
@@ -80,6 +100,10 @@ export default function CouponsPage() {
         expirationDate: form.expirationDate ? new Date(form.expirationDate) : null,
         isActive: form.isActive,
       };
+
+      if (!isSystemAdmin) {
+        payload.outletId = form.outletId || null;
+      }
 
       if (modal.mode === 'create') {
         await createCouponApi(payload);
@@ -149,9 +173,21 @@ export default function CouponsPage() {
     },
     {
       key: 'minAmount',
-      label: 'Min Subscription Price',
+      label: isSystemAdmin ? 'Min Subscription Price' : 'Min Order Price',
       render: (r) => <span className="font-semibold text-zinc-550 dark:text-zinc-400">₹{r.minAmount ?? r.minOrderAmount ?? 0}</span>,
     },
+    ...(!isSystemAdmin ? [{
+      key: 'outletId',
+      label: 'Outlet Scope',
+      render: (r) => {
+        const out = outlets.find(o => getEntityId(o) === r.outletId);
+        return (
+          <span className="font-semibold text-zinc-650 dark:text-zinc-350">
+            {out ? out.name : 'All Outlets'}
+          </span>
+        );
+      }
+    }] : []),
     {
       key: 'expirationDate',
       label: 'Expires On',
@@ -193,9 +229,13 @@ export default function CouponsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        section="System Admin"
-        title="Subscription Coupons"
-        description="Generate software subscription discount coupons, define flat or percentage values, and establish minimum purchase amounts."
+        section={isSystemAdmin ? "System Admin" : "Marketing"}
+        title={isSystemAdmin ? "Subscription Coupons" : "Coupons Management"}
+        description={
+          isSystemAdmin
+            ? "Generate software subscription discount coupons, define flat or percentage values, and establish minimum purchase amounts."
+            : "Create and manage promo discount coupons for your customers. Define percentage/flat discounts and restrict them outlet-wise."
+        }
         actions={
           <Button onClick={openCreate} className="flex items-center gap-1.5 font-bold">
             <HiPlus /> Add Coupon
@@ -208,14 +248,22 @@ export default function CouponsPage() {
           columns={columns}
           data={data}
           loading={loading}
-          emptyMessage="No subscription coupons created yet. Click 'Add Coupon' to create your first discount code."
+          emptyMessage={
+            isSystemAdmin
+              ? "No subscription coupons created yet. Click 'Add Coupon' to create your first discount code."
+              : "No customer coupons created yet. Click 'Add Coupon' to create your first discount code."
+          }
         />
       </div>
 
       <Modal
         isOpen={modal.open}
         onClose={submitting ? () => {} : closeModal}
-        title={modal.mode === 'create' ? 'Create Subscription Coupon' : 'Edit Coupon details'}
+        title={
+          modal.mode === 'create'
+            ? (isSystemAdmin ? 'Create Subscription Coupon' : 'Create Customer Coupon')
+            : 'Edit Coupon Details'
+        }
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -225,7 +273,7 @@ export default function CouponsPage() {
               required
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-              placeholder="e.g. SOFTWARE50"
+              placeholder={isSystemAdmin ? "e.g. SOFTWARE50" : "e.g. WELCOME10"}
             />
             <Select
               id="c-type"
@@ -238,6 +286,22 @@ export default function CouponsPage() {
               <option value="FLAT">Flat Rate (₹)</option>
             </Select>
           </div>
+
+          {!isSystemAdmin && user?.role !== 'OUTLET_MANAGER' && (
+            <Select
+              id="c-outlet"
+              label="Applicable Outlet Scope"
+              value={form.outletId}
+              onChange={(e) => setForm({ ...form, outletId: e.target.value })}
+            >
+              <option value="">All Outlets (Storewide)</option>
+              {outlets.map((o) => (
+                <option key={getEntityId(o)} value={getEntityId(o)}>
+                  {o.name}
+                </option>
+              ))}
+            </Select>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -252,12 +316,12 @@ export default function CouponsPage() {
             />
             <Input
               id="c-min-amt"
-              label="Minimum Subscription Amount (₹)"
+              label={isSystemAdmin ? "Minimum Subscription Amount (₹)" : "Minimum Order Amount (₹)"}
               type="number"
               min="0"
               value={form.minAmount}
               onChange={(e) => setForm({ ...form, minAmount: e.target.value })}
-              placeholder="e.g. 2999"
+              placeholder={isSystemAdmin ? "e.g. 2999" : "e.g. 500"}
             />
           </div>
 

@@ -1,13 +1,13 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export interface IRAGSyncState extends Document {
+export interface ICopilotSyncState extends Document {
   serviceName: string;
   lastSyncedAt: Date;
   status: string;
   recordsSynced: number;
 }
 
-const ragSyncStateSchema = new Schema<IRAGSyncState>(
+const copilotSyncStateSchema = new Schema<ICopilotSyncState>(
   {
     serviceName: {
       type: String,
@@ -33,5 +33,5 @@ const ragSyncStateSchema = new Schema<IRAGSyncState>(
   }
 );
 
-const RAGSyncState: Model<IRAGSyncState> = mongoose.model<IRAGSyncState>('RAGSyncState', ragSyncStateSchema);
-export default RAGSyncState;
+const CopilotSyncState: Model<ICopilotSyncState> = mongoose.model<ICopilotSyncState>('CopilotSyncState', copilotSyncStateSchema);
+export default CopilotSyncState;

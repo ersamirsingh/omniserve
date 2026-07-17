@@ -12,6 +12,79 @@ const formatINR = (amount) => {
   return `₹${n.toLocaleString("en-IN")}`;
 };
 
+/* ── Category emoji map ── */
+const CATEGORY_ICONS = {
+  starter: "🥗", starters: "🥗", appetizer: "🥗", appetizers: "🥗", appetiser: "🥗", appetisers: "🥗",
+  "main course": "🍛", mains: "🍛", "main courses": "🍛", entree: "🍛", entrees: "🍛",
+  pizza: "🍕", pizzas: "🍕",
+  burger: "🍔", burgers: "🍔",
+  pasta: "🍝", pastas: "🍝", noodle: "🍝", noodles: "🍝",
+  dessert: "🍰", desserts: "🍰", sweet: "🍰", sweets: "🍰",
+  beverage: "🥤", beverages: "🥤", drink: "🥤", drinks: "🥤", juice: "🥤", juices: "🥤", shake: "🥤", shakes: "🥤", smoothie: "🥤", smoothies: "🥤", coffee: "☕", tea: "☕",
+  biryani: "🍚", biryanis: "🍚", rice: "🍚",
+  soup: "🥣", soups: "🥣",
+  salad: "🥗", salads: "🥗",
+  bread: "🫓", breads: "🫓", roti: "🫓", naan: "🫓",
+  seafood: "🦐", fish: "🐟",
+  chicken: "🍗", kebab: "🍢", kebabs: "🍢",
+  sandwich: "🥪", sandwiches: "🥪", wrap: "🌯", wraps: "🌯",
+  thali: "🍽️", combo: "🍱", combos: "🍱",
+  ice_cream: "🍦", "ice cream": "🍦",
+};
+
+const getCategoryIcon = (name) => {
+  const key = (name || "").toLowerCase().trim();
+  return CATEGORY_ICONS[key] || "🍽️";
+};
+
+/* ── Ambiance banner data ── */
+const AMBIANCE_IMAGES = [
+  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?auto=format&fit=crop&w=1200&q=80",
+];
+const AMBIANCE_TEXTS = [
+  "Crafted with passion",
+  "Farm to table freshness",
+  "Savor every bite",
+  "A feast for the senses",
+];
+
+/* ── CSS keyframes injected via style tag ── */
+const MENU_KEYFRAMES = `
+@keyframes menuFadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes menuBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(10px); }
+}
+@keyframes menuPulseRing {
+  0%   { box-shadow: 0 0 0 0 rgba(99, 17, 244, 0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(99, 17, 244, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 17, 244, 0); }
+}
+@keyframes menuSlideUp {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes menuLivePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+@keyframes menuArrowBounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0) translateX(-50%); }
+  40%  { transform: translateY(-8px) translateX(-50%); }
+  60%  { transform: translateY(-4px) translateX(-50%); }
+}
+@keyframes menuFabEntrance {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+`;
+
 export default function MenuPage() {
   const { outletSlug } = useParams();
   const navigate = useNavigate();
@@ -40,6 +113,7 @@ export default function MenuPage() {
   const sectionRefs = useRef({});
   const suppressObserver = useRef(false);
   const suppressTimeout = useRef(null);
+  const categoryNavRef = useRef(null);
 
   // Generate session token if not exists
   useEffect(() => {
@@ -258,100 +332,145 @@ export default function MenuPage() {
   const showTableSessionFab =
     localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-");
 
-  const renderItemCard = (item) => (
+  // ─── Scroll active category card into view ───
+  useEffect(() => {
+    if (!categoryNavRef.current) return;
+    const activeBtn = categoryNavRef.current.querySelector('[data-cat-active="true"]');
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [selectedCategory]);
+
+  /* ════════════════════════════════════════════════════════════════
+     RENDER: Item Card (redesigned)
+     ════════════════════════════════════════════════════════════════ */
+  const renderItemCard = (item, index) => (
     <div
       key={item._id}
       onClick={() => handleOpenItemConfig(item)}
-      className="group bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 hover:border-[#6311f4] cursor-pointer transition-all duration-300 p-4 rounded-3xl flex gap-4 justify-between items-center shadow-sm hover:shadow-lg shadow-zinc-100 dark:shadow-none active:scale-[0.98] relative overflow-hidden"
+      className="group bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-purple-500/5 dark:hover:shadow-purple-500/10 hover:border-[#6311f4]/30 active:scale-[0.98] relative flex flex-col"
+      style={{ animation: `menuFadeUp 0.5s ease ${Math.min(index * 0.06, 0.4)}s both` }}
     >
-      {/* Left text section */}
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          {typeof item.isVeg === "boolean" && (
-            <span
-              className={`shrink-0 w-3.5 h-3.5 border border-current rounded-[3px] flex items-center justify-center ${
-                item.isVeg ? "text-emerald-600" : "text-red-500"
-              }`}
-              aria-label={item.isVeg ? "Vegetarian" : "Non-vegetarian"}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-emerald-600" : "bg-red-500"}`} />
-            </span>
-          )}
-          {(item.isBestseller || item.isNew || item.isChefSpecial) && (
-            <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-1.5 py-0.5 rounded-md">
-              {item.isBestseller ? "Bestseller" : item.isChefSpecial ? "Chef's Pick" : "New"}
-            </span>
-          )}
-        </div>
-        <h3 className="font-extrabold text-zinc-950 dark:text-zinc-50 text-[15px] leading-snug tracking-tight font-sans">
-          {item.name}
-        </h3>
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-normal">
-          {item.description || "Fresh and prepared with premium ingredients."}
-        </p>
-        <div className="flex items-center gap-3 text-[10px] text-zinc-455 dark:text-zinc-500 font-bold">
-          <span className="text-zinc-950 dark:text-zinc-200 text-sm font-black tabular-nums">
-            {formatINR(item.price)}
+      {/* Image area — 3:2 aspect ratio */}
+      <div className="relative aspect-[3/2] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-5xl text-zinc-300 dark:text-zinc-600">
+            🍽️
+          </div>
+        )}
+
+        {/* Gradient overlay for price */}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+
+        {/* Price on image */}
+        <span className="absolute bottom-2.5 left-3 text-white font-black text-base tabular-nums drop-shadow-lg">
+          {formatINR(item.price)}
+        </span>
+
+        {/* Veg/Non-veg badge — top-left */}
+        {typeof item.isVeg === "boolean" && (
+          <span
+            className={`absolute top-2.5 left-2.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shadow-md ${
+              item.isVeg
+                ? "border-emerald-400 bg-emerald-500"
+                : "border-red-400 bg-red-500"
+            }`}
+            aria-label={item.isVeg ? "Vegetarian" : "Non-vegetarian"}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-white" />
           </span>
-          {typeof item.rating === "number" && (
-            <span className="flex items-center gap-0.5 text-amber-500">
-              ★ <span className="text-zinc-600 dark:text-zinc-400 font-extrabold">{item.rating.toFixed(1)}</span>
-            </span>
-          )}
-          {item.prepTimeMinutes && <span>· {item.prepTimeMinutes} mins</span>}
-        </div>
+        )}
+
+        {/* Bestseller / New / Chef's Pick ribbon — top-right */}
+        {(item.isBestseller || item.isNew || item.isChefSpecial) && (
+          <span className="absolute top-2.5 right-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-l-full shadow-lg">
+            {item.isBestseller ? "★ Bestseller" : item.isChefSpecial ? "👨‍🍳 Chef's Pick" : "✨ New"}
+          </span>
+        )}
+
+        {/* Quick add floating button — bottom-right */}
+        <button
+          type="button"
+          className="absolute bottom-2 right-2.5 bg-white dark:bg-zinc-900 text-[#6311f4] dark:text-[#a07cff] w-9 h-9 rounded-full flex items-center justify-center text-lg font-black shadow-lg border border-zinc-200 dark:border-zinc-700 transition-all duration-200 hover:scale-110 active:scale-90 hover:bg-[#6311f4] hover:text-white hover:border-[#6311f4]"
+          onClick={(e) => { e.stopPropagation(); handleOpenItemConfig(item); }}
+          aria-label={`Add ${item.name}`}
+        >
+          +
+        </button>
       </div>
 
-      {/* Right image section */}
-      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 border border-zinc-100/60 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
-        {item.image ? (
-          <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-        ) : (
-          <div className="text-zinc-300 dark:text-zinc-700 text-3xl">🍽️</div>
-        )}
-        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-[#6311f4] dark:text-[#a07cff] text-[10px] font-black uppercase tracking-wider py-1 px-3.5 rounded-full shadow-md hover:scale-105 active:scale-95 transition-all">
-          Add
+      {/* Text area */}
+      <div className="p-3.5 flex flex-col gap-1 flex-1">
+        <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-sm leading-snug tracking-tight line-clamp-1">
+          {item.name}
+        </h3>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+          {item.description || "Fresh and prepared with premium ingredients."}
+        </p>
+        <div className="flex items-center gap-2.5 mt-auto pt-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold">
+          {typeof item.rating === "number" && (
+            <span className="flex items-center gap-0.5 text-amber-500">
+              ★ <span className="text-zinc-500 dark:text-zinc-400 font-bold">{item.rating.toFixed(1)}</span>
+            </span>
+          )}
+          {item.prepTimeMinutes && (
+            <span className="flex items-center gap-0.5">
+              <span>🕐</span> {item.prepTimeMinutes} mins
+            </span>
+          )}
         </div>
       </div>
     </div>
   );
 
+  /* ════════════════════════════════════════════════════════════════
+     LOADING STATE
+     ════════════════════════════════════════════════════════════════ */
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="border-b border-border-base bg-surface-container-low/80 px-5 py-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-surface-container-high animate-pulse" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-32 bg-surface-container-high rounded animate-pulse" />
-            <div className="h-3 w-20 bg-surface-container-high rounded animate-pulse" />
-          </div>
-        </div>
-        <div className="flex gap-2 px-5 py-4 overflow-hidden">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-9 w-24 shrink-0 rounded-full bg-surface-container animate-pulse" />
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <style>{MENU_KEYFRAMES}</style>
+        {/* Hero skeleton */}
+        <div className="h-[60vh] md:h-[50vh] bg-zinc-200 dark:bg-zinc-900 animate-pulse" />
+        {/* Category skeleton */}
+        <div className="flex gap-3 px-5 py-4 overflow-hidden">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-20 w-20 shrink-0 rounded-2xl bg-zinc-200 dark:bg-zinc-800 animate-pulse" />
           ))}
         </div>
-        <div className="px-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Card skeleton */}
+        <div className="px-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-40 rounded-2xl bg-surface-container animate-pulse" />
+            <div key={i} className="rounded-2xl bg-zinc-200 dark:bg-zinc-800 animate-pulse" style={{ aspectRatio: '3/2.8' }} />
           ))}
         </div>
       </div>
     );
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     ERROR STATE
+     ════════════════════════════════════════════════════════════════ */
   if (error || !data) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-on-background p-6 font-sans">
-        <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center text-2xl mb-5">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 font-sans">
+        <style>{MENU_KEYFRAMES}</style>
+        <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-500 flex items-center justify-center text-3xl mb-5">
           ⚠️
         </div>
-        <h2 className="text-xl font-semibold mb-2 font-hanken">Couldn't load the menu</h2>
-        <p className="text-on-surface-variant text-sm mb-7 text-center max-w-xs">
+        <h2 className="text-xl font-bold mb-2">Couldn't load the menu</h2>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-7 text-center max-w-xs">
           {error || "Something went wrong on our end."}
         </p>
         <Link to="/login">
-          <Button variant="primary" className="bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-semibold">
+          <Button variant="primary" className="bg-[#6311f4] hover:bg-[#520dd4] text-white border-none font-semibold rounded-xl">
             Return to Admin Login
           </Button>
         </Link>
@@ -359,144 +478,288 @@ export default function MenuPage() {
     );
   }
 
+  /* ════════════════════════════════════════════════════════════════
+     MAIN RENDER
+     ════════════════════════════════════════════════════════════════ */
+  const joinCode = localStorage.getItem("joinCode");
+  const hasActiveSession =
+    localStorage.getItem("sessionToken") && !localStorage.getItem("sessionToken").startsWith("WEB-SESS-");
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-on-background flex flex-col font-sans">
-      {/* Premium Food Banner Hero Section */}
-      <div className="relative h-56 w-full overflow-hidden shrink-0">
-        <img
-          src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80"
-          alt="Restaurant banner"
-          className="w-full h-full object-cover brightness-[0.6] scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-        
-        {/* Floating actions (Back/Close & Cart) */}
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans">
+      <style>{MENU_KEYFRAMES}</style>
+
+      {/* ═══════════════ HERO — Ambient Video ═══════════════ */}
+      <div className="relative h-[60vh] md:h-[50vh] w-full overflow-hidden shrink-0">
+        {/* Video background */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover scale-105"
+          poster="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80"
+        >
+          <source src="https://videos.pexels.com/video-files/3195394/3195394-uhd_2560_1440_25fps.mp4" type="video/mp4" />
+        </video>
+
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+
+        {/* Top actions */}
         <div className="absolute top-4 left-5 right-5 flex justify-between items-center z-10">
           <Link
             to="/login"
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-black/45 border border-white/15 text-white hover:bg-black/60 transition-all text-xs uppercase"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white hover:bg-white/20 transition-all text-sm"
           >
             ←
           </Link>
-          <Link
-            to={`/public/w/${outletSlug}/cart`}
-            className="relative flex items-center justify-center w-9 h-9 rounded-full bg-black/45 border border-white/15 text-white hover:bg-black/60 transition-all"
-          >
-            <span className="text-sm">🛒</span>
-            {cartAddedCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center text-[10px] font-black rounded-full bg-[#6311f4] text-white">
-                {cartAddedCount}
-              </span>
-            )}
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowPhysicalMenu(true)}
+              className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/15 px-3.5 py-2 rounded-full text-white text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+            >
+              <HiOutlineBookOpen className="text-sm" />
+              <span>Menu Card</span>
+            </button>
+            <Link
+              to={`/public/w/${outletSlug}/cart`}
+              className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white hover:bg-white/20 transition-all"
+            >
+              <span className="text-base">🛒</span>
+              {cartAddedCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-black rounded-full bg-[#6311f4] text-white shadow-lg">
+                  {cartAddedCount}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
 
-        {/* Brand Information overlay */}
-        <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
+        {/* Hero text — animated entrance */}
+        <div
+          className="absolute bottom-20 left-5 right-5 md:left-8 md:right-8 z-10"
+          style={{ animation: "menuFadeUp 0.8s ease 0.2s both" }}
+        >
+          <div className="flex items-center gap-3.5 mb-3">
             {outlet?.logoUrl ? (
               <img
                 src={outlet.logoUrl}
                 alt={outlet.name}
-                className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0 bg-white"
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-white/25 shadow-xl shrink-0 bg-white"
               />
             ) : (
-              <div className="w-14 h-14 rounded-2xl bg-[#6311f4] text-white flex items-center justify-center font-black text-xl border-2 border-white/30 shadow-lg shrink-0">
+              <div className="w-14 h-14 rounded-2xl bg-[#6311f4] text-white flex items-center justify-center font-black text-xl border-2 border-white/25 shadow-xl shrink-0">
                 {outlet?.name?.charAt(0) || "F"}
               </div>
             )}
-            <div className="text-white">
-              <h2 className="font-black text-lg leading-tight drop-shadow-md tracking-tight">{outlet?.name}</h2>
-              <p className="text-[10px] text-white/70 mt-1 font-semibold uppercase tracking-wider">{outlet?.cuisine || "Modern Dining Experience"}</p>
+            <div>
+              <h1 className="text-white font-black text-2xl md:text-3xl leading-tight drop-shadow-xl tracking-tight">
+                {outlet?.name}
+              </h1>
+              <p className="text-white/60 text-xs font-semibold uppercase tracking-wider mt-0.5">
+                {outlet?.cuisine || "Modern Dining Experience"}
+              </p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPhysicalMenu(true)}
-              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 border border-white/20 px-3.5 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md"
-            >
-              <HiOutlineBookOpen className="text-xs" />
-              <span>Menu Card</span>
-            </button>
-            {table?.number && (
-              <div className="bg-[#6311f4] border border-white/10 px-3.5 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-wider shadow-md">
-                Table {table.number}
-              </div>
-            )}
+          {typeof outlet?.rating === "number" && (
+            <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
+              {"★".repeat(Math.round(outlet.rating))}
+              <span className="text-white/50 text-xs ml-1">{outlet.rating.toFixed(1)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Glassmorphism session info card */}
+        {(table?.number || hasActiveSession) && (
+          <div
+            className="absolute bottom-20 right-5 md:right-8 z-10 hidden md:flex"
+            style={{ animation: "menuFadeUp 0.8s ease 0.4s both" }}
+          >
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl px-5 py-3.5 shadow-2xl flex flex-col gap-2 min-w-[180px]">
+              {table?.number && (
+                <div className="flex items-center gap-2 text-white text-xs font-bold">
+                  <span className="text-sm">🪑</span>
+                  <span>Table {table.number}</span>
+                  {table.area && (
+                    <span className="text-white/50 font-medium">· {table.area}</span>
+                  )}
+                </div>
+              )}
+              {joinCode && (
+                <div className="flex items-center gap-2 text-white text-xs">
+                  <span className="text-sm">🔑</span>
+                  <span className="font-mono font-bold tracking-widest">{joinCode}</span>
+                </div>
+              )}
+              {hasActiveSession && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span
+                    className="w-2 h-2 rounded-full bg-emerald-400"
+                    style={{ animation: "menuLivePulse 2s ease-in-out infinite" }}
+                  />
+                  <span className="text-emerald-300 font-bold uppercase tracking-wider text-[10px]">Live Session</span>
+                </div>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* Mobile session card — shown below hero text on small screens */}
+        {(table?.number || hasActiveSession) && (
+          <div
+            className="absolute bottom-20 left-5 right-5 z-10 md:hidden"
+            style={{ animation: "menuFadeUp 0.8s ease 0.5s both" }}
+          >
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl px-4 py-2.5 shadow-2xl flex items-center gap-3 mt-3 flex-wrap">
+              {table?.number && (
+                <span className="text-white text-[10px] font-bold uppercase tracking-wider bg-white/10 px-2.5 py-1 rounded-full">
+                  🪑 Table {table.number}{table.area ? ` · ${table.area}` : ""}
+                </span>
+              )}
+              {joinCode && (
+                <span className="text-white text-[10px] font-mono font-bold tracking-widest bg-white/10 px-2.5 py-1 rounded-full">
+                  🔑 {joinCode}
+                </span>
+              )}
+              {hasActiveSession && (
+                <span className="flex items-center gap-1.5 text-[10px]">
+                  <span
+                    className="w-2 h-2 rounded-full bg-emerald-400 inline-block"
+                    style={{ animation: "menuLivePulse 2s ease-in-out infinite" }}
+                  />
+                  <span className="text-emerald-300 font-bold uppercase tracking-wider">Live</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Bouncing explore arrow */}
+        <div
+          className="absolute bottom-4 left-1/2 z-10 text-white/50 flex flex-col items-center gap-1 cursor-pointer hover:text-white/80 transition-colors"
+          style={{ animation: "menuArrowBounce 2s ease infinite" }}
+          onClick={() => {
+            const el = document.getElementById("menu-content-area");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-widest">Explore Menu</span>
+          <span className="text-lg">↓</span>
         </div>
       </div>
 
-      {/* Sticky category rail */}
+      {/* ═══════════════ STICKY CATEGORY NAV — Card style ═══════════════ */}
       {!isSearching && groupedSections.length > 0 && (
-        <div className="sticky top-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-b border-zinc-150/60 dark:border-zinc-900 px-5 py-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button
-            type="button"
-            onClick={() => handleCategoryClick("all")}
-            className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              selectedCategory === "all"
-                ? "bg-[#6311f4] text-white shadow-md shadow-[#6311f4]/15"
-                : "bg-zinc-100 dark:bg-zinc-900 text-zinc-500 border border-zinc-150/60 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-105"
-            }`}
+        <div className="sticky top-0 z-30 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-100 dark:border-zinc-800/60">
+          <div
+            ref={categoryNavRef}
+            className="flex gap-2.5 px-4 py-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            All
-          </button>
-          {groupedSections.map((cat) => (
+            {/* "All" card */}
             <button
               type="button"
-              key={cat._id}
-              onClick={() => handleCategoryClick(cat._id)}
-              className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                selectedCategory === cat._id
-                  ? "bg-[#6311f4] text-white shadow-md shadow-[#6311f4]/15"
-                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-500 border border-zinc-150/60 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-105"
+              data-cat-active={selectedCategory === "all" ? "true" : "false"}
+              onClick={() => handleCategoryClick("all")}
+              className={`shrink-0 flex flex-col items-center justify-center w-[72px] py-2.5 rounded-2xl transition-all duration-300 cursor-pointer border ${
+                selectedCategory === "all"
+                  ? "bg-[#6311f4]/10 dark:bg-[#6311f4]/20 border-[#6311f4] shadow-md shadow-[#6311f4]/10 scale-105"
+                  : "bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
               }`}
             >
-              {cat.name}
-              <span className={selectedCategory === cat._id ? "opacity-90" : "opacity-55"}>
-                ({itemCountByCategory[cat._id]})
+              <span className="text-2xl mb-0.5">🍽️</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider leading-tight ${
+                selectedCategory === "all" ? "text-[#6311f4]" : "text-zinc-500 dark:text-zinc-400"
+              }`}>
+                All
+              </span>
+              <span className={`text-[9px] font-semibold mt-0.5 ${
+                selectedCategory === "all" ? "text-[#6311f4]/70" : "text-zinc-400 dark:text-zinc-500"
+              }`}>
+                {menuItems.length}
               </span>
             </button>
-          ))}
+
+            {groupedSections.map((cat) => (
+              <button
+                type="button"
+                key={cat._id}
+                data-cat-active={selectedCategory === cat._id ? "true" : "false"}
+                onClick={() => handleCategoryClick(cat._id)}
+                className={`shrink-0 flex flex-col items-center justify-center w-[72px] py-2.5 rounded-2xl transition-all duration-300 cursor-pointer border ${
+                  selectedCategory === cat._id
+                    ? "bg-[#6311f4]/10 dark:bg-[#6311f4]/20 border-[#6311f4] shadow-md shadow-[#6311f4]/10 scale-105"
+                    : "bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
+                }`}
+              >
+                <span className="text-2xl mb-0.5">{getCategoryIcon(cat.name)}</span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider leading-tight line-clamp-1 text-center max-w-full px-1 ${
+                  selectedCategory === cat._id ? "text-[#6311f4]" : "text-zinc-500 dark:text-zinc-400"
+                }`}>
+                  {cat.name}
+                </span>
+                <span className={`text-[9px] font-semibold mt-0.5 ${
+                  selectedCategory === cat._id ? "text-[#6311f4]/70" : "text-zinc-400 dark:text-zinc-500"
+                }`}>
+                  {itemCountByCategory[cat._id]}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 max-w-3xl w-full mx-auto px-5 py-6 flex flex-col gap-6">
-        {/* Search */}
-        <div className="relative">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm pointer-events-none">
+      {/* ═══════════════ STICKY SEARCH BAR ═══════════════ */}
+      <div
+        id="menu-content-area"
+        className="sticky top-[88px] z-20 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border-b border-zinc-100/80 dark:border-zinc-800/40 px-4 py-3"
+      >
+        <div className="relative max-w-3xl mx-auto">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 text-base pointer-events-none">
             🔍
           </span>
-          <Input
+          <input
             type="text"
             placeholder="Search delicious dishes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search dishes"
-            className="!bg-white dark:!bg-zinc-900 border-zinc-150/60 dark:border-zinc-800 text-zinc-900 placeholder-zinc-400 focus:border-[#6311f4] rounded-2xl pl-9 w-full shadow-sm text-xs font-medium py-3"
+            className="w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:border-[#6311f4] focus:ring-2 focus:ring-[#6311f4]/20 rounded-2xl pl-11 pr-10 py-3 text-sm font-medium outline-none transition-all shadow-sm"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-xs cursor-pointer"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
         </div>
+      </div>
 
+      {/* ═══════════════ MAIN CONTENT ═══════════════ */}
+      <div className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-6 py-6 flex flex-col gap-8">
         {isSearching ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          /* ── Search results ── */
+          <div className="flex flex-col gap-5">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
               {searchResults.length} result{searchResults.length === 1 ? "" : "s"} for "{searchQuery}"
             </p>
             {searchResults.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {searchResults.map(renderItemCard)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {searchResults.map((item, i) => renderItemCard(item, i))}
               </div>
             ) : (
-              <div className="py-16 flex flex-col items-center text-center gap-3">
-                <span className="text-3xl">🔍</span>
-                <p className="text-sm text-zinc-500">No dishes match "{searchQuery}".</p>
+              <div className="py-20 flex flex-col items-center text-center gap-3">
+                <span className="text-5xl opacity-40">🔍</span>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">No dishes match "{searchQuery}".</p>
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="text-xs font-black text-[#6311f4] hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#6311f4] hover:underline cursor-pointer"
                 >
                   Clear search
                 </button>
@@ -504,48 +767,83 @@ export default function MenuPage() {
             )}
           </div>
         ) : groupedSections.length === 0 ? (
-          <div className="py-16 flex flex-col items-center text-center gap-3">
-            <span className="text-3xl">🍽️</span>
-            <p className="text-sm text-zinc-500">The menu isn't set up yet. Please check back soon.</p>
+          /* ── Empty menu ── */
+          <div className="py-20 flex flex-col items-center text-center gap-3">
+            <span className="text-5xl opacity-40">🍽️</span>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">The menu isn't set up yet. Please check back soon.</p>
           </div>
         ) : (
-          groupedSections.map((cat) => (
-            <section
-              key={cat._id}
-              data-category-id={cat._id}
-              ref={(el) => (sectionRefs.current[cat._id] = el)}
-              className="scroll-mt-32"
-            >
-              <div className="flex items-baseline justify-between mb-4 border-b border-zinc-100/60 dark:border-zinc-850/60 pb-1.5">
-                <h2 className="text-base font-black text-zinc-950 dark:text-zinc-100 tracking-tight font-hanken">{cat.name}</h2>
-                <span className="text-[10px] text-zinc-450 dark:text-zinc-500 font-bold uppercase tracking-wider">{cat.items.length} items</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{cat.items.map(renderItemCard)}</div>
-            </section>
+          /* ── Category sections with ambiance banners ── */
+          groupedSections.map((cat, sectionIndex) => (
+            <React.Fragment key={cat._id}>
+              {/* Ambiance banner — after every 2 category sections */}
+              {sectionIndex > 0 && sectionIndex % 2 === 0 && (
+                <div className="relative w-full h-[200px] rounded-2xl overflow-hidden -mx-0 my-2">
+                  <img
+                    src={AMBIANCE_IMAGES[(Math.floor(sectionIndex / 2) - 1) % AMBIANCE_IMAGES.length]}
+                    alt="Ambiance"
+                    className="w-full h-full object-cover"
+                    style={{ backgroundAttachment: "fixed" }}
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/60" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <p className="text-white text-xl md:text-2xl font-black tracking-tight italic drop-shadow-xl text-center px-6">
+                      "{AMBIANCE_TEXTS[(Math.floor(sectionIndex / 2) - 1) % AMBIANCE_TEXTS.length]}"
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <section
+                data-category-id={cat._id}
+                ref={(el) => (sectionRefs.current[cat._id] = el)}
+                className="scroll-mt-40"
+              >
+                {/* Section header */}
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">{getCategoryIcon(cat.name)}</span>
+                    <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
+                      {cat.name}
+                    </h2>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800/60 px-3 py-1 rounded-full">
+                    {cat.items.length} item{cat.items.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                {/* Items grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {cat.items.map((item, i) => renderItemCard(item, i))}
+                </div>
+              </section>
+            </React.Fragment>
           ))
         )}
       </div>
 
-      {/* Item Customizer Modal */}
+      {/* ═══════════════ ITEM CUSTOMIZER MODAL ═══════════════ */}
       {selectedItem && (
         <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} title={selectedItem.name} size="md">
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 text-on-surface font-sans">
-            {/* Premium Item Image */}
+          <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1 text-zinc-900 dark:text-zinc-100 font-sans">
+            {/* Item image in modal */}
             {selectedItem.image && (
-              <div className="w-full aspect-video rounded-2xl overflow-hidden border border-zinc-150/40 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center relative shadow-sm">
+              <div className="w-full aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative shadow-inner">
                 <img src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
               </div>
             )}
 
             {/* Price */}
             <div>
-              <span className="text-xs text-on-surface-variant uppercase tracking-wider block mb-1">Base Price</span>
-              <span className="text-2xl font-bold text-on-surface tabular-nums">{formatINR(selectedItem.price)}</span>
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block mb-1 font-bold">Base Price</span>
+              <span className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">{formatINR(selectedItem.price)}</span>
             </div>
 
             {/* Description */}
             {selectedItem.description && (
-              <p className="text-sm text-on-surface-variant bg-surface-container-low p-3 rounded-xl border border-border-base">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 p-3.5 rounded-xl border border-zinc-100 dark:border-zinc-800 leading-relaxed">
                 {selectedItem.description}
               </p>
             )}
@@ -553,12 +851,16 @@ export default function MenuPage() {
             {/* Variants */}
             {itemVariants.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-on-surface mb-3 uppercase tracking-wider">Choose Variant</h4>
+                <h4 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 mb-3 uppercase tracking-widest">Choose Variant</h4>
                 <div className="space-y-2">
                   {itemVariants.map((v) => (
                     <label
                       key={v._id}
-                      className="flex items-center justify-between p-3.5 bg-surface-container border border-border-base rounded-xl cursor-pointer hover:border-primary/40 transition-colors"
+                      className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all border ${
+                        selectedVariantId === v._id
+                          ? "bg-[#6311f4]/5 dark:bg-[#6311f4]/10 border-[#6311f4]/40"
+                          : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800 hover:border-[#6311f4]/30"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         <input
@@ -567,9 +869,9 @@ export default function MenuPage() {
                           value={v._id}
                           checked={selectedVariantId === v._id}
                           onChange={() => setSelectedVariantId(v._id)}
-                          className="w-4 h-4 accent-primary"
+                          className="w-4 h-4 accent-[#6311f4]"
                         />
-                        <span className="text-sm font-medium">{v.name}</span>
+                        <span className="text-sm font-semibold">{v.name}</span>
                       </div>
                       <span className="text-sm font-bold tabular-nums">{formatINR(v.price)}</span>
                     </label>
@@ -581,7 +883,7 @@ export default function MenuPage() {
             {/* Addons */}
             {itemAddons.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-on-surface mb-3 uppercase tracking-wider">Add Extra Addons</h4>
+                <h4 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 mb-3 uppercase tracking-widest">Add Extra Addons</h4>
                 <div className="space-y-2">
                   {itemAddons.map((a) => {
                     const isSelected = !!selectedAddons[a._id];
@@ -590,34 +892,38 @@ export default function MenuPage() {
                     return (
                       <div
                         key={a._id}
-                        className="flex items-center justify-between p-3.5 bg-surface-container border border-border-base rounded-xl hover:border-primary/40 transition-colors"
+                        className={`flex items-center justify-between p-3.5 rounded-xl transition-all border ${
+                          isSelected
+                            ? "bg-[#6311f4]/5 dark:bg-[#6311f4]/10 border-[#6311f4]/40"
+                            : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800 hover:border-[#6311f4]/30"
+                        }`}
                       >
                         <div className="flex items-center gap-3">
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleToggleAddon(a._id)}
-                            className="w-4 h-4 accent-primary rounded"
+                            className="w-4 h-4 accent-[#6311f4] rounded"
                           />
-                          <span className="text-sm font-medium">{a.name}</span>
+                          <span className="text-sm font-semibold">{a.name}</span>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-sm font-bold text-on-surface-variant tabular-nums">{formatINR(a.price)}</span>
+                          <span className="text-sm font-bold text-zinc-500 dark:text-zinc-400 tabular-nums">{formatINR(a.price)}</span>
                           {isSelected && (
-                            <div className="flex items-center gap-2 bg-surface-container-low border border-border-base rounded-lg p-1">
+                            <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg p-1">
                               <button
                                 type="button"
                                 onClick={() => handleAddonQty(a._id, -1)}
-                                className="w-6 h-6 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded"
+                                className="w-6 h-6 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-bold rounded transition-colors"
                                 aria-label={`Decrease ${a.name} quantity`}
                               >
                                 −
                               </button>
-                              <span className="text-xs font-bold w-4 text-center">{qty}</span>
+                              <span className="text-xs font-bold w-4 text-center tabular-nums">{qty}</span>
                               <button
                                 type="button"
                                 onClick={() => handleAddonQty(a._id, 1)}
-                                className="w-6 h-6 flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant font-bold rounded"
+                                className="w-6 h-6 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-bold rounded transition-colors"
                                 aria-label={`Increase ${a.name} quantity`}
                               >
                                 +
@@ -633,13 +939,13 @@ export default function MenuPage() {
             )}
 
             {/* Quantity */}
-            <div className="flex items-center justify-between border-t border-border-base pt-4">
-              <span className="text-sm font-semibold text-on-surface">Quantity</span>
-              <div className="flex items-center gap-3 bg-surface-container border border-border-base rounded-xl p-1.5">
+            <div className="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-4">
+              <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Quantity</span>
+              <div className="flex items-center gap-3 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-1.5">
                 <button
                   type="button"
                   onClick={() => setItemQuantity((q) => Math.max(1, q - 1))}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface font-bold rounded-lg"
+                  className="w-8 h-8 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-bold rounded-lg transition-colors"
                   aria-label="Decrease quantity"
                 >
                   −
@@ -648,7 +954,7 @@ export default function MenuPage() {
                 <button
                   type="button"
                   onClick={() => setItemQuantity((q) => q + 1)}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-surface-container-high text-on-surface font-bold rounded-lg"
+                  className="w-8 h-8 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-bold rounded-lg transition-colors"
                   aria-label="Increase quantity"
                 >
                   +
@@ -658,31 +964,31 @@ export default function MenuPage() {
 
             {/* Notes */}
             <div>
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
+              <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block mb-2">
                 Special instructions
               </label>
               <textarea
                 value={itemNotes}
                 onChange={(e) => setItemNotes(e.target.value)}
                 placeholder="No onions, extra spicy, etc."
-                className="w-full bg-surface-container border border-border-base text-on-surface placeholder-on-surface-variant rounded-xl p-3.5 text-sm focus:outline-none focus:border-primary h-20 resize-none"
+                className="w-full bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 rounded-xl p-3.5 text-sm focus:outline-none focus:border-[#6311f4] focus:ring-2 focus:ring-[#6311f4]/20 h-20 resize-none transition-all"
               />
             </div>
 
-            {/* Submit button */}
-            <div className="pt-4 border-t border-border-base flex items-center gap-3 sticky bottom-0 bg-background -mx-2 px-2 pb-1">
-              <Button
-                variant="secondary"
+            {/* Submit buttons */}
+            <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-3 sticky bottom-0 bg-white dark:bg-zinc-950 -mx-1 px-1 pb-1">
+              <button
+                type="button"
                 onClick={() => setSelectedItem(null)}
-                className="flex-1 bg-surface-container border border-border-base text-on-surface"
+                className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-sm transition-all hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
               >
                 Cancel
-              </Button>
-              <Button
-                variant="primary"
+              </button>
+              <button
+                type="button"
                 onClick={handleAddToCart}
                 disabled={addingToCart}
-                className="flex-1 bg-primary-fixed hover:brightness-95 text-on-primary-fixed border-none font-bold disabled:opacity-70"
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#6311f4] to-[#8b5cf6] hover:from-[#520dd4] hover:to-[#7c3aed] text-white font-bold text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#6311f4]/25 active:scale-[0.98]"
               >
                 {justAdded ? "Added ✓" : addingToCart ? "Adding..." : `Add ${itemQuantity} to Cart · ${formatINR(
                   ((selectedVariantId
@@ -693,13 +999,13 @@ export default function MenuPage() {
                       return sum + (addon?.price || 0) * qty;
                     }, 0)) * itemQuantity
                 )}`}
-              </Button>
+              </button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Scanned printed physical menu modal */}
+      {/* ═══════════════ PHYSICAL MENU CARD MODAL ═══════════════ */}
       {showPhysicalMenu && (
         <Modal isOpen={showPhysicalMenu} onClose={() => setShowPhysicalMenu(false)} title="Menu Card" size="md">
           <div className="flex flex-col items-center justify-center p-2">
@@ -713,34 +1019,43 @@ export default function MenuPage() {
         </Modal>
       )}
 
-      {/* Floating center-aligned bottom "View Cart" sticky bar */}
+      {/* ═══════════════ FLOATING CART BAR ═══════════════ */}
       {cartAddedCount > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-5 animate-slideUp">
+        <div
+          className="fixed bottom-6 left-1/2 z-40 w-full max-w-md px-5"
+          style={{ animation: "menuSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both", transform: "translateX(-50%)" }}
+        >
           <Link to={`/public/w/${outletSlug}/cart`} className="no-underline">
-            <div className="bg-[#6311f4] hover:bg-[#520dd4] text-white px-5 py-4 rounded-2xl shadow-xl shadow-[#6311f4]/35 flex items-center justify-between transition-all duration-200 active:scale-95">
+            <div className="bg-gradient-to-r from-[#6311f4] to-[#8b5cf6] hover:from-[#520dd4] hover:to-[#7c3aed] text-white px-5 py-4 rounded-2xl shadow-2xl shadow-[#6311f4]/30 flex items-center justify-between transition-all duration-200 active:scale-[0.97]">
               <div className="flex items-center gap-3">
                 <span className="text-lg">🛒</span>
                 <div className="flex flex-col text-left">
                   <span className="text-xs font-black uppercase tracking-wider leading-none">View Cart</span>
-                  <span className="text-[10px] text-white/80 leading-none mt-1 font-medium">{cartAddedCount} item{cartAddedCount === 1 ? '' : 's'} added</span>
+                  <span className="text-[10px] text-white/70 leading-none mt-1 font-medium">
+                    {cartAddedCount} item{cartAddedCount === 1 ? "" : "s"} added
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider group">
                 <span>Go to Cart</span>
-                <HiOutlineChevronRight className="text-sm" />
+                <HiOutlineChevronRight className="text-sm transition-transform group-hover:translate-x-0.5" />
               </div>
             </div>
           </Link>
         </div>
       )}
 
-      {/* Table Session FAB (offsets vertically if Cart bar is visible) */}
+      {/* ═══════════════ TABLE SESSION FAB ═══════════════ */}
       {showTableSessionFab && (
-        <div className={`fixed z-50 transition-all duration-300 ${cartAddedCount > 0 ? 'bottom-28' : 'bottom-6'} right-5`}>
+        <div
+          className={`fixed z-50 transition-all duration-300 ${cartAddedCount > 0 ? "bottom-28" : "bottom-6"} right-5`}
+          style={{ animation: "menuFabEntrance 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
+        >
           <Link to={`/public/w/${outletSlug}/table-session`}>
             <button
               type="button"
-              className="bg-[#6311f4] hover:brightness-110 text-white font-extrabold px-5 py-3.5 rounded-full shadow-lg flex items-center gap-2 text-xs uppercase tracking-wider transition-all cursor-pointer border-none"
+              className="relative bg-[#6311f4] hover:bg-[#520dd4] text-white font-extrabold px-5 py-3.5 rounded-full shadow-xl flex items-center gap-2.5 text-xs uppercase tracking-wider transition-all cursor-pointer border-none"
+              style={{ animation: "menuPulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }}
             >
               <span>🍽️</span>
               <span>Table Bill &amp; Pay</span>
