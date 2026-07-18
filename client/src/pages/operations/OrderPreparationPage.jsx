@@ -5,11 +5,14 @@ import KitchenDisplay from './components/KitchenDisplay';
 import useAuth from '../../hooks/useAuth';
 import { listOutletsApi } from '../../api/models/outlet.api';
 import Button from '../../components/ui/Button';
+import { HiOutlineArrowPath } from 'react-icons/hi2';
 
 export default function OrderPreparationPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [outletsList, setOutletsList] = useState([]);
   const [selectedOutletId, setSelectedOutletId] = useState(
     user?.outletId || (user?.outletIds && user.outletIds[0]) || localStorage.getItem('selectedOutletId') || ''
@@ -44,6 +47,19 @@ export default function OrderPreparationPage() {
   // Outlet selector & view all action element
   const headerActions = (
     <div className="flex items-center gap-3">
+      <Button
+        onClick={() => {
+          setRefreshing(true);
+          setRefreshKey(prev => prev + 1);
+        }}
+        variant="outline"
+        size="sm"
+        loading={refreshing}
+        disabled={refreshing}
+        className="flex items-center gap-1.5 font-bold text-xs py-1.5 px-3 hover:scale-105 transition-all duration-200 cursor-pointer"
+      >
+        <HiOutlineArrowPath className="text-sm" /> Refresh
+      </Button>
       {outletsList.length > 0 && (
         <div className="flex items-center gap-2 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-850 rounded-lg px-3 py-1.5 shadow-sm">
           <span className="text-xs font-bold text-on-surface-variant dark:text-zinc-400">Outlet:</span>
@@ -79,7 +95,7 @@ export default function OrderPreparationPage() {
       <div className="shrink-0">
         <PageHeader 
           section="Operations"
-          title="Order Preparation" 
+          title="Offline Order Flow" 
           description="Real-time Kitchen Display System (KDS). Monitor food and beverage prep status across all online and offline channels."
           actions={headerActions}
         />
@@ -87,7 +103,7 @@ export default function OrderPreparationPage() {
 
       {/* Embedded KDS Display */}
       <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-zinc-950 p-6 rounded-xl border border-border-base dark:border-zinc-900">
-        <KitchenDisplay key={selectedOutletId} />
+        <KitchenDisplay key={`${selectedOutletId}-${refreshKey}`} onRefreshDone={() => setRefreshing(false)} />
       </div>
     </div>
   );

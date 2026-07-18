@@ -10,11 +10,11 @@ import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
 import { ORDER_STATUS_VARIANT, ORDER_STATUS_LABELS, PAYMENT_STATUS_VARIANT } from '../../utils/constants';
-import { HiOutlineShoppingCart, HiOutlineEye, HiOutlineXMark, HiOutlineClock } from 'react-icons/hi2';
+import { HiOutlineShoppingCart, HiOutlineEye, HiOutlineXMark, HiOutlineClock, HiOutlineArrowPath } from 'react-icons/hi2';
 import { useSocket } from '../../context/SocketContext';
 import OrderLifecycleActions from '../../components/shared/OrderLifecycleActions';
 
-export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
+export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType = 'TABLE' }) {
   const dispatch = useDispatch();
   const { orders, loading } = useSelector((s) => s.orders);
   const { addToast } = useToast();
@@ -27,6 +27,24 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
   const [detailsModal, setDetailsModal] = useState({ open: false, orderId: null, data: null, loading: false });
   // Cancel Reason State
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: '' });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const params = {};
+    if (mode !== 'ALL') {
+      params.operationalMode = mode;
+    }
+    try {
+      await dispatch(fetchOrders(params)).unwrap();
+      addToast('Orders refreshed successfully', 'success');
+    } catch (err) {
+      addToast(err || 'Failed to refresh orders', 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const loadOrderDetails = async (id) => {
     setDetailsModal(prev => ({ ...prev, open: true, orderId: id, loading: true }));
@@ -209,13 +227,82 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
     },
   ];
 
+  const isOnline = mode === 'ONLINE';
+  const flowColumns = isOnline
+    ? [
+        { status: 'PENDING', label: 'Received', color: 'text-amber-600 dark:text-amber-400 border-amber-500/20' },
+        { status: 'ACCEPTED', label: 'Accepted', color: 'text-blue-600 dark:text-blue-400 border-blue-500/20' },
+        { status: 'PREPARING', label: 'Preparing', color: 'text-purple-600 dark:text-purple-400 border-purple-500/20' },
+        { status: 'READY', label: 'Ready', color: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+        { status: 'PICKED_UP', label: 'Out for Delivery', color: 'text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+      ]
+    : [
+        { status: 'PENDING', label: 'Received', color: 'text-amber-600 dark:text-amber-400 border-amber-500/20' },
+        { status: 'ACCEPTED', label: 'Accepted', color: 'text-blue-600 dark:text-blue-400 border-blue-500/20' },
+        { status: 'PREPARING', label: 'Preparing', color: 'text-purple-600 dark:text-purple-400 border-purple-500/20' },
+        { status: 'READY', label: 'Ready', color: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+        { status: 'SERVED', label: 'Served', color: 'text-sky-600 dark:text-sky-400 border-sky-500/20' },
+      ];
+
+  const nextStatusMap = isOnline
+    ? {
+        PENDING: 'ACCEPTED',
+        ACCEPTED: 'PREPARING',
+        PREPARING: 'READY',
+        READY: 'PICKED_UP',
+        PICKED_UP: 'DELIVERED'
+      }
+    : {
+        PENDING: 'ACCEPTED',
+        ACCEPTED: 'PREPARING',
+        PREPARING: 'READY',
+        READY: 'SERVED',
+        SERVED: 'COMPLETED'
+      };
+
+  const nextActionLabels = {
+    ACCEPTED: 'Accept',
+    PREPARING: 'Start Prep',
+    READY: 'Mark Ready',
+    PICKED_UP: 'Dispatch',
+    DELIVERED: 'Complete',
+    SERVED: 'Serve',
+    COMPLETED: 'Complete'
+  };
+
+  let pageTitle = 'Orders';
+  let pageDescription = 'Track live customer orders, update kitchen preparation stages, and manage delivery handoffs.';
+  if (mode === 'ONLINE') {
+    pageTitle = viewType === 'BOARD' ? 'Online Order Flow' : 'Online Orders';
+    pageDescription = viewType === 'BOARD' 
+      ? 'Manage and advance online orders through the preparation board stages.'
+      : 'Track online customer orders, update kitchen preparation stages, and manage delivery handoffs.';
+  } else if (mode === 'DINE_IN') {
+    pageTitle = viewType === 'BOARD' ? 'Offline Order Flow' : 'Offline Orders';
+    pageDescription = viewType === 'BOARD'
+      ? 'Manage and advance dine-in / table orders through the preparation board stages.'
+      : 'Track offline customer orders, update kitchen preparation stages, and manage table services.';
+  }
+
   return (
     <div className="space-y-6">
       {!hideHeader && (
         <PageHeader 
           section="Operations"
-          title="Orders" 
-          description="Track live customer orders, update kitchen preparation stages, and manage delivery handoffs."
+          title={pageTitle} 
+          description={pageDescription}
+          actions={
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-1.5 font-bold"
+              onClick={handleRefresh}
+              loading={refreshing}
+              disabled={refreshing}
+            >
+              <HiOutlineArrowPath className="text-sm text-on-surface dark:text-zinc-300" /> Refresh
+            </Button>
+          }
         />
       )}
 
@@ -230,13 +317,113 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false }) {
         </select>
       </div>
 
-      <Table 
-        columns={columns} 
-        data={filtered} 
-        loading={loading === 'pending'} 
-        emptyMessage="No orders found" 
-        getRowClassName={(row) => (row.id === detailsModal.orderId || row._id === detailsModal.orderId) ? 'bg-primary/5 dark:bg-primary/5 border-l-2 border-primary font-bold' : ''}
-      />
+      {viewType === 'BOARD' ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 h-[calc(100vh-230px)] min-h-[500px]">
+          {flowColumns.map((col) => {
+            const colOrders = filtered.filter((o) => o.orderStatus === col.status);
+            return (
+              <div 
+                key={col.status} 
+                className="bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-xl p-4 flex flex-col h-full shadow-xs"
+              >
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-base dark:border-zinc-800 shrink-0">
+                  <span className={`text-[12px] font-bold uppercase tracking-wider ${col.color}`}>
+                    {col.label}
+                  </span>
+                  <span className="w-5.5 h-5.5 rounded-full bg-surface-container-low dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant dark:text-zinc-350">
+                    {colOrders.length}
+                  </span>
+                </div>
+
+                <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto min-h-0 pr-1">
+                  {colOrders.length === 0 ? (
+                    <p className="text-on-surface-variant/40 dark:text-zinc-650 text-xs text-center py-12 font-medium">No active orders</p>
+                  ) : (
+                    colOrders.map((order) => {
+                      const nextStatus = nextStatusMap[order.orderStatus];
+                      const nextLabel = nextActionLabels[nextStatus];
+                      const canCancel = order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'DELIVERED' && order.orderStatus !== 'COMPLETED';
+                      return (
+                        <div 
+                          key={order.id || order._id} 
+                          className="bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800/85 rounded-lg p-3.5 hover:border-primary-container dark:hover:border-primary-fixed-dim hover:shadow-xs transition-all duration-200 cursor-pointer flex flex-col"
+                          onClick={() => handleViewDetails(order.id || order._id)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-on-surface-variant dark:text-zinc-500 font-bold font-mono">
+                              #{(order.orderNumber || order.id || '').slice(-6).toUpperCase()}
+                            </span>
+                            {order.source && (
+                              <Badge variant="neutral" className="!text-[9px] !px-1.5 !py-0.5">
+                                {order.source.replace('_', ' ')}
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="text-xs font-bold text-on-surface dark:text-zinc-200 mt-2 truncate">
+                            {order.customerId ? `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim() : 'Guest'}
+                          </div>
+
+                          {order.diningContext && (order.diningContext.tableNumber) && (
+                            <div className="mt-1.5 bg-teal-50/40 dark:bg-teal-950/10 border border-teal-150/40 dark:border-teal-900/20 rounded px-1.5 py-0.5 self-start text-[9px] text-teal-650 dark:text-teal-400 font-bold">
+                              Table {order.diningContext.tableNumber}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between mt-3 pt-2 border-t border-border-base/50 dark:border-zinc-850 text-[11px] text-on-surface-variant dark:text-zinc-400">
+                            <span className="font-bold text-on-surface dark:text-zinc-300">₹{(order.totalAmount || 0).toLocaleString()}</span>
+                            <span className="font-medium">{order.items?.length || 0} items</span>
+                          </div>
+
+                          <div className="flex gap-1.5 mt-3 pt-2 border-t border-border-base/40 dark:border-zinc-850/40" onClick={(e) => e.stopPropagation()}>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="flex-1 !py-1 text-[10px] font-bold" 
+                              onClick={() => handleViewDetails(order.id || order._id)}
+                            >
+                              Details
+                            </Button>
+                            {nextStatus && (
+                              <Button 
+                                size="sm" 
+                                variant="primary" 
+                                className="flex-1 !py-1 text-[10px] font-bold" 
+                                onClick={() => handleStatusChange(order.id || order._id, nextStatus)}
+                              >
+                                {nextLabel || 'Advance'}
+                              </Button>
+                            )}
+                            {canCancel && (
+                              <Button 
+                                size="sm" 
+                                variant="danger" 
+                                className="!p-1.5" 
+                                onClick={() => handleCancelClick(order.id || order._id)}
+                                title="Cancel Order"
+                              >
+                                <HiOutlineXMark className="text-xs" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Table 
+          columns={columns} 
+          data={filtered} 
+          loading={loading === 'pending'} 
+          emptyMessage="No orders found" 
+          getRowClassName={(row) => (row.id === detailsModal.orderId || row._id === detailsModal.orderId) ? 'bg-primary/5 dark:bg-primary/5 border-l-2 border-primary font-bold' : ''}
+        />
+      )}
 
       {/* Details Modal */}
       <Modal 

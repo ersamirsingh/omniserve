@@ -253,7 +253,7 @@ export class SubscriptionService {
     const amount = billingCycle === BillingCycle.MONTHLY ? newPlan.monthlyPrice : newPlan.yearlyPrice;
     let discount = 0;
     if (couponCode) {
-      const validation = await CouponService.validateSubscriptionCoupon(couponCode, amount);
+      const validation = await CouponService.validateSubscriptionCoupon(couponCode, amount, tenantId.toString());
       if (!validation.isValid) {
         throw new Error(validation.reason || "Invalid coupon code");
       }
@@ -308,6 +308,10 @@ export class SubscriptionService {
       paymentSubscriptionId,
       createdBy: userId ? new Types.ObjectId(userId) : subscription.createdBy,
     });
+
+    if (couponCode) {
+      await CouponService.redeemSubscriptionCoupon(couponCode, tenantId.toString());
+    }
 
     // 6. Generate Paid Invoice
     const invoiceObj: any = {
@@ -394,7 +398,7 @@ export class SubscriptionService {
     const amount = subscription.billingCycle === BillingCycle.MONTHLY ? plan.monthlyPrice : plan.yearlyPrice;
     let discount = 0;
     if (couponCode) {
-      const validation = await CouponService.validateSubscriptionCoupon(couponCode, amount);
+      const validation = await CouponService.validateSubscriptionCoupon(couponCode, amount, tenantId.toString());
       if (!validation.isValid) {
         throw new Error(validation.reason || "Invalid coupon code");
       }
@@ -412,6 +416,10 @@ export class SubscriptionService {
       trialEndsAt: null,
       graceEndsAt: null,
     });
+
+    if (couponCode) {
+      await CouponService.redeemSubscriptionCoupon(couponCode, tenantId.toString());
+    }
 
     const invoice = await SubscriptionRepository.createInvoice({
       tenantId: subscription.tenantId,

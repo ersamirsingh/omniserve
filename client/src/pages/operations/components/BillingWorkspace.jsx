@@ -267,20 +267,41 @@ export default function BillingWorkspace() {
               </h4>
 
               {/* Split type buttons */}
-              <div className="grid grid-cols-3 gap-2">
-                {['EQUAL', 'BY_SEAT', 'NONE'].map(type => (
+              <div className="flex gap-2 items-center">
+                <div className={`grid gap-2 ${billData.billSession?.splitType !== 'NONE' ? 'grid-cols-2 flex-1' : 'grid-cols-3 w-full'}`}>
+                  {['EQUAL', 'BY_SEAT', 'NONE'].map(type => {
+                    const isNone = type === 'NONE';
+                    const currentSplitType = billData.billSession?.splitType || 'NONE';
+                    
+                    if (isNone && currentSplitType !== 'NONE') {
+                      return null;
+                    }
+                    
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleSplit(type)}
+                        className={`p-2 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          currentSplitType === type
+                            ? 'bg-primary text-white border-primary dark:bg-primary-fixed dark:text-zinc-950'
+                            : 'border-border-base text-on-surface-variant hover:bg-surface-container-low dark:border-zinc-900'
+                        }`}
+                      >
+                        {type === 'EQUAL' ? 'Equally' : type === 'BY_SEAT' ? 'By Seat' : 'No Split'}
+                      </button>
+                    );
+                  })}
+                </div>
+                {billData.billSession?.splitType !== 'NONE' && (
                   <button
-                    key={type}
-                    onClick={() => handleSplit(type)}
-                    className={`p-2 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      billData.billSession?.splitType === type
-                        ? 'bg-primary text-white border-primary dark:bg-primary-fixed dark:text-zinc-950'
-                        : 'border-border-base text-on-surface-variant hover:bg-surface-container-low dark:border-zinc-900'
-                    }`}
+                    type="button"
+                    onClick={() => handleSplit('NONE')}
+                    className="px-3 py-2 border border-red-500 text-red-500 rounded-lg text-xs font-bold transition-all hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
                   >
-                    {type}
+                    Reset
                   </button>
-                ))}
+                )}
               </div>
 
               {/* Split items status */}

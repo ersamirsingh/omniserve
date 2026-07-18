@@ -61,6 +61,22 @@ export class ToolExecutor {
         if (!tenantId) throw new Error('Tenant context required for sentiment analytics');
         return AggregationTools.getReviewSentimentTrends(tenantId, outletId || rawParams.outletId);
 
+      case 'getPeakHours':
+        if (!tenantId) throw new Error('Tenant context required for peak hours analytics');
+        return AggregationTools.getPeakHours(tenantId, outletId || rawParams.outletId);
+
+      case 'getCustomerRetention':
+        if (!tenantId) throw new Error('Tenant context required for customer retention analytics');
+        return AggregationTools.getCustomerRetention(tenantId, outletId || rawParams.outletId);
+
+      case 'getTableTurnoverAndReservations':
+        if (!tenantId) throw new Error('Tenant context required for table turnover analytics');
+        return AggregationTools.getTableTurnoverAndReservations(tenantId, outletId || rawParams.outletId);
+
+      case 'getOrderVolumeByChannel':
+        if (!tenantId) throw new Error('Tenant context required for channel volume analytics');
+        return AggregationTools.getOrderVolumeByChannel(tenantId, outletId || rawParams.outletId);
+
       default:
         throw new Error(`Aggregation tool "${toolName}" is not registered or supported.`);
     }
@@ -133,6 +149,46 @@ export class ToolExecutor {
       {
         name: 'getReviewSentimentTrends',
         description: 'Get summary statistics of customer reviews grouped by sentiment.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            outletId: { type: 'STRING', description: 'Specific outlet ID filter (optional)' },
+          },
+        },
+      },
+      {
+        name: 'getPeakHours',
+        description: 'Get peak order hours heatmap statistics.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            outletId: { type: 'STRING', description: 'Specific outlet ID filter (optional)' },
+          },
+        },
+      },
+      {
+        name: 'getCustomerRetention',
+        description: 'Get customer repeat visit and retention rates.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            outletId: { type: 'STRING', description: 'Specific outlet ID filter (optional)' },
+          },
+        },
+      },
+      {
+        name: 'getTableTurnoverAndReservations',
+        description: 'Get table turnover rate and average reservation seating duration.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            outletId: { type: 'STRING', description: 'Specific outlet ID filter (optional)' },
+          },
+        },
+      },
+      {
+        name: 'getOrderVolumeByChannel',
+        description: 'Get volume of orders placed by sales channels (online, dine-in, takeaway, etc.).',
         parameters: {
           type: 'OBJECT',
           properties: {

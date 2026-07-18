@@ -277,9 +277,9 @@ export class OrderService {
     }
 
     if (filters.operationalMode === 'ONLINE') {
-      query.source = { $in: ["SWIGGY", "ZOMATO", "WEBSITE", "ONLINE", "DELIVERY", "TAKEAWAY", "ONDC", "WHATSAPP"] };
+      query.source = { $in: ["SWIGGY", "ZOMATO", "ONLINE", "DELIVERY", "TAKEAWAY", "ONDC", "WHATSAPP"] };
     } else if (filters.operationalMode === 'DINE_IN') {
-      query.source = { $in: ["DINE_IN", "QR_DINE_IN", "WAITER", "POS"] };
+      query.source = { $in: ["DINE_IN", "QR_DINE_IN", "WAITER", "POS", "WEBSITE"] };
     }
 
     if (filters.date) {

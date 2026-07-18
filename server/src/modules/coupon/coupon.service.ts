@@ -7,7 +7,8 @@ export class CouponService {
    */
   static async validateSubscriptionCoupon(
     code: string,
-    subtotal: number
+    subtotal: number,
+    tenantId?: string
   ): Promise<{ isValid: boolean; discount: number; reason?: string; coupon?: ICoupon }> {
     const formattedCode = code.trim().toUpperCase();
 
@@ -16,11 +17,27 @@ export class CouponService {
       tenantId: null,
       code: formattedCode,
       isActive: true,
+      status: "ACTIVE", // Enforce that only ACTIVE coupons can be redeemed
       isDeleted: false,
     });
 
     if (!coupon) {
       return { isValid: false, discount: 0, reason: "Invalid coupon code" };
+    }
+
+    // Check if the coupon is currently HELD
+    if (coupon.status === "HELD") {
+      return { isValid: false, discount: 0, reason: "This coupon is currently on hold" };
+    }
+
+    // Check single-use subscription coupon
+    if (coupon.isRedeemed) {
+      return { isValid: false, discount: 0, reason: "This coupon has already been redeemed" };
+    }
+
+    // Check if redeemed by this specific tenant
+    if (tenantId && coupon.redeemedTenants && coupon.redeemedTenants.some(id => id.toString() === tenantId)) {
+      return { isValid: false, discount: 0, reason: "This coupon has already been used by this account" };
     }
 
     // Check expiration date
@@ -58,6 +75,31 @@ export class CouponService {
   }
 
   /**
+   * Redeem a subscription coupon by marking it as used
+   */
+  static async redeemSubscriptionCoupon(code: string, tenantId: string): Promise<void> {
+    const formattedCode = code.trim().toUpperCase();
+    const coupon = await Coupon.findOne({
+      tenantId: null,
+      code: formattedCode,
+      isDeleted: false,
+    });
+    if (coupon) {
+      coupon.isRedeemed = true;
+      if (tenantId) {
+        const tenantObjectId = new Types.ObjectId(tenantId);
+        if (!coupon.redeemedTenants) {
+          coupon.redeemedTenants = [];
+        }
+        if (!coupon.redeemedTenants.some(id => id.toString() === tenantId)) {
+          coupon.redeemedTenants.push(tenantObjectId);
+        }
+      }
+      await coupon.save();
+    }
+  }
+
+  /**
    * Validate coupon code for order checkouts (checking active status, expiration, and minimum spend)
    */
   static async validateCoupon(
@@ -73,6 +115,7 @@ export class CouponService {
       tenantId: { $in: [new Types.ObjectId(tenantId), null] },
       code: formattedCode,
       isActive: true,
+      status: "ACTIVE", // Reject held/inactive coupons
       isDeleted: false,
     };
 
@@ -157,6 +200,7 @@ export class CouponService {
       maxDiscountAmount: data.maxDiscountAmount ? Number(data.maxDiscountAmount) : null,
       expirationDate: data.expirationDate ? new Date(data.expirationDate) : null,
       isActive: data.isActive !== undefined ? data.isActive : true,
+      status: data.status || "ACTIVE",
       createdBy: userId ? new Types.ObjectId(userId) : null,
       updatedBy: userId ? new Types.ObjectId(userId) : null,
     });
@@ -254,6 +298,9 @@ export class CouponService {
     }
     if (data.isActive !== undefined) {
       coupon.isActive = data.isActive;
+    }
+    if (data.status !== undefined) {
+      coupon.status = data.status;
     }
     if (userId) {
       coupon.updatedBy = new Types.ObjectId(userId);

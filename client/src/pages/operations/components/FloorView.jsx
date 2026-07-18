@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   getTablesApi, 
   getDiningAreasApi, 
@@ -20,7 +20,13 @@ import {
   HiArrowsRightLeft, 
   HiOutlineArrowRight,
   HiOutlineArrowsUpDown,
-  HiUserMinus
+  HiUserMinus,
+  HiOutlineSparkles,
+  HiOutlineQueueList,
+  HiOutlineCheckCircle,
+  HiOutlineCurrencyDollar,
+  HiOutlineArrowPath,
+  HiOutlineClock
 } from 'react-icons/hi2';
 import OrderLifecycleActions from '../../../components/shared/OrderLifecycleActions';
 
@@ -45,37 +51,52 @@ export default function FloorView({ onNavigate }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [opLoading, setOpLoading] = useState(false);
 
+  // Promise locking refs to prevent race conditions from overlapping loads
+  const fetchPromiseRef = useRef(null);
+  const drawerPromiseRef = useRef(null);
+
   const fetchData = useCallback(async () => {
-    try {
-      const [areasRes, tablesRes, usersRes] = await Promise.all([
-        getDiningAreasApi(),
-        getTablesApi(),
-        listUsersApi().catch(() => ({ data: { data: [] } }))
-      ]);
-      const areas = areasRes.data?.data?.areas || [];
-      const allTables = tablesRes.data?.data?.tables || [];
-      const users = usersRes.data?.data?.users || usersRes.data?.data || [];
-
-      setDiningAreas(areas);
-      setTables(allTables);
-      setStaff(users.filter(u => u.role === 'STAFF' || u.role === 'OUTLET_MANAGER'));
-
-      if (areas.length > 0 && !selectedAreaId) {
-        setSelectedAreaId(areas[0]._id || areas[0].id);
-      }
-      return allTables;
-    } catch (err) {
-      addToast('Failed to load floor layout', 'error');
-    } finally {
-      setLoading(false);
+    if (fetchPromiseRef.current) {
+      return fetchPromiseRef.current;
     }
+
+    const promise = (async () => {
+      try {
+        const [areasRes, tablesRes, usersRes] = await Promise.all([
+          getDiningAreasApi(),
+          getTablesApi(),
+          listUsersApi().catch(() => ({ data: { data: [] } }))
+        ]);
+        const areas = areasRes.data?.data?.areas || [];
+        const allTables = tablesRes.data?.data?.tables || [];
+        const users = usersRes.data?.data?.users || usersRes.data?.data || [];
+
+        setDiningAreas(areas);
+        setTables(allTables);
+        setStaff(users.filter(u => u.role === 'STAFF' || u.role === 'OUTLET_MANAGER'));
+
+        if (areas.length > 0 && !selectedAreaId) {
+          setSelectedAreaId(areas[0]._id || areas[0].id);
+        }
+        return allTables;
+      } catch (err) {
+        addToast('Failed to load floor layout', 'error');
+        return null;
+      } finally {
+        fetchPromiseRef.current = null;
+        setLoading(false);
+      }
+    })();
+
+    fetchPromiseRef.current = promise;
+    return promise;
   }, [selectedAreaId, addToast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Drawer details lookup
+  // Drawer details lookup with lock checking to prevent concurrent fetches
   const loadDrawerDetails = useCallback(async (table) => {
     if (!table.activeSessionId) {
       setTableTimeline([]);
@@ -83,8 +104,14 @@ export default function FloorView({ onNavigate }) {
       return;
     }
 
+    const sessionKey = table.activeSessionId.toString();
+    if (drawerPromiseRef.current === sessionKey) {
+      return; // Already loading this session details
+    }
+
+    drawerPromiseRef.current = sessionKey;
     try {
-      joinSession(table.activeSessionId.toString());
+      joinSession(sessionKey);
       const [timelineRes, billRes] = await Promise.all([
         getUnifiedTimelineApi(table.activeSessionId),
         getSessionBillApi(table.activeSessionId).catch(() => ({ data: { data: null } }))
@@ -94,12 +121,16 @@ export default function FloorView({ onNavigate }) {
       setBillDetails(billRes.data?.data || null);
     } catch (err) {
       console.warn('Failed to load table drawer details:', err);
+    } finally {
+      if (drawerPromiseRef.current === sessionKey) {
+        drawerPromiseRef.current = null;
+      }
     }
   }, [joinSession]);
 
-  // WebSocket event handler
+  // WebSocket event handler - ignore events if client is currently executing a manual operation
   useEffect(() => {
-    if (!lastMessage) return;
+    if (!lastMessage || opLoading) return;
     const { event } = lastMessage;
 
     const tableEvents = [
@@ -112,7 +143,8 @@ export default function FloorView({ onNavigate }) {
     if (tableEvents.includes(event)) {
       fetchData().then((latestTables) => {
         if (selectedTable && latestTables) {
-          const updatedTable = latestTables.find(t => t._id === selectedTable._id || t.id === selectedTable.id);
+          const targetId = selectedTable._id?.toString() || selectedTable.id?.toString();
+          const updatedTable = latestTables.find(t => (t._id?.toString() || t.id?.toString()) === targetId);
           if (updatedTable) {
             setSelectedTable(updatedTable);
             if (updatedTable.activeSessionId) {
@@ -125,13 +157,14 @@ export default function FloorView({ onNavigate }) {
         }
       });
     }
-  }, [lastMessage, selectedTable, fetchData, loadDrawerDetails, tables]);
+  }, [lastMessage, selectedTable, fetchData, loadDrawerDetails, opLoading]);
 
   // Handle table drawer toggle
   const handleTableClick = (table) => {
     if (selectedTable?.activeSessionId) {
       leaveSession(selectedTable.activeSessionId.toString());
     }
+    drawerPromiseRef.current = null; // Prevent lock from getting stuck in-flight
     setSelectedTable(table);
     setDrawerOpen(true);
     loadDrawerDetails(table);
@@ -141,6 +174,7 @@ export default function FloorView({ onNavigate }) {
     if (selectedTable?.activeSessionId) {
       leaveSession(selectedTable.activeSessionId.toString());
     }
+    drawerPromiseRef.current = null; // Clear lock
     setDrawerOpen(false);
     setSelectedTable(null);
     setShowAdvanced(false);
@@ -154,12 +188,13 @@ export default function FloorView({ onNavigate }) {
         operationType,
         payload
       });
-      addToast(`Operation ${operationType} succeeded`, 'success');
+      addToast(`Operation ${operationType.replace('_', ' ')} succeeded`, 'success');
       setOpModal({ open: false, type: '', data: {} });
       
       const latestTables = await fetchData();
       if (selectedTable && latestTables) {
-        const updatedTable = latestTables.find(t => t._id === selectedTable._id || t.id === selectedTable.id);
+        const targetId = selectedTable._id?.toString() || selectedTable.id?.toString();
+        const updatedTable = latestTables.find(t => (t._id?.toString() || t.id?.toString()) === targetId);
         if (updatedTable) {
           setSelectedTable(updatedTable);
           if (updatedTable.activeSessionId) {
@@ -178,11 +213,24 @@ export default function FloorView({ onNavigate }) {
   };
 
   const getTableColor = (table) => {
-    if (table.operationalStatus === 'CLEANING') return 'bg-purple-500 text-white hover:bg-purple-650';
-    if (table.operationalStatus === 'BILL_REQUESTED') return 'bg-yellow-500 text-black hover:bg-yellow-600';
-    if (table.operationalStatus === 'RESERVED') return 'bg-blue-500 text-white hover:bg-blue-600';
-    if (table.activeSessionId && table.operationalStatus !== 'AVAILABLE') return 'bg-red-500 text-white hover:bg-red-600';
-    return 'bg-success-green text-white hover:bg-emerald-600';
+    if (table.operationalStatus === 'CLEANING') return 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-500/20';
+    if (table.operationalStatus === 'BILL_REQUESTED') return 'bg-amber-500 text-black hover:bg-amber-600 shadow-amber-500/20';
+    if (table.operationalStatus === 'PAYMENT_PENDING') return 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20';
+    if (table.operationalStatus === 'RESERVED') return 'bg-blue-500 text-white hover:bg-blue-600 shadow-blue-500/20';
+    if (table.operationalStatus === 'HELD') return 'bg-zinc-400 text-white hover:bg-zinc-500 shadow-zinc-400/20';
+    if (table.activeSessionId && table.operationalStatus !== 'AVAILABLE') return 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-500/20';
+    return 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20';
+  };
+
+  const getStatusLabelText = (status) => {
+    if (status === 'AVAILABLE') return 'Available';
+    if (status === 'HELD') return 'Held (Lock)';
+    if (status === 'OCCUPIED') return 'Occupied';
+    if (status === 'RESERVED') return 'Reserved';
+    if (status === 'BILL_REQUESTED') return 'Bill Requested';
+    if (status === 'PAYMENT_PENDING') return 'Payment Pending';
+    if (status === 'CLEANING') return 'Cleaning';
+    return status;
   };
 
   if (loading) {
@@ -190,219 +238,266 @@ export default function FloorView({ onNavigate }) {
   }
 
   const currentAreaTables = tables.filter(t => t.diningAreaId?.toString() === selectedAreaId || t.diningAreaId?._id?.toString() === selectedAreaId);
-  const availableTables = tables.filter(t => !t.activeSessionId && t._id !== selectedTable?._id);
+  const availableTables = tables.filter(t => !t.activeSessionId && t._id?.toString() !== selectedTable?._id?.toString());
 
   return (
-    <div className="relative flex flex-col gap-6 animate-fade-in">
-      {/* Area selector tabs */}
-      <div className="flex gap-2 pb-2 overflow-x-auto">
-        {diningAreas.map(area => (
-          <button
-            key={area._id || area.id}
-            onClick={() => setSelectedAreaId(area._id || area.id)}
-            className={`px-4 py-2 rounded-lg text-[13px] font-bold cursor-pointer transition-all ${
-              selectedAreaId === (area._id || area.id)
-                ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-md'
-                : 'bg-white text-on-surface-variant border border-border-base hover:bg-surface-container-low dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-900'
-            }`}
+    <div className="relative flex flex-col gap-6 animate-fade-in pb-12">
+      {/* Restructured Top Header Area with Legend & Tabs */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white dark:bg-zinc-950 p-4 rounded-2xl border border-border-base dark:border-zinc-900 shadow-2xs">
+        {/* Area Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+          {diningAreas.map(area => (
+            <button
+              key={area._id || area.id}
+              onClick={() => setSelectedAreaId(area._id || area.id)}
+              className={`px-4 py-2 rounded-xl text-[12px] font-bold cursor-pointer transition-all shrink-0 ${
+                selectedAreaId === (area._id || area.id)
+                  ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-xs'
+                  : 'bg-surface-subtle text-on-surface-variant border border-border-base/60 hover:bg-surface-container-low dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800'
+              }`}
+            >
+              📍 {area.name}
+            </button>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-1.5 font-bold text-[12px] px-3.5 py-2.5 rounded-xl shrink-0"
+            onClick={() => fetchData()}
           >
-            {area.name}
-          </button>
-        ))}
+            <HiOutlineArrowPath className="text-sm" /> Refresh
+          </Button>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-3.5 text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 border-t lg:border-t-0 lg:border-l border-border-base dark:border-zinc-800 pt-3 lg:pt-0 lg:pl-6">
+          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs" /> Available</div>
+          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-xs" /> Reserved</div>
+          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-400 shadow-xs" /> Held</div>
+          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs" /> Occupied</div>
+          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs" /> Bill Req</div>
+          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-600 shadow-xs" /> Cleaning</div>
+        </div>
       </div>
 
       {/* Grid Floor workspace */}
-      <div className="relative w-full h-150 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-xl overflow-hidden shadow-inner">
-        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [bg-size:20px_20px] opacity-70" />
+      <div className="relative w-full h-[620px] bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl overflow-hidden shadow-inner flex">
+        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1.2px,transparent_1.2px)] [bg-size:24px_24px] opacity-60" />
 
         {currentAreaTables.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center flex-col text-on-surface-variant dark:text-zinc-550">
-            <span className="text-[14px] font-semibold">No tables mapped to this dining area.</span>
-            <span className="text-[12px] mt-1">Use the Floor Designer tab to place tables.</span>
+          <div className="absolute inset-0 flex items-center justify-center flex-col text-on-surface-variant dark:text-zinc-500 space-y-2 z-10">
+            <span className="text-3xl">🪑</span>
+            <span className="text-[13px] font-bold">No tables mapped to this area.</span>
+            <span className="text-[11px] font-medium opacity-80">Use the Floor Designer to place tables and chairs.</span>
           </div>
         ) : (
-          currentAreaTables.map((table) => {
-            const layout = table.layout || { x: 50, y: 50, width: 80, height: 80, rotation: 0, shape: 'square' };
-            const isRound = layout.shape === 'round';
-            const tableColor = getTableColor(table);
+          <div className="absolute inset-0 overflow-auto p-8">
+            {currentAreaTables.map((table) => {
+              const layout = table.layout || { x: 50, y: 50, width: 80, height: 80, rotation: 0, shape: 'square' };
+              const isRound = layout.shape === 'round';
+              const tableColor = getTableColor(table);
 
-            return (
-              <button
-                key={table._id || table.id}
-                onClick={() => handleTableClick(table)}
-                style={{
-                  position: 'absolute',
-                  left: `${layout.x}px`,
-                  top: `${layout.y}px`,
-                  width: `${layout.width}px`,
-                  height: `${layout.height}px`,
-                  transform: `rotate(${layout.rotation || 0}deg)`,
-                  zIndex: layout.zIndex || 10,
-                  cursor: 'pointer'
-                }}
-                className={`flex flex-col items-center justify-center shadow-lg font-hanken text-[12px] font-bold border border-black/10 transition-all ${
-                  isRound ? 'rounded-full' : 'rounded-lg'
-                } ${tableColor}`}
-              >
-                <span className="text-[13px]">{table.tableNumber}</span>
-                <span className="text-[10px] opacity-80 font-normal">Cap: {table.seatCount}</span>
-                {table.operationalStatus === 'CLEANING' && <span className="text-[9px] uppercase tracking-wider font-semibold bg-black/20 px-1 rounded mt-1">Cleaning</span>}
-                {table.operationalStatus === 'BILL_REQUESTED' && <span className="text-[9px] uppercase tracking-wider font-semibold bg-black/25 px-1 rounded mt-1">Bill</span>}
-              </button>
-            );
-          })
+              return (
+                <button
+                  key={table._id || table.id}
+                  onClick={() => handleTableClick(table)}
+                  style={{
+                    position: 'absolute',
+                    left: `${layout.x}px`,
+                    top: `${layout.y}px`,
+                    width: `${layout.width}px`,
+                    height: `${layout.height}px`,
+                    transform: `rotate(${layout.rotation || 0}deg)`,
+                    zIndex: layout.zIndex || 10,
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 cursor-pointer shadow-md transition-all hover:scale-105 active:scale-95 select-none focus:outline-none border border-black/10 dark:border-white/10 ${
+                    isRound ? 'rounded-full' : 'rounded-2xl'
+                  } ${tableColor}`}
+                >
+                  <span className="font-extrabold text-[13px] tracking-tight">{table.tableNumber}</span>
+                  <span className="text-[9px] font-bold opacity-80 mt-0.5">Cap: {table.seatCount}</span>
+                  {table.operationalStatus !== 'AVAILABLE' && (
+                    <span className="text-[8px] font-black uppercase tracking-wider bg-black/20 dark:bg-white/10 px-1.5 py-0.5 rounded-full mt-1.5 scale-90">
+                      {table.operationalStatus === 'BILL_REQUESTED' ? 'BILL' : table.operationalStatus.slice(0, 5)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Table Side Detail Drawer */}
+      {/* Table Side Detail Drawer - Restructured UI */}
       {drawerOpen && selectedTable && (
-        <div className="fixed inset-y-0 right-0 w-112.5 bg-white dark:bg-zinc-950 border-l border-border-base dark:border-zinc-900 shadow-2xl z-150 flex flex-col animate-slide-in-right">
+        <div className="fixed inset-y-0 right-0 w-full sm:w-[410px] bg-white dark:bg-zinc-950 border-l border-border-base dark:border-zinc-900 shadow-2xl z-150 flex flex-col animate-slide-in-right">
           {/* Header */}
-          <div className="flex justify-between items-center px-6 py-4 border-b border-border-base dark:border-zinc-900">
+          <div className="flex justify-between items-center px-6 py-5 border-b border-border-base dark:border-zinc-900 shrink-0">
             <div>
-              <h2 className="text-[16px] font-bold text-on-background">Table {selectedTable.tableNumber}</h2>
-              <span className="text-[11px] text-on-surface-variant dark:text-zinc-550 uppercase tracking-widest font-bold">
-                {selectedTable.operationalStatus || 'Available'}
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-extrabold text-on-background">Table {selectedTable.tableNumber}</h2>
+                {selectedTable.isMerged && <Badge variant="info">Merged</Badge>}
+              </div>
+              <span className="text-[10px] text-primary dark:text-primary-fixed-dim uppercase tracking-wider font-black block mt-0.5">
+                {getStatusLabelText(selectedTable.operationalStatus)}
               </span>
             </div>
-            <button onClick={handleCloseDrawer} className="text-on-surface-variant hover:text-on-background cursor-pointer">
+            <button onClick={handleCloseDrawer} className="text-on-surface-variant hover:text-on-background p-1.5 hover:bg-surface-subtle dark:hover:bg-zinc-900 rounded-lg cursor-pointer transition-all">
               <HiOutlineXMark className="text-xl" />
             </button>
           </div>
 
           {/* Drawer Body Scroll */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+            {/* Loading Cover for Drawer during Operations to prevent race condition clicks */}
+            {opLoading && (
+              <div className="absolute inset-0 bg-white/70 dark:bg-zinc-950/70 z-50 flex flex-col items-center justify-center space-y-3 backdrop-blur-xs">
+                <Spinner size="lg" />
+                <span className="text-xs font-bold text-on-surface-variant dark:text-zinc-400 animate-pulse">Updating table state...</span>
+              </div>
+            )}
+
             {selectedTable.operationalStatus === 'CLEANING' ? (
-              /* Cleaning Mode: Show ONLY the Cleaning Done action for simplicity */
-              <div className="space-y-4 py-4">
-                <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 p-4 rounded-2xl text-center space-y-2">
-                  <span className="text-2xl block">🧹</span>
-                  <h4 className="text-xs font-bold text-purple-950 dark:text-purple-300">Table needs cleaning</h4>
-                  <p className="text-[11px] text-purple-700 dark:text-purple-400">Previous guest session has ended. Mark it clean to make it available for new scans.</p>
+              /* Cleaning Mode Layout */
+              <div className="space-y-4 py-8">
+                <div className="bg-purple-50/50 dark:bg-purple-950/10 border border-purple-200/50 dark:border-purple-900/30 p-6 rounded-2xl text-center space-y-3">
+                  <span className="text-3xl block">🧹</span>
+                  <h4 className="text-sm font-extrabold text-purple-950 dark:text-purple-300">Table Needs Cleaning</h4>
+                  <p className="text-[11px] text-purple-700/80 dark:text-purple-400/80 max-w-xs mx-auto leading-relaxed">
+                    The guest session has ended. Mark cleaning completed to release table lock and allow new guest QR scans.
+                  </p>
                 </div>
                 <Button
                   size="md"
                   variant="primary"
-                  className="w-full text-white bg-purple-600 hover:bg-purple-700 py-3 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer border-none"
+                  className="w-full text-white bg-purple-600 hover:bg-purple-700 py-3.5 font-bold text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer border-none"
                   disabled={opLoading}
                   onClick={() => runOperation('COMPLETE_CLEANING', { tableId: selectedTable._id || selectedTable.id })}
                 >
-                  ✅ Cleaning Done - Mark Available
+                  🧹 Mark Cleaning Completed
                 </Button>
               </div>
             ) : selectedTable.activeSessionId ? (
-              /* Dining Mode */
-              <div className="space-y-5">
+              /* Occupied / Dining Mode Layout */
+              <div className="space-y-6">
                 {/* Active Session Info Card */}
                 {billDetails && (
-                  <div className="bg-surface-subtle dark:bg-zinc-900/40 border border-border-base dark:border-zinc-850 p-4 rounded-2xl space-y-2 text-[12px]">
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant dark:text-zinc-400 font-semibold">Waiter:</span>
-                      <span className="font-bold text-on-surface dark:text-zinc-200">{billDetails.billSession?.waiterName || 'None'}</span>
+                  <div className="bg-surface-subtle dark:bg-zinc-900/50 border border-border-base dark:border-zinc-850 p-4.5 rounded-2xl space-y-2.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant dark:text-zinc-450 font-bold">Assigned Waiter</span>
+                      <span className="font-extrabold text-on-surface dark:text-zinc-200 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                        👤 {billDetails.billSession?.waiterName || 'None'}
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant dark:text-zinc-400 font-semibold">Total Amount:</span>
-                      <span className="font-extrabold text-primary dark:text-primary-fixed-dim">
+                    <div className="flex justify-between items-center border-t border-border-base/20 pt-2">
+                      <span className="text-on-surface-variant dark:text-zinc-450 font-bold">Total Bill</span>
+                      <span className="font-black text-primary dark:text-primary-fixed-dim text-sm">
                         ${billDetails.billSession?.totalAmount?.toFixed(2) || '0.00'}
                       </span>
                     </div>
-                    <div className="flex justify-between border-t border-border-base/40 dark:border-zinc-800/40 pt-1.5">
-                      <span className="text-on-surface-variant dark:text-zinc-400 font-semibold">Outstanding:</span>
-                      <span className="font-extrabold text-red-500">
+                    <div className="flex justify-between items-center border-t border-border-base/20 pt-2">
+                      <span className="text-on-surface-variant dark:text-zinc-450 font-bold">Outstanding Balance</span>
+                      <span className="font-black text-rose-500 text-sm">
                         ${billDetails.billSession?.outstandingBalance?.toFixed(2) || '0.00'}
                       </span>
                     </div>
                   </div>
                 )}
 
-                {/* Primary Operations Panel */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40 dark:text-zinc-500">Primary Actions</h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      className="w-full font-bold text-xs"
-                      disabled={opLoading}
-                      onClick={() => runOperation('REQUEST_BILL', { sessionId: selectedTable.activeSessionId })}
-                    >
-                      💵 Request Bill
-                    </Button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="font-bold text-xs"
-                        disabled={opLoading}
-                        onClick={() => runOperation('START_CLEANING', { tableId: selectedTable._id })}
-                      >
-                        🧹 Start Cleaning
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="font-bold text-xs text-red-550 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/20"
-                        variant="outline"
-                        disabled={opLoading}
-                        onClick={() => runOperation('CLOSE_SESSION', { sessionId: selectedTable.activeSessionId })}
-                      >
-                        🚪 Close Session
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                {/* Primary Floor Cockpit Actions Panel */}
+                {(() => {
+                  const hasRequestedBill = selectedTable.operationalStatus === 'BILL_REQUESTED' || 
+                                           selectedTable.operationalStatus === 'PAYMENT_PENDING' || 
+                                           tableTimeline.some(e => e.status === 'BILL_REQUESTED' || e.status === 'PAYMENT_PENDING');
+                  const hasStartedCleaning = selectedTable.operationalStatus === 'CLEANING' || 
+                                             tableTimeline.some(e => e.status === 'CLEANING_STARTED' || e.status === 'CLEANING');
 
-                {/* Collapsible Advanced Panel */}
-                <div className="border-t border-border-base dark:border-zinc-900 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    className="w-full flex justify-between items-center text-left text-[11px] font-black uppercase tracking-wider text-on-surface-variant/60 dark:text-zinc-400 hover:text-primary dark:hover:text-primary-fixed-dim transition-colors cursor-pointer border-none bg-transparent"
-                  >
-                    <span>⚙️ Advanced Actions & Seat List</span>
-                    <span>{showAdvanced ? 'Collapse ▲' : 'Expand ▼'}</span>
-                  </button>
-
-                  {showAdvanced && (
-                    <div className="space-y-5 mt-4 pt-4 border-t border-dashed border-border-base dark:border-zinc-800 animate-fade-in">
-                      {/* Navigation Actions */}
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-500 uppercase tracking-widest block">Dashboard Shortcuts</span>
-                        <div className="grid grid-cols-2 gap-2">
+                  return (
+                    <div className="bg-zinc-50 dark:bg-zinc-900/30 border border-border-base dark:border-zinc-900 p-4.5 rounded-2xl space-y-4 mb-4">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40 dark:text-zinc-550 block">Quick Floor Actions</span>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          className="w-full font-bold text-xs py-3"
+                          disabled={opLoading || hasRequestedBill}
+                          onClick={() => runOperation('REQUEST_BILL', { sessionId: selectedTable.activeSessionId })}
+                        >
+                          💵 {hasRequestedBill ? 'Bill Already Requested' : 'Request Outstanding Bill'}
+                        </Button>
+                        <div className="grid grid-cols-2 gap-2.5">
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={opLoading}
-                            onClick={() => {
-                              sessionStorage.setItem('selectedTableNumber', selectedTable.tableNumber);
-                              if (onNavigate) onNavigate('waiters');
-                            }}
-                            className="font-bold text-[11px]"
+                            className="font-bold text-xs py-3"
+                            disabled={opLoading || hasStartedCleaning}
+                            onClick={() => runOperation('START_CLEANING', { tableId: selectedTable._id })}
                           >
-                            Go to Waiters
+                            🧹 {hasStartedCleaning ? 'Cleaning In Progress' : 'Start Cleaning'}
                           </Button>
                           <Button
                             size="sm"
+                            className="font-bold text-xs py-3 text-rose-500 border-rose-200 dark:border-rose-950/40 hover:bg-rose-50 dark:hover:bg-rose-950/10"
                             variant="outline"
                             disabled={opLoading}
-                            onClick={() => {
-                              sessionStorage.setItem('selectedTableId', selectedTable._id || selectedTable.id);
-                              if (onNavigate) onNavigate('billing');
-                            }}
-                            className="font-bold text-[11px]"
+                            onClick={() => runOperation('CLOSE_SESSION', { sessionId: selectedTable.activeSessionId })}
                           >
-                            Go to Splits
+                            🚪 Close Session
                           </Button>
                         </div>
                       </div>
+                    </div>
+                  );
+                })()}
 
-                      {/* Structural operations */}
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-500 uppercase tracking-widest block">Structure Updates</span>
+                <div className="border-t border-border-base dark:border-zinc-900 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full flex justify-between items-center text-left text-[11px] font-black uppercase tracking-wider text-on-surface-variant/60 dark:text-zinc-400 hover:text-primary dark:hover:text-primary-fixed-dim transition-all cursor-pointer border-none bg-transparent"
+                  >
+                    <span>⚙️ Advanced Operations & Seat Maps</span>
+                    <span>{showAdvanced ? 'Hide Options ▲' : 'Show Options ▼'}</span>
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="space-y-6 mt-4 pt-4 border-t border-dashed border-border-base dark:border-zinc-800 animate-fade-in">
+                      {/* Navigation Shortcuts */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={opLoading}
+                          onClick={() => {
+                            sessionStorage.setItem('selectedTableNumber', selectedTable.tableNumber);
+                            if (onNavigate) onNavigate('waiters');
+                          }}
+                          className="font-bold text-[11px]"
+                        >
+                          Waiter Tasks Console
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={opLoading}
+                          onClick={() => {
+                            sessionStorage.setItem('selectedTableId', selectedTable._id || selectedTable.id);
+                            if (onNavigate) onNavigate('billing');
+                          }}
+                          className="font-bold text-[11px]"
+                        >
+                          Split Bill Workspace
+                        </Button>
+                      </div>
+
+                      {/* Structural updates */}
+                      <div className="bg-zinc-50/50 dark:bg-zinc-900/10 border border-border-base dark:border-zinc-900 p-4 rounded-xl space-y-3">
+                        <span className="text-[9px] font-extrabold text-on-surface-variant/40 dark:text-zinc-500 uppercase tracking-widest block">Structural Adjustments</span>
                         <div className="grid grid-cols-2 gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="font-semibold text-[11px]"
+                            className="font-bold text-[11px]"
                             disabled={opLoading}
                             onClick={() => setOpModal({ open: true, type: 'TRANSFER_TABLE', data: { fromTableId: selectedTable._id } })}
                           >
@@ -411,16 +506,16 @@ export default function FloorView({ onNavigate }) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="font-semibold text-[11px]"
+                            className="font-bold text-[11px]"
                             disabled={opLoading}
                             onClick={() => setOpModal({ open: true, type: 'MERGE_TABLE', data: { primaryTableId: selectedTable._id } })}
                           >
-                            Merge Table
+                            Merge Tables
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="font-semibold text-[11px]"
+                            className="font-bold text-[11px]"
                             disabled={opLoading}
                             onClick={() => setOpModal({ open: true, type: 'CHANGE_WAITER', data: { sessionId: selectedTable.activeSessionId } })}
                           >
@@ -429,133 +524,135 @@ export default function FloorView({ onNavigate }) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="font-semibold text-[11px]"
+                            className="font-bold text-[11px]"
                             disabled={opLoading}
                             onClick={() => setOpModal({ open: true, type: 'CHANGE_GUEST_COUNT', data: { tableId: selectedTable._id, currentCap: selectedTable.seatCount } })}
                           >
-                            Guest Capacity
+                            Capacity Sizing
                           </Button>
                           {selectedTable.isMerged && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="col-span-2 font-semibold text-[11px]"
+                              className="col-span-2 font-bold text-[11px]"
                               disabled={opLoading}
                               onClick={() => runOperation('UNMERGE_TABLE', { primaryTableId: selectedTable._id })}
                             >
-                              Unmerge Table
+                              Unmerge Table Layout
                             </Button>
                           )}
-                        </div>
-                      </div>
-
-                      {/* Seats occupied */}
-                      {billDetails && (
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-550 uppercase tracking-widest">Seats List</span>
-                            <button
-                              disabled={opLoading}
-                              onClick={() => setOpModal({ open: true, type: 'ADD_SEAT', data: { sessionId: selectedTable.activeSessionId } })}
-                              className="text-primary text-[10px] font-bold flex items-center gap-0.5 hover:underline cursor-pointer bg-transparent border-none disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              + Add Seat
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {billDetails.orders?.map((order, index) => (
-                              <div key={order._id || order.id} className="border border-border-base dark:border-zinc-900 p-2.5 rounded-xl flex flex-col justify-between bg-zinc-50 dark:bg-zinc-900/40">
-                                <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold text-on-surface dark:text-zinc-200">
-                                  <HiOutlineUser className="text-on-surface-variant" />
-                                  <span>Seat {order.diningContext?.seatNumber || (index + 1)}</span>
-                                </div>
-                                <span className="text-[10px] text-on-surface-variant dark:text-zinc-550 mb-2 truncate">
-                                  Order #{order.orderNumber || ''}
-                                </span>
-
-                                <div className="mb-2 scale-95 origin-left">
-                                  <OrderLifecycleActions
-                                    order={order}
-                                    onStatusChanged={() => loadDrawerDetails(selectedTable)}
-                                  />
-                                </div>
-
-                                <div className="flex justify-between items-center gap-1.5 border-t border-border-base dark:border-zinc-800/60 pt-1.5">
-                                  <span className="text-[11px] font-bold">${order.totalAmount?.toFixed(2)}</span>
-                                  <div className="flex gap-0.5">
-                                    <button
-                                      disabled={opLoading}
-                                      title="Move/Swap Seat"
-                                      onClick={() => setOpModal({ open: true, type: 'MOVE_SEAT', data: { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber } })}
-                                      className="text-primary hover:bg-indigo-50 dark:hover:bg-zinc-900 p-1 rounded text-xs cursor-pointer border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <HiArrowsRightLeft />
-                                    </button>
-                                    <button
-                                      disabled={opLoading}
-                                      onClick={() => runOperation('REMOVE_SEAT', { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber })}
-                                      className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-xs cursor-pointer border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <HiOutlineTrash />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Timeline */}
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-on-surface-variant/40 dark:text-zinc-555 uppercase tracking-widest block">Live Table Timeline</span>
-                        <div className="relative border-l border-border-base dark:border-zinc-800 pl-3.5 space-y-3.5 ml-1">
-                          {tableTimeline.slice(-5).reverse().map((event, idx) => (
-                            <div key={idx} className="relative text-[11px] leading-tight">
-                              <span className="absolute -left-4.75 top-1.5 w-2 h-2 rounded-full bg-primary dark:bg-primary-fixed-dim" />
-                              <span className="text-on-surface-variant dark:text-zinc-500 text-[9px] block">
-                                {new Date(event.timestamp).toLocaleTimeString()}
-                              </span>
-                              <span className="font-bold text-on-background block">{event.status}</span>
-                              <p className="text-on-surface-variant dark:text-zinc-400 text-[10px] mt-0.5">{event.notes}</p>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
+
+                {/* Seat Maps & Order Statuses */}
+                {billDetails && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/45 dark:text-zinc-500">Seat Map List</span>
+                      <button
+                        disabled={opLoading}
+                        onClick={() => setOpModal({ open: true, type: 'ADD_SEAT', data: { sessionId: selectedTable.activeSessionId } })}
+                        className="text-primary hover:underline text-xs font-bold bg-transparent border-none cursor-pointer"
+                      >
+                        + Add Seat
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3.5">
+                      {billDetails.orders?.map((order, index) => (
+                        <div key={order._id || order.id} className="border border-border-base dark:border-zinc-900 p-3 rounded-2xl flex flex-col justify-between bg-zinc-50/55 dark:bg-zinc-900/20">
+                          <div className="flex items-center gap-1.5 mb-1.5 text-xs font-bold text-on-surface dark:text-zinc-200">
+                            <HiOutlineUser className="text-primary" />
+                            <span>Seat {order.diningContext?.seatNumber || (index + 1)}</span>
+                          </div>
+                          <span className="text-[10px] text-on-surface-variant dark:text-zinc-500 mb-3 block truncate">
+                            Order #{order.orderNumber || ''}
+                          </span>
+
+                          <div className="mb-3">
+                            <OrderLifecycleActions
+                              order={order}
+                              onStatusChanged={() => loadDrawerDetails(selectedTable)}
+                            />
+                          </div>
+
+                          <div className="flex justify-between items-center gap-2 border-t border-border-base/40 dark:border-zinc-800/40 pt-2 mt-1">
+                            <span className="text-xs font-extrabold">${order.totalAmount?.toFixed(2)}</span>
+                            <div className="flex gap-1">
+                              <button
+                                disabled={opLoading}
+                                title="Move/Swap Seat"
+                                onClick={() => setOpModal({ open: true, type: 'MOVE_SEAT', data: { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber } })}
+                                className="p-1 hover:bg-surface-subtle dark:hover:bg-zinc-900 rounded-md cursor-pointer border-none bg-transparent"
+                              >
+                                <HiArrowsRightLeft className="text-xs text-primary" />
+                              </button>
+                              <button
+                                disabled={opLoading}
+                                onClick={() => runOperation('REMOVE_SEAT', { sessionId: selectedTable.activeSessionId, seatNumber: order.diningContext?.seatNumber })}
+                                className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-md cursor-pointer border-none bg-transparent"
+                              >
+                                <HiOutlineTrash className="text-xs text-rose-500" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timeline */}
+                <div className="space-y-3 border-t border-border-base dark:border-zinc-900 pt-5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/45 dark:text-zinc-550 block">Live Session Timeline</span>
+                  <div className="relative border-l border-border-base dark:border-zinc-800 pl-4 space-y-4 ml-1">
+                    {tableTimeline.slice(-4).reverse().map((event, idx) => (
+                      <div key={idx} className="relative text-xs leading-normal">
+                        <span className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-primary" />
+                        <span className="text-on-surface-variant dark:text-zinc-500 text-[9px] font-bold block mb-0.5">
+                          {new Date(event.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className="font-extrabold text-on-background block">{event.status}</span>
+                        <p className="text-on-surface-variant dark:text-zinc-400 text-[10px] mt-0.5 leading-relaxed">{event.notes}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
-              /* Available / Empty Mode */
-              <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant dark:text-zinc-555 border border-dashed border-border-base dark:border-zinc-855 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/10 gap-2">
-                <span className="text-2xl">🍽️</span>
-                <span className="font-bold text-xs text-on-surface dark:text-zinc-300">Table is Available</span>
-                <span className="text-[10px] text-on-surface-variant dark:text-zinc-455">Scan QR or seat a reservation to occupy this table.</span>
+              /* Available / Empty Mode Layout */
+              <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant dark:text-zinc-500 border border-dashed border-border-base dark:border-zinc-800 rounded-2xl bg-zinc-50/30 dark:bg-zinc-900/5 gap-3">
+                <span className="text-3xl">🍽️</span>
+                <span className="font-extrabold text-xs text-on-surface dark:text-zinc-300">Table is Empty & Available</span>
+                <p className="text-[10px] text-on-surface-variant dark:text-zinc-500 max-w-xs text-center leading-relaxed">
+                  Guests can scan table QR code to start dining session, or you can seat a reservation directly via Reservations panel.
+                </p>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Unified Operations Modal Dialog */}
+      {/* Unified Operations Modal Dialog - Centered properly */}
       {opModal.open && (
-        <div className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-border-base dark:border-zinc-900 w-95 space-y-4 shadow-2xl animate-scale-in">
-            <h3 className="text-[15px] font-bold text-on-background capitalize">
-              {opModal.type.replace('_', ' ')}
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
+          <div className="bg-white dark:bg-zinc-950 p-6 rounded-2xl border border-border-base dark:border-zinc-900 w-96 space-y-4 shadow-2xl shadow-primary/10 animate-scale-in text-xs font-semibold">
+            <h3 className="text-[14px] font-extrabold text-on-background capitalize flex items-center gap-1.5">
+              ⚙️ {opModal.type.replace('_', ' ')}
             </h3>
             
-            <div className="space-y-4 text-xs">
+            <div className="space-y-4">
               {/* Add Seat */}
               {opModal.type === 'ADD_SEAT' && (
                 <div className="space-y-2">
-                  <label className="font-bold text-on-surface-variant dark:text-zinc-400">Seat Designation (e.g. Seat 5)</label>
+                  <label className="font-bold text-on-surface-variant dark:text-zinc-400">Seat Designation</label>
                   <input
                     type="text"
                     id="seatNumberInput"
                     className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-850 rounded-lg p-2 text-xs"
-                    placeholder="Enter seat number"
+                    placeholder="e.g. Seat 5"
                   />
                 </div>
               )}
@@ -563,7 +660,7 @@ export default function FloorView({ onNavigate }) {
               {/* Transfer Table */}
               {opModal.type === 'TRANSFER_TABLE' && (
                 <div className="space-y-2">
-                  <label className="font-bold text-on-surface-variant dark:text-zinc-400">Select Target Table</label>
+                  <label className="font-bold text-on-surface-variant dark:text-zinc-400">Target Table</label>
                   <select
                     id="toTableIdInput"
                     className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-850 rounded-lg p-2 text-xs text-on-background"
@@ -579,7 +676,7 @@ export default function FloorView({ onNavigate }) {
               {/* Merge Table */}
               {opModal.type === 'MERGE_TABLE' && (
                 <div className="space-y-2">
-                  <label className="font-bold text-on-surface-variant dark:text-zinc-400 mb-1 block">Choose Table to Merge</label>
+                  <label className="font-bold text-on-surface-variant dark:text-zinc-400 mb-1 block">Choose Secondary Table</label>
                   <select
                     id="secondaryTableIdInput"
                     className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-850 rounded-lg p-2 text-xs text-on-background"
@@ -598,11 +695,11 @@ export default function FloorView({ onNavigate }) {
                   <label className="font-bold text-on-surface-variant dark:text-zinc-400">Select Waiter Staff</label>
                   <select
                     id="waiterIdInput"
-                    className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-850 rounded-lg p-2 text-xs text-on-background"
+                    className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-855 rounded-lg p-2 text-xs text-on-background"
                   >
                     <option value="">Select Waiter</option>
                     {staff.map(u => (
-                      <option key={u._id || u.id} value={u._id || u.id}>{u.name} ({u.role})</option>
+                      <option key={u._id || u.id} value={u._id || u.id}>{u.firstName} {u.lastName || ''} ({u.role})</option>
                     ))}
                   </select>
                 </div>
@@ -635,13 +732,13 @@ export default function FloorView({ onNavigate }) {
                   </div>
                   <div className="flex items-center gap-2 py-1">
                     <input type="checkbox" id="swapCheckbox" className="checkbox checkbox-xs" />
-                    <label htmlFor="swapCheckbox" className="font-semibold text-on-surface-variant">Swap seat content instead of moving</label>
+                    <label htmlFor="swapCheckbox" className="font-bold text-on-surface-variant dark:text-zinc-400">Swap seat contents instead of moving</label>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-border-base dark:border-zinc-900">
+            <div className="flex justify-end gap-2 pt-3 border-t border-border-base dark:border-zinc-900">
               <Button size="sm" variant="outline" disabled={opLoading} onClick={() => setOpModal({ open: false, type: '', data: {} })}>
                 Cancel
               </Button>
@@ -673,7 +770,7 @@ export default function FloorView({ onNavigate }) {
                   }
                 }
               }}>
-                Execute
+                Execute Command
               </Button>
             </div>
           </div>

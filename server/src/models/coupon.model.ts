@@ -10,6 +10,9 @@ export interface ICoupon extends Document {
   maxDiscountAmount?: number | null;
   expirationDate?: Date | null;
   isActive: boolean;
+  status: "ACTIVE" | "HELD" | "EXPIRED";
+  isRedeemed?: boolean;
+  redeemedTenants?: Types.ObjectId[];
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -66,6 +69,20 @@ const couponSchema = new Schema<ICoupon>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    status: {
+      type: String,
+      enum: ["ACTIVE", "HELD", "EXPIRED"],
+      default: "ACTIVE",
+    },
+    isRedeemed: {
+      type: Boolean,
+      default: false,
+    },
+    redeemedTenants: {
+      type: [Schema.Types.ObjectId],
+      ref: "Tenant",
+      default: [],
     },
     createdBy: {
       type: Schema.Types.ObjectId,

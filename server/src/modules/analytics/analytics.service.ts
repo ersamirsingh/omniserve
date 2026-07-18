@@ -6,6 +6,9 @@ import User from "../../models/user.model.js";
 import Outlet from "../../models/outlet.model.js";
 import MenuItem from "../../models/menuItem.model.js";
 import Order from "../../models/order.model.js";
+import Table from "../../models/table.model.js";
+import QRSession from "../../models/qrsession.model.js";
+import Reservation from "../../models/reservation.model.js";
 import { OrderStatus, SubscriptionStatus, UserStatus } from "../../models/enums.js";
 
 export interface IDailyAnalyticsSnapshot {
@@ -389,6 +392,145 @@ export class AnalyticsService {
       activeOutlets,
       totalMenuItems,
       avgOrderValue: averageOrderValue,
+    };
+  }
+
+  /**
+   * Retrieve extended analytical statistics (peak hours, channels, turnover, retention, reservation duration)
+   */
+  static async getExtendedStats(
+    tenantId: string,
+    outletIds?: string[] | null
+  ): Promise<{
+    peakHours: any[];
+    channelVolume: any[];
+    customerRetention: number;
+    tableTurnover: number;
+    avgReservationDuration: number;
+  }> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const orderFilters: { outletIds?: string[] } = {};
+    if (outletIds !== undefined && outletIds !== null) {
+      orderFilters.outletIds = outletIds;
+    }
+    const orderMatchNoCancelled = this.buildOrderMatch(tenantId, orderFilters, false);
+
+    // 1. Peak Hours Heatmap (Asia/Kolkata timezone offset +5:30)
+    const peakHours = await Order.aggregate([
+      { $match: orderMatchNoCancelled },
+      {
+        $group: {
+          _id: {
+            hour: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
+            dayOfWeek: { $dayOfWeek: { date: "$createdAt", timezone: "Asia/Kolkata" } }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          hour: "$_id.hour",
+          dayOfWeek: "$_id.dayOfWeek",
+          count: 1
+        }
+      },
+      { $sort: { dayOfWeek: 1, hour: 1 } }
+    ]);
+
+    // 2. Channel Volume
+    const channelVolume = await Order.aggregate([
+      { $match: orderMatchNoCancelled },
+      {
+        $group: {
+          _id: "$source",
+          count: { $sum: 1 },
+          revenue: { $sum: "$totalAmount" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          channel: "$_id",
+          count: 1,
+          revenue: 1
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    // 3. Customer Retention (repeat-visit rate)
+    const customerStats = await Order.aggregate([
+      { $match: orderMatchNoCancelled },
+      {
+        $group: {
+          _id: "$customerId",
+          orderCount: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalCustomers: { $sum: 1 },
+          repeatCustomers: {
+            $sum: { $cond: [{ $gt: ["$orderCount", 1] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+    const cStats = customerStats[0] || { totalCustomers: 0, repeatCustomers: 0 };
+    const customerRetention = cStats.totalCustomers > 0 
+      ? parseFloat(((cStats.repeatCustomers / cStats.totalCustomers) * 100).toFixed(2))
+      : 0;
+
+    // 4. Table Turnover
+    const tableQuery: any = { tenantId: tenantObjectId, isDeleted: false };
+    if (outletIds !== undefined && outletIds !== null) {
+      tableQuery.outletId = { $in: outletIds.map(id => new Types.ObjectId(id)) };
+    }
+    const totalTablesCount = await Table.countDocuments(tableQuery) || 1;
+
+    const sessionQuery: any = {
+      tenantId: tenantObjectId,
+      status: { $in: ["CLOSED", "PAID"] },
+      isDeleted: false
+    };
+    if (outletIds !== undefined && outletIds !== null) {
+      sessionQuery.outletId = { $in: outletIds.map(id => new Types.ObjectId(id)) };
+    }
+    const closedSessionsCount = await QRSession.countDocuments(sessionQuery);
+    const tableTurnover = parseFloat((closedSessionsCount / totalTablesCount).toFixed(2));
+
+    // 5. Avg Reservation Duration
+    const reservationQuery: any = {
+      tenantId: tenantObjectId,
+      status: "COMPLETED",
+      seatedAt: { $ne: null },
+      completedAt: { $ne: null },
+      isDeleted: false
+    };
+    if (outletIds !== undefined && outletIds !== null) {
+      reservationQuery.outletId = { $in: outletIds.map(id => new Types.ObjectId(id)) };
+    }
+    const reservationStats = await Reservation.aggregate([
+      { $match: reservationQuery },
+      {
+        $group: {
+          _id: null,
+          avgDurationMs: { $avg: { $subtract: ["$completedAt", "$seatedAt"] } }
+        }
+      }
+    ]);
+    const avgReservationDuration = reservationStats[0]
+      ? Math.round(reservationStats[0].avgDurationMs / 60000)
+      : 0;
+
+    return {
+      peakHours,
+      channelVolume,
+      customerRetention,
+      tableTurnover,
+      avgReservationDuration
     };
   }
 }

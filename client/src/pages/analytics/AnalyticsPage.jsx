@@ -9,7 +9,7 @@ import Select from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 import useAuth from '../../hooks/useAuth';
 import { listOutletsApi } from '../../api/models/outlet.api';
-import { getSummaryStatsApi, getDailyStatsApi, getSentimentSummaryApi } from '../../api/models/analytics.api';
+import { getSummaryStatsApi, getDailyStatsApi, getSentimentSummaryApi, getExtendedStatsApi } from '../../api/models/analytics.api';
 import { getEntityId, getList, getPayload, getRefId } from '../../utils/apiData';
 import AnalyticsChartCard from './components/AnalyticsChartCard';
 
@@ -22,6 +22,7 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState(null);
   const [daily, setDaily] = useState([]);
   const [sentiment, setSentiment] = useState(null);
+  const [extended, setExtended] = useState(null);
   const [outlets, setOutlets] = useState([]);
   const [selectedOutletId, setSelectedOutletId] = useState(user?.outletId || '');
   const [loading, setLoading] = useState(true);
@@ -39,10 +40,11 @@ export default function AnalyticsPage() {
       setLoading(true);
       try {
         const params = selectedOutletId ? { outletId: selectedOutletId } : undefined;
-        const [summaryRes, dailyRes, sentimentRes, outletsRes] = await Promise.all([
+        const [summaryRes, dailyRes, sentimentRes, extendedRes, outletsRes] = await Promise.all([
           getSummaryStatsApi(params),
           getDailyStatsApi(params),
           getSentimentSummaryApi(params),
+          getExtendedStatsApi(params),
           listOutletsApi(),
         ]);
 
@@ -51,6 +53,7 @@ export default function AnalyticsPage() {
         setSummary(getPayload(summaryRes));
         setDaily(getList(dailyRes));
         setSentiment(getPayload(sentimentRes));
+        setExtended(getPayload(extendedRes));
         setOutlets(getList(outletsRes, 'outlets'));
       } catch (error) {
         if (!isCancelled) {
@@ -135,6 +138,21 @@ export default function AnalyticsPage() {
       {/* Daily Performance Trend Charts */}
       <AnalyticsChartCard dailyData={daily} />
 
+      {/* New Extended Dashboard Analytics Grid */}
+      {extended && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
+          <PeakHoursHeatmap data={extended.peakHours} />
+          <ChannelVolumeChart data={extended.channelVolume} />
+        </div>
+      )}
+
+      {extended && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          <CustomerRetentionGauge rate={extended.customerRetention} />
+          <TurnoverReservationCard turnover={extended.tableTurnover} reservationDuration={extended.avgReservationDuration} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card className="xl:col-span-2">
           <div className="flex items-start justify-between gap-4 mb-4">
@@ -206,5 +224,260 @@ export default function AnalyticsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function PeakHoursHeatmap({ data = [] }) {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const [hoveredCell, setHoveredCell] = useState(null);
+
+  const map = {};
+  data.forEach(item => {
+    map[`${item.dayOfWeek}-${item.hour}`] = item.count;
+  });
+
+  const maxCount = Math.max(...data.map(d => d.count), 1);
+
+  return (
+    <Card className="p-6">
+      <h3 className="font-bold text-on-surface dark:text-zinc-150 text-[16px] mb-1">Peak Hours Heatmap</h3>
+      <p className="text-xs text-on-surface-variant dark:text-zinc-400 mb-6">
+        Identify your busiest operational hours based on hourly order frequency.
+      </p>
+      
+      <div className="overflow-x-auto">
+        <div className="min-w-[640px] select-none relative">
+          <div className="flex pl-16 mb-2">
+            {hours.map(h => (
+              <span key={h} className="flex-1 text-center text-[10px] font-bold text-on-surface-variant dark:text-zinc-500 font-mono">
+                {h.toString().padStart(2, '0')}
+              </span>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            {days.map((dayName, dayIndex) => {
+              const mongoDay = dayIndex + 1;
+              return (
+                <div key={dayName} className="flex items-center">
+                  <span className="w-16 pr-3 text-right text-[10px] font-bold text-on-surface-variant dark:text-zinc-400">
+                    {dayName.slice(0, 3)}
+                  </span>
+                  <div className="flex-1 flex gap-1">
+                    {hours.map(hour => {
+                      const count = map[`${mongoDay}-${hour}`] || 0;
+                      const ratio = count / maxCount;
+                      const colorStyle = count > 0 
+                        ? { backgroundColor: `hsla(245, 75%, 55%, ${0.15 + ratio * 0.85})` }
+                        : {};
+
+                      return (
+                        <div
+                          key={hour}
+                          style={colorStyle}
+                          className={`flex-1 aspect-square rounded-sm border border-border-base/10 dark:border-zinc-900/30 transition-all duration-200 cursor-pointer ${
+                            count === 0 ? 'bg-surface-container-low dark:bg-zinc-900/20' : 'hover:scale-125 hover:shadow-md'
+                          }`}
+                          onMouseEnter={(e) => {
+                            if (count > 0) {
+                              setHoveredCell({
+                                day: dayName,
+                                hour: `${hour.toString().padStart(2, '0')}:00`,
+                                count,
+                                x: e.currentTarget.offsetLeft,
+                                y: e.currentTarget.offsetTop
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => setHoveredCell(null)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {hoveredCell && (
+            <div
+              className="absolute z-10 bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 rounded-lg p-2 text-[10px] font-semibold shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col gap-0.5"
+              style={{
+                left: `${hoveredCell.x + 8}px`,
+                top: `${hoveredCell.y - 12}px`
+              }}
+            >
+              <span className="opacity-70">{hoveredCell.day} at {hoveredCell.hour}</span>
+              <span className="font-bold text-xs">{hoveredCell.count} order{hoveredCell.count === 1 ? '' : 's'}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ChannelVolumeChart({ data = [] }) {
+  const totalOrders = data.reduce((sum, d) => sum + d.count, 0) || 1;
+  const channelColors = {
+    DINE_IN: '#10b981',
+    QR_DINE_IN: '#34d399',
+    WAITER: '#059669',
+    TAKEAWAY: '#3b82f6',
+    DELIVERY: '#6366f1',
+    ONLINE: '#8b5cf6',
+    SWIGGY: '#f97316',
+    ZOMATO: '#ef4444',
+    WEBSITE: '#ec4899',
+  };
+
+  const getChannelColor = (c) => channelColors[c] || '#9ca3af';
+
+  return (
+    <Card className="p-6">
+      <h3 className="font-bold text-on-surface dark:text-zinc-150 text-[16px] mb-1">Order Volume by Channel</h3>
+      <p className="text-xs text-on-surface-variant dark:text-zinc-400 mb-6">
+        Distribution of order volume across different sales channels.
+      </p>
+
+      <div className="h-6 w-full rounded-full overflow-hidden flex bg-surface-container-low dark:bg-zinc-900 border border-border-base dark:border-zinc-800 mb-6">
+        {data.map(d => {
+          const pct = (d.count / totalOrders) * 100;
+          return (
+            <div
+              key={d.channel}
+              style={{
+                width: `${pct}%`,
+                backgroundColor: getChannelColor(d.channel)
+              }}
+              className="h-full transition-all hover:opacity-85 cursor-pointer relative group"
+              title={`${d.channel}: ${pct.toFixed(1)}%`}
+            />
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {data.map(d => {
+          const pct = (d.count / totalOrders) * 100;
+          return (
+            <div key={d.channel} className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getChannelColor(d.channel) }} />
+              <div className="flex-1 flex items-center justify-between min-w-0">
+                <span className="text-xs font-bold text-on-surface truncate dark:text-zinc-350">{d.channel}</span>
+                <span className="text-xs font-mono font-bold text-on-surface-variant dark:text-zinc-500">
+                  {d.count} ({pct.toFixed(1)}%)
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function CustomerRetentionGauge({ rate = 0 }) {
+  const radius = 50;
+  const strokeWidth = 8;
+  const circumference = Math.PI * radius;
+  const strokeDashoffset = circumference - (rate / 100) * circumference;
+
+  return (
+    <Card className="p-6 flex flex-col justify-between">
+      <div>
+        <h3 className="font-bold text-on-surface dark:text-zinc-150 text-[16px] mb-1">Customer Retention</h3>
+        <p className="text-xs text-on-surface-variant dark:text-zinc-400 mb-4">
+          Percentage of customer accounts returning for repeat orders.
+        </p>
+      </div>
+
+      <div className="flex flex-col items-center justify-center my-2 relative">
+        <svg width="140" height="80" className="overflow-visible">
+          <defs>
+            <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#6366f1" />
+              <stop offset="100%" stopColor="#10b981" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 20 70 A 50 50 0 0 1 120 70"
+            fill="none"
+            stroke="#e4e4e7"
+            className="dark:stroke-zinc-800"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+          <path
+            d="M 20 70 A 50 50 0 0 1 120 70"
+            fill="none"
+            stroke="url(#gauge-grad)"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            className="transition-all duration-1000 ease-out"
+          />
+        </svg>
+        <div className="absolute bottom-1 text-center">
+          <span className="text-2xl font-black text-on-surface dark:text-zinc-100 font-mono">
+            {rate.toFixed(1)}%
+          </span>
+          <span className="block text-[10px] font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wider">
+            Repeat Visit Rate
+          </span>
+        </div>
+      </div>
+
+      <div className="text-center text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mt-2">
+        {rate > 35 
+          ? "🎉 High loyalty index! Outstanding repeat client retention." 
+          : "💡 Tip: Launch loyalty promotions or direct coupons to boost return visits."}
+      </div>
+    </Card>
+  );
+}
+
+function TurnoverReservationCard({ turnover = 0, reservationDuration = 0 }) {
+  return (
+    <Card className="p-6 flex flex-col justify-between">
+      <div>
+        <h3 className="font-bold text-on-surface dark:text-zinc-150 text-[16px] mb-1">Turnover & Seating</h3>
+        <p className="text-xs text-on-surface-variant dark:text-zinc-400 mb-6">
+          Efficiency of floor plan utilization and reservation service length.
+        </p>
+      </div>
+
+      <div className="space-y-5">
+        <div className="flex items-center gap-4 p-3 rounded-xl border border-border-base dark:border-zinc-850 bg-surface-subtle/50 dark:bg-zinc-900/30">
+          <span className="material-symbols-outlined text-primary text-2xl">table_restaurant</span>
+          <div className="flex-1">
+            <span className="text-[10px] font-bold text-on-surface-variant dark:text-zinc-500 uppercase tracking-wider block">
+              Table Turnover Rate
+            </span>
+            <span className="text-lg font-black text-on-surface dark:text-zinc-200 font-mono">
+              {turnover.toFixed(1)} <span className="text-xs font-medium text-on-surface-variant">turns / table</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 p-3 rounded-xl border border-border-base dark:border-zinc-850 bg-surface-subtle/50 dark:bg-zinc-900/30">
+          <span className="material-symbols-outlined text-amber-500 text-2xl">schedule</span>
+          <div className="flex-1">
+            <span className="text-[10px] font-bold text-on-surface-variant dark:text-zinc-500 uppercase tracking-wider block">
+              Avg Reservation Duration
+            </span>
+            <span className="text-lg font-black text-on-surface dark:text-zinc-200 font-mono">
+              {reservationDuration} <span className="text-xs font-medium text-on-surface-variant">minutes</span>
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="text-[10px] leading-relaxed text-on-surface-variant/80 dark:text-zinc-500 mt-4">
+        Turnover rate is calculated as total closed dining sessions divided by active physical tables.
+      </div>
+    </Card>
   );
 }
