@@ -111,6 +111,9 @@ export default function ProfilePage({ defaultTab }) {
     lastName: '',
     phone: '',
     address: '',
+    city: '',
+    state: '',
+    pincode: '',
     password: '',
     newPassword: '',
     confirmPassword: '',
@@ -126,6 +129,9 @@ export default function ProfilePage({ defaultTab }) {
         lastName: user.lastName || '',
         phone: user.phone || '',
         address: user.address || '',
+        city: user.city || '',
+        state: user.state || '',
+        pincode: user.pincode || '',
         profileImage: user.profileImage || '',
         idProof: user.idProof || '',
       }));
@@ -181,9 +187,13 @@ export default function ProfilePage({ defaultTab }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await updateUserApi(user.id || user._id, {
+      const payload = {
         address: form.address.trim(),
-      });
+      };
+      if (form.city) payload.city = form.city.trim();
+      if (form.state) payload.state = form.state.trim();
+      if (form.pincode) payload.pincode = form.pincode.trim();
+      await updateUserApi(user.id || user._id, payload);
       addToast('Address details updated successfully', 'success');
       dispatch(fetchCurrentUser(true));
     } catch (err) {
@@ -301,7 +311,7 @@ export default function ProfilePage({ defaultTab }) {
       {/* Main Grid Content */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
         {/* Navigation Sidebar */}
-        <div className="md:col-span-1 bg-white dark:bg-zinc-955 border border-border-base dark:border-zinc-900 p-3 rounded-2xl flex flex-row md:flex-col gap-2 overflow-x-auto scrollbar-none shadow-2xs">
+        <div className="md:col-span-1 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 p-3 rounded-2xl flex flex-row md:flex-col gap-2 overflow-x-auto scrollbar-none shadow-2xs">
           <button
             onClick={() => setActiveTab('personal')}
             className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl text-left transition-all duration-200 w-full cursor-pointer select-none border-none ${
@@ -386,9 +396,9 @@ export default function ProfilePage({ defaultTab }) {
         </div>
 
         {/* Tab Panels */}
-        <div className="md:col-span-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl p-6 shadow-xs min-h-[300px]">
+        <div className="md:col-span-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl p-6 shadow-xs h-[520px] flex flex-col">
           {activeTab === 'personal' && (
-            <form onSubmit={handleSavePersonal} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSavePersonal} className="space-y-5 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Personal Details</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Update your basic profile contact information.</p>
@@ -459,36 +469,62 @@ export default function ProfilePage({ defaultTab }) {
           )}
 
           {activeTab === 'address' && (
-            <form onSubmit={handleSaveAddress} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSaveAddress} className="space-y-5 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Address Details</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Provide your current correspondence address details.</p>
               </div>
 
-              <div className="flex flex-col gap-1 w-full">
-                <label className="block font-label-sm text-label-sm text-on-surface-variant dark:text-zinc-400 text-[12px] font-semibold mb-1" htmlFor="p-address">
-                  Full Address
-                </label>
-                <textarea
-                  id="p-address"
-                  rows={4}
-                  value={form.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  placeholder="Enter house details, street name, city, state, pincode..."
-                  className="textarea textarea-bordered w-full p-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl text-xs font-semibold text-on-surface dark:text-zinc-200 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 resize-y min-h-24 placeholder-on-surface-variant/40"
-                />
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1 w-full">
+                  <label className="block text-on-surface-variant dark:text-zinc-400 text-[12px] font-semibold mb-1" htmlFor="p-address">
+                    Street Address
+                  </label>
+                  <textarea
+                    id="p-address"
+                    rows={3}
+                    value={form.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    placeholder="House / flat number, building name, street name, locality..."
+                    className="textarea textarea-bordered w-full p-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl text-xs font-semibold text-on-surface dark:text-zinc-200 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 resize-y min-h-20 placeholder-on-surface-variant/40"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Input
+                    id="p-city"
+                    label="City"
+                    value={form.city || ''}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    placeholder="e.g. Mumbai"
+                  />
+                  <Input
+                    id="p-state"
+                    label="State"
+                    value={form.state || ''}
+                    onChange={(e) => handleInputChange('state', e.target.value)}
+                    placeholder="e.g. Maharashtra"
+                  />
+                  <Input
+                    id="p-pincode"
+                    label="Pincode"
+                    value={form.pincode || ''}
+                    onChange={(e) => handleInputChange('pincode', e.target.value)}
+                    placeholder="e.g. 400001"
+                  />
+                </div>
               </div>
 
-              <div className="flex justify-end pt-4 border-t border-border-base dark:bg-zinc-900">
-                <Button type="submit" loading={loading} className="px-5 font-bold">
-                  Save Address
+              <div className="flex justify-end pt-4 border-t border-border-base dark:border-zinc-900">
+                <Button type="submit" loading={loading} className="px-5 font-bold flex items-center gap-1.5">
+                  <HiMapPin className="text-xs" /> Save Address
                 </Button>
               </div>
             </form>
           )}
 
           {activeTab === 'verification' && (
-            <form onSubmit={handleSaveVerification} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSaveVerification} className="space-y-5 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Identity Verification</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Upload government issued identification proof to verify your account.</p>
@@ -570,7 +606,7 @@ export default function ProfilePage({ defaultTab }) {
               </div>
 
               {user?.idProofStatus !== 'VERIFIED' && form.idProof !== user?.idProof && (
-                <div className="flex justify-end pt-4 border-t border-border-base dark:bg-zinc-900 animate-fade-in">
+                <div className="flex justify-end pt-4 border-t border-border-base dark:border-zinc-900 animate-fade-in">
                   <Button type="submit" loading={loading} className="px-5 font-bold flex items-center gap-1.5">
                     <HiArrowUpTray className="text-xs" /> Submit for Verification
                   </Button>
@@ -580,7 +616,7 @@ export default function ProfilePage({ defaultTab }) {
           )}
 
           {activeTab === 'security' && (
-            <form onSubmit={handleSavePassword} className="space-y-6 animate-fade-in">
+            <form onSubmit={handleSavePassword} className="space-y-6 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Security Settings</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Manage your account password and authentication credentials. Update your password regularly to keep your account secure.</p>
@@ -636,7 +672,7 @@ export default function ProfilePage({ defaultTab }) {
           )}
 
           {activeTab === 'organization' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Organization & Access</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">View your organizational hierarchy and access boundaries resolved by the system.</p>

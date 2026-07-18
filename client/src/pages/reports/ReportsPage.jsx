@@ -9,6 +9,7 @@ import { HiOutlineDocumentArrowDown, HiOutlineArrowPath } from 'react-icons/hi2'
 import { listRestaurantsApi } from '../../api/models/restaurant.api';
 import { listOutletsApi } from '../../api/models/outlet.api';
 import { USER_ROLES } from '../../utils/constants';
+import { getList, getEntityId, getRefId } from '../../utils/apiData';
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -27,6 +28,16 @@ export default function ReportsPage() {
   const isRestaurantOwner = user?.role === USER_ROLES.RESTAURANT_OWNER;
   const isOutletManager = user?.role === USER_ROLES.OUTLET_MANAGER;
 
+  const getRestaurantName = () => {
+    if (user?.restaurant?.name) return user.restaurant.name;
+    const rId = getRefId(user?.restaurantId || (user?.restaurantIds && user.restaurantIds[0]));
+    if (rId && restaurants.length > 0) {
+      const rest = restaurants.find(r => getEntityId(r) === rId);
+      if (rest) return rest.name;
+    }
+    return 'Your Restaurant';
+  };
+
   useEffect(() => {
     const loadScopeData = async () => {
       setLoadingScope(true);
@@ -37,24 +48,32 @@ export default function ReportsPage() {
             listRestaurantsApi(),
             listOutletsApi()
           ]);
-          setRestaurants(restRes.data?.data?.restaurants || []);
-          setOutlets(outletsRes.data?.data?.outlets || []);
+          setRestaurants(getList(restRes, 'restaurants'));
+          setOutlets(getList(outletsRes, 'outlets'));
         } else if (isRestaurantOwner) {
           // Restaurant Owner: Load outlets scoped to their restaurant
-          const rId = user?.restaurantId || (user?.restaurantIds && user.restaurantIds[0]);
+          const rId = getRefId(user?.restaurantId || (user?.restaurantIds && user.restaurantIds[0]));
           if (rId) {
             setSelectedRestaurantId(rId);
-            const outletsRes = await listOutletsApi({ restaurantId: rId });
-            setOutlets(outletsRes.data?.data?.outlets || []);
+            const [restRes, outletsRes] = await Promise.all([
+              listRestaurantsApi(),
+              listOutletsApi({ restaurantId: rId })
+            ]);
+            setRestaurants(getList(restRes, 'restaurants'));
+            setOutlets(getList(outletsRes, 'outlets'));
           }
         } else if (isOutletManager) {
           // Outlet Manager: Locked to their specific outlet
-          const oId = user?.outletId || (user?.outletIds && user.outletIds[0]);
+          const oId = getRefId(user?.outletId || (user?.outletIds && user.outletIds[0]));
           if (oId) {
             setSelectedOutletId(oId);
-            const outletsRes = await listOutletsApi();
-            const allOut = outletsRes.data?.data?.outlets || [];
-            setOutlets(allOut.filter(o => o._id === oId || o.id === oId));
+            const [restRes, outletsRes] = await Promise.all([
+              listRestaurantsApi(),
+              listOutletsApi()
+            ]);
+            setRestaurants(getList(restRes, 'restaurants'));
+            const allOut = getList(outletsRes, 'outlets');
+            setOutlets(allOut.filter(o => getEntityId(o) === oId));
           }
         }
       } catch (err) {
@@ -77,11 +96,11 @@ export default function ReportsPage() {
   // Get active display names for toast
   const getSelectedScopeText = () => {
     if (selectedOutletId) {
-      const out = outlets.find(o => o._id === selectedOutletId || o.id === selectedOutletId);
+      const out = outlets.find(o => getEntityId(o) === selectedOutletId);
       return out ? `Outlet: ${out.name}` : `Outlet ID: ${selectedOutletId}`;
     }
     if (selectedRestaurantId) {
-      const rest = restaurants.find(r => r._id === selectedRestaurantId || r.id === selectedRestaurantId);
+      const rest = restaurants.find(r => getEntityId(r) === selectedRestaurantId);
       return rest ? `All Outlets of ${rest.name}` : 'All Outlets of Restaurant';
     }
     return 'All System Restaurants & Outlets';
@@ -100,7 +119,7 @@ export default function ReportsPage() {
 
   // Filter outlets list dynamically in UI for Super Admin when selecting restaurant
   const filteredOutlets = isSuperAdmin && selectedRestaurantId
-    ? outlets.filter(o => o.restaurantId === selectedRestaurantId || o.restaurantId?._id === selectedRestaurantId)
+    ? outlets.filter(o => getRefId(o.restaurantId) === selectedRestaurantId)
     : outlets;
 
   return (
@@ -140,12 +159,12 @@ export default function ReportsPage() {
                 >
                   <option value="">All Restaurants (System-wide)</option>
                   {restaurants.map(r => (
-                    <option key={r._id || r.id} value={r._id || r.id}>{r.name}</option>
+                    <option key={getEntityId(r)} value={getEntityId(r)}>{r.name}</option>
                   ))}
                 </select>
               ) : (
                 <div className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base/50 dark:border-zinc-850 rounded-lg p-2.5 text-xs text-on-surface-variant font-bold">
-                  🏢 {isRestaurantOwner ? 'Your Owned Restaurant' : 'Assigned Restaurant'}
+                  🏢 {getRestaurantName()}
                 </div>
               )}
             </div>
@@ -167,7 +186,7 @@ export default function ReportsPage() {
                 >
                   <option value="">All Outlets</option>
                   {filteredOutlets.map(o => (
-                    <option key={o._id || o.id} value={o._id || o.id}>{o.name}</option>
+                    <option key={getEntityId(o)} value={getEntityId(o)}>{o.name}</option>
                   ))}
                 </select>
               )}

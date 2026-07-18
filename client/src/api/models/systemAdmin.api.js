@@ -9,7 +9,7 @@ export const getInvitesApi = () => {
 };
 
 export const revokeInviteApi = (id) => {
-  return api.post(`/system-admin/invites/${id}/revoke`);
+  return api.delete(`/system-admin/invites/${id}`);
 };
 
 export const acceptInviteApi = (payload) => {
@@ -25,7 +25,7 @@ export const getTenantDetailApi = (id) => {
 };
 
 export const updateTenantStatusApi = (id, status, reason) => {
-  return api.put(`/system-admin/tenants/${id}/status`, { status, reason });
+  return api.post(`/system-admin/tenants/${id}/status`, { status, reason });
 };
 
 export const overrideSubscriptionApi = (id, payload) => {
@@ -37,7 +37,7 @@ export const deleteTenantApi = (id, reason) => {
 };
 
 export const searchUsersApi = (search) => {
-  return api.get('/system-admin/search-users', { params: { search } });
+  return api.get('/system-admin/users/search', { params: { search } });
 };
 
 export const getAuditLogsApi = (params) => {
@@ -46,4 +46,28 @@ export const getAuditLogsApi = (params) => {
 
 export const getHealthDiagnosticsApi = () => {
   return api.get('/system-admin/health/detailed');
+};
+
+export const getHealthStatsApi = () => {
+  return api.get('/system-admin/health/stats');
+};
+
+export const getSchemaGraphApi = () => {
+  return api.get('/system-admin/schema/graph');
+};
+
+export const listIssuesApi = () => {
+  return api.get('/system-admin/issues');
+};
+
+export const createIssueApi = (data) => {
+  return api.post('/system-admin/issues', data);
+};
+
+export const addIssueCommentApi = (id, message) => {
+  return api.post(`/system-admin/issues/${id}/comments`, { message });
+};
+
+export const updateIssueStatusApi = (id, data) => {
+  return api.post(`/system-admin/issues/${id}/status`, data);
 };

@@ -85,6 +85,27 @@ export class HelpRequestController {
 
       await helpRequest.save();
 
+      // Automatically create an Issue tracker ticket for this help request
+      try {
+        const Issue = mongoose.model('Issue');
+        await Issue.create({
+          title: `Support: ${description.slice(0, 40)}${description.length > 40 ? '...' : ''}`,
+          description: `Help query reported by ${sender.firstName || ''} ${sender.lastName || ''} (${req.user.role}):\n\n${description}\n\nContext Route: ${context?.pageRoute || 'Unknown'}`,
+          type: 'SUPPORT_QUERY',
+          priority: 'MEDIUM',
+          tenantId: reqTenantId ? new Types.ObjectId(reqTenantId) : null,
+          restaurantId,
+          outletId,
+          reporterId: new Types.ObjectId(req.user.userId),
+          reporterName: `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.email,
+          reporterEmail: sender.email,
+          status: 'OPEN',
+          comments: [],
+        });
+      } catch (issueErr) {
+        console.error('Failed to auto-create issue tracker record:', issueErr);
+      }
+
       // Notify all SYSTEM_ADMIN users using the existing notification path
       const admins = await User.find({ role: 'SYSTEM_ADMIN', isDeleted: false });
       const adminNotifyTenant = reqTenantId ? reqTenantId.toString() : new Types.ObjectId().toString();

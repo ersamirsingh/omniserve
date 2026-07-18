@@ -19,6 +19,7 @@ import {
   HiOutlineShieldCheck,
   HiOutlineChatBubbleLeftRight,
   HiOutlineCalendarDays,
+  HiOutlineCircleStack,
 } from 'react-icons/hi2';
 import { USER_ROLES } from '../../utils/constants';
 
@@ -81,6 +82,8 @@ export const routeComponents = {
   TenantManagement: createLazyPage(() => import('../../pages/systemAdmin/TenantManagement')),
   GlobalAuditLogs: createLazyPage(() => import('../../pages/systemAdmin/GlobalAuditLogs')),
   HealthDiagnostics: createLazyPage(() => import('../../pages/systemAdmin/HealthDiagnostics')),
+  SchemaExplorer: createLazyPage(() => import('../../pages/systemAdmin/SchemaExplorer')),
+  IssueTracker: createLazyPage(() => import('../../pages/systemAdmin/IssueTracker')),
   AcceptSystemAdminInvite: createLazyPage(() => import('../../pages/systemAdmin/AcceptSystemAdminInvite')),
   FloorManagementPage: createLazyPage(() => import('../../pages/operations/FloorManagement')),
   MenuManagementPage: createLazyPage(() => import('../../pages/menu/MenuManagement')),
@@ -126,7 +129,7 @@ export const dashboardRoutes = [
   { path: '/copilot', title: 'AI Copilot', component: routeComponents.CopilotPage, roles: 'all', nav: { section: 'Main', label: 'AI Copilot', icon: HiOutlineChatBubbleLeftRight } },
   { path: '/notifications', title: 'Notifications', component: routeComponents.NotificationsPage, roles: RESTAURANT_ROLES, nav: { section: 'Main', label: 'Notifications', icon: HiOutlineBell } },
   { path: '/activity-feed', title: 'Activity Feed', component: routeComponents.ActivityFeedPage, roles: RESTAURANT_ROLES, nav: { section: 'Main', label: 'Activity Feed', icon: HiOutlineQueueList } },
-  { path: '/reports', title: 'Reports', component: routeComponents.ReportsPage, roles: [SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Main', label: 'Reports', icon: HiOutlineDocumentText } },
+  { path: '/reports', title: 'Reports', component: routeComponents.ReportsPage, roles: [SYSTEM_ADMIN, SUPER_ADMIN, RESTAURANT_OWNER, OUTLET_MANAGER], nav: { section: 'Main', label: 'Reports', icon: HiOutlineDocumentText } },
 
   // --- Online ---
   { path: '/operations/online-orders', title: 'Online Orders', component: routeComponents.OnlineOrdersPage, roles: RESTAURANT_ROLES, nav: { section: 'Online', label: 'Online Orders', icon: HiOutlineQueueList } },
@@ -173,6 +176,8 @@ export const dashboardRoutes = [
   { path: '/system-admin/tenants', title: 'Tenant Operations', component: routeComponents.TenantManagement, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Tenants', icon: HiOutlineBuildingStorefront } },
   { path: '/system-admin/audit-logs', title: 'Global Audit Logs', component: routeComponents.GlobalAuditLogs, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Audit Logs', icon: HiOutlineDocumentText } },
   { path: '/system-admin/diagnostics', title: 'Health & Diagnostics', component: routeComponents.HealthDiagnostics, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Diagnostics', icon: HiOutlineShieldCheck } },
+  { path: '/system-admin/schema', title: 'Schema Explorer', component: routeComponents.SchemaExplorer, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Schema Graph', icon: HiOutlineCircleStack } },
+  { path: '/system-admin/issues', title: 'Issue Tracker', component: routeComponents.IssueTracker, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Issue Tracker', icon: HiOutlineChatBubbleLeftRight } },
   { path: '/system-admin/queries', title: 'Resolve Support Queries', component: routeComponents.ResolveQueriesPage, roles: [SYSTEM_ADMIN], nav: { section: 'System Admin', label: 'Resolve Queries', icon: HiOutlineChatBubbleLeftRight } },
 ];
 

@@ -57,7 +57,7 @@ export default function MenuManagement() {
   return (
     <div className="space-y-6">
       <PageHeader
-        section="Operations"
+        section="Management"
         title="Menu Management"
         description="Unified workspace to configure categories, menu items, variants, and addons."
         tabs={menuTabs}
