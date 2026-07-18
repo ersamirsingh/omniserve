@@ -4,10 +4,10 @@ import {
   HiOutlinePlus,
   HiOutlineUser,
   HiOutlineClock,
-  HiOutlineTag,
   HiOutlinePaperAirplane,
-  HiOutlineAdjustmentsHorizontal,
-  HiOutlineExclamationTriangle
+  HiOutlineExclamationTriangle,
+  HiOutlineChevronDown,
+  HiOutlineArrowPath,
 } from 'react-icons/hi2';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -16,7 +16,13 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import PageHeader from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
-import { listIssuesApi, createIssueApi, addIssueCommentApi, updateIssueStatusApi } from '../../api/models/systemAdmin.api';
+import {
+  listIssuesApi,
+  createIssueApi,
+  addIssueCommentApi,
+  updateIssueStatusApi,
+  listSystemAdminsApi,
+} from '../../api/models/systemAdmin.api';
 import useAuth from '../../hooks/useAuth';
 
 export default function IssueTracker() {
@@ -28,6 +34,8 @@ export default function IssueTracker() {
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [createModal, setCreateModal] = useState(false);
+  const [systemAdmins, setSystemAdmins] = useState([]);
+  const [assignDropdownOpen, setAssignDropdownOpen] = useState(false);
   const [newIssueForm, setNewIssueForm] = useState({
     title: '',
     description: '',
@@ -52,8 +60,19 @@ export default function IssueTracker() {
       });
   };
 
+  const fetchAdmins = () => {
+    listSystemAdminsApi()
+      .then((res) => {
+        setSystemAdmins(res.data?.data || []);
+      })
+      .catch(() => {
+        // non-fatal — assignment dropdown just shows empty
+      });
+  };
+
   useEffect(() => {
     fetchIssues();
+    fetchAdmins();
   }, []);
 
   const handleCreateIssue = (e) => {
@@ -113,36 +132,43 @@ export default function IssueTracker() {
       });
   };
 
-  const handleAssignToMe = () => {
-    if (!selectedIssue || !user) return;
-    const userId = user.id || user._id;
-    updateIssueStatusApi(selectedIssue._id || selectedIssue.id, { assigneeId: userId })
+  const handleAssignTo = (adminId, adminName) => {
+    if (!selectedIssue) return;
+    setAssignDropdownOpen(false);
+    updateIssueStatusApi(selectedIssue._id || selectedIssue.id, { assigneeId: adminId })
       .then((res) => {
         const updated = res.data.data;
         setIssues(prev => prev.map(iss => (iss._id === updated._id || iss.id === updated.id) ? updated : iss));
         setSelectedIssue(updated);
-        addToast('Issue assigned to you successfully', 'success');
+        addToast(`Issue assigned to ${adminName}`, 'success');
       })
       .catch(() => {
         addToast('Failed to assign issue', 'error');
       });
   };
 
+  const handleUnassign = () => {
+    if (!selectedIssue) return;
+    setAssignDropdownOpen(false);
+    updateIssueStatusApi(selectedIssue._id || selectedIssue.id, { assigneeId: null })
+      .then((res) => {
+        const updated = res.data.data;
+        setIssues(prev => prev.map(iss => (iss._id === updated._id || iss.id === updated.id) ? updated : iss));
+        setSelectedIssue(updated);
+        addToast('Issue unassigned', 'success');
+      })
+      .catch(() => {
+        addToast('Failed to unassign issue', 'error');
+      });
+  };
+
   // Group issues by status columns
   const getColumnsData = () => {
-    const cols = {
-      OPEN: [],
-      IN_PROGRESS: [],
-      RESOLVED: [],
-      CLOSED: [],
-    };
+    const cols = { OPEN: [], IN_PROGRESS: [], RESOLVED: [], CLOSED: [] };
     issues.forEach(iss => {
       const statusKey = iss.status || 'OPEN';
-      if (cols[statusKey]) {
-        cols[statusKey].push(iss);
-      } else {
-        cols.OPEN.push(iss);
-      }
+      if (cols[statusKey]) cols[statusKey].push(iss);
+      else cols.OPEN.push(iss);
     });
     return cols;
   };
@@ -156,6 +182,17 @@ export default function IssueTracker() {
     return 'neutral';
   };
 
+  const getAssigneeName = (assigneeId) => {
+    if (!assigneeId) return null;
+    if (typeof assigneeId === 'object') {
+      return `${assigneeId.firstName || ''} ${assigneeId.lastName || ''}`.trim() || assigneeId.email || 'Admin';
+    }
+    const found = systemAdmins.find(a => (a._id || a.id) === assigneeId);
+    return found ? `${found.firstName} ${found.lastName}`.trim() : 'Admin';
+  };
+
+  const currentUserId = user?.id || user?._id;
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       <PageHeader
@@ -163,9 +200,14 @@ export default function IssueTracker() {
         title="Admin Support & Issue Tracker"
         description="Monitor system alarms, crash logs, and user help queries in a unified collaborative board."
         actions={
-          <Button onClick={() => setCreateModal(true)} variant="primary" className="font-bold flex items-center gap-1.5 shadow-md">
-            <HiOutlinePlus /> Log New Issue
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={fetchIssues} variant="outline" size="sm" className="flex items-center gap-1.5 font-bold">
+              <HiOutlineArrowPath /> Refresh
+            </Button>
+            <Button onClick={() => setCreateModal(true)} variant="primary" className="font-bold flex items-center gap-1.5 shadow-md">
+              <HiOutlinePlus /> Log New Issue
+            </Button>
+          </div>
         }
       />
 
@@ -175,7 +217,6 @@ export default function IssueTracker() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 overflow-x-auto pb-4 items-start">
-          {/* Columns map */}
           {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(colKey => {
             const colIssues = columns[colKey] || [];
             const colLabels = {
@@ -202,18 +243,19 @@ export default function IssueTracker() {
                     colIssues.map(issue => {
                       const ageDays = Math.floor((Date.now() - new Date(issue.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                       const timeLabel = ageDays === 0 ? 'Today' : ageDays === 1 ? 'Yesterday' : `${ageDays}d ago`;
+                      const assigneeName = getAssigneeName(issue.assigneeId);
 
                       return (
                         <div 
                           key={issue._id || issue.id}
-                          onClick={() => setSelectedIssue(issue)}
+                          onClick={() => { setSelectedIssue(issue); setAssignDropdownOpen(false); }}
                           className="bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-xl p-4 shadow-2xs space-y-3 cursor-pointer hover:shadow-md hover:border-primary dark:hover:border-zinc-800 transition-all"
                         >
                           <div className="flex justify-between items-start gap-2">
                             <Badge variant={getPriorityBadgeVariant(issue.priority)} className="text-[8px] font-bold uppercase tracking-wider">
                               {issue.priority}
                             </Badge>
-                            <span className="text-[9px] font-bold text-zinc-400 uppercase">{issue.type?.replace('_', ' ')}</span>
+                            <span className="text-[9px] font-bold text-zinc-400 uppercase">{issue.type?.replace(/_/g, ' ')}</span>
                           </div>
 
                           <h4 className="font-bold text-xs text-on-surface dark:text-zinc-200 line-clamp-1">{issue.title}</h4>
@@ -223,7 +265,7 @@ export default function IssueTracker() {
                             <span className="flex items-center gap-1"><HiOutlineClock /> {timeLabel}</span>
                             <span className="flex items-center gap-1">
                               <HiOutlineUser className="text-[11px]" />
-                              {issue.assigneeId ? `${issue.assigneeId.firstName || 'Admin'}` : 'Unassigned'}
+                              {assigneeName || 'Unassigned'}
                             </span>
                           </div>
                         </div>
@@ -239,44 +281,50 @@ export default function IssueTracker() {
 
       {/* Detail Modal with Threaded comment thread */}
       {selectedIssue && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
-          <div className="bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 p-6 rounded-2xl w-[600px] max-w-[90vw] max-h-[85vh] overflow-y-auto space-y-5 shadow-2xl animate-scale-in flex flex-col">
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setSelectedIssue(null); setAssignDropdownOpen(false); } }}
+        >
+          <div className="bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 p-6 rounded-2xl w-[620px] max-w-[90vw] max-h-[88vh] overflow-y-auto space-y-5 shadow-2xl animate-scale-in flex flex-col">
             
-            {/* Header info */}
+            {/* Header */}
             <div className="flex justify-between items-start border-b border-border-base dark:border-zinc-900 pb-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant={getPriorityBadgeVariant(selectedIssue.priority)} className="uppercase font-bold text-[9px]">{selectedIssue.priority}</Badge>
-                  <span className="text-[10px] uppercase font-bold text-zinc-400 font-mono">{selectedIssue.type}</span>
-                  <span className="text-zinc-300">•</span>
+                  <span className="text-[10px] uppercase font-bold text-zinc-400 font-mono">{selectedIssue.type?.replace(/_/g, ' ')}</span>
+                  <span className="text-zinc-300 dark:text-zinc-700">•</span>
                   <span className="text-[10px] text-zinc-400 font-semibold">{new Date(selectedIssue.createdAt).toLocaleString()}</span>
                 </div>
                 <h3 className="text-[16px] font-black text-on-surface dark:text-zinc-150 leading-tight">{selectedIssue.title}</h3>
               </div>
               <button 
-                onClick={() => setSelectedIssue(null)}
+                onClick={() => { setSelectedIssue(null); setAssignDropdownOpen(false); }}
                 className="btn btn-sm btn-ghost p-1 rounded-lg text-zinc-400 hover:text-on-background cursor-pointer"
-              >
-                ✕
-              </button>
+              >✕</button>
             </div>
 
             {/* Description card */}
             <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 border border-border-base dark:border-zinc-900 rounded-xl text-xs space-y-2">
               <p className="text-on-surface-variant dark:text-zinc-300 font-medium leading-relaxed whitespace-pre-wrap">{selectedIssue.description}</p>
-              <div className="flex gap-4 text-[10px] text-zinc-400 font-bold pt-1">
+              <div className="flex flex-wrap gap-4 text-[10px] text-zinc-400 font-bold pt-1 border-t border-zinc-200/50 dark:border-zinc-900/50 mt-1">
                 <span>Reporter: {selectedIssue.reporterName || 'System'} {selectedIssue.reporterEmail ? `(${selectedIssue.reporterEmail})` : ''}</span>
+                {selectedIssue.trackingCode && (
+                  <span className="font-mono text-primary dark:text-primary-fixed-dim">
+                    Code: <span className="tracking-wider">{selectedIssue.trackingCode}</span>
+                  </span>
+                )}
                 {selectedIssue.outletId && <span>Outlet Scoped</span>}
               </div>
             </div>
 
-            {/* Action buttons */}
+            {/* Status action buttons */}
             <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 dark:border-zinc-900/60 pb-4">
-              <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block mr-2">Admin Actions:</span>
+              <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mr-2">Actions:</span>
               
               {selectedIssue.status !== 'RESOLVED' && selectedIssue.status !== 'CLOSED' && (
                 <Button size="xs" variant="success" onClick={() => handleUpdateStatus('RESOLVED')}>
-                  Resolve Issue
+                  Resolve
                 </Button>
               )}
               {selectedIssue.status === 'OPEN' && (
@@ -294,21 +342,101 @@ export default function IssueTracker() {
                   Close & Archive
                 </Button>
               )}
-              
-              {!selectedIssue.assigneeId ? (
-                <Button size="xs" variant="outline" className="flex items-center gap-1 font-bold ml-auto" onClick={handleAssignToMe}>
-                  <HiOutlineUser className="text-[11px]" /> Assign to Me
-                </Button>
-              ) : (
-                <div className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1 ml-auto">
-                  👤 Assigned to: <span className="text-primary">{selectedIssue.assigneeId.firstName || 'Another Admin'}</span>
+            </div>
+
+            {/* Assignment section — proper dropdown for all system admins */}
+            <div className="pb-4 border-b border-zinc-100 dark:border-zinc-900/60">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1">Assigned To</p>
+                  {selectedIssue.assigneeId ? (
+                    <p className="text-xs font-bold text-primary dark:text-primary-fixed-dim flex items-center gap-1">
+                      <HiOutlineUser />
+                      {getAssigneeName(selectedIssue.assigneeId)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-400 font-semibold italic">Unassigned — no admin has claimed this issue</p>
+                  )}
                 </div>
-              )}
+
+                {/* Assignment dropdown */}
+                <div className="relative">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="flex items-center gap-1 font-bold"
+                    onClick={() => setAssignDropdownOpen(prev => !prev)}
+                  >
+                    <HiOutlineUser className="text-[11px]" />
+                    Assign
+                    <HiOutlineChevronDown className={`text-[11px] transition-transform ${assignDropdownOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+
+                  {assignDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                      <div className="p-1.5 space-y-0.5 max-h-48 overflow-y-auto">
+                        {/* Assign to Me shortcut */}
+                        <button
+                          onClick={() => {
+                            const me = systemAdmins.find(a => (a._id || a.id) === currentUserId);
+                            const myName = me ? `${me.firstName} ${me.lastName}`.trim() : 'you';
+                            handleAssignTo(currentUserId, myName);
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-primary dark:text-primary-fixed-dim hover:bg-primary/5 transition-colors"
+                        >
+                          👤 Assign to Me
+                        </button>
+
+                        <div className="border-t border-zinc-100 dark:border-zinc-900 my-1" />
+
+                        {/* All system admins */}
+                        {systemAdmins.map(admin => {
+                          const adminId = admin._id || admin.id;
+                          const adminName = `${admin.firstName} ${admin.lastName}`.trim() || admin.email;
+                          const isCurrentAssignee = selectedIssue.assigneeId &&
+                            (typeof selectedIssue.assigneeId === 'object'
+                              ? (selectedIssue.assigneeId._id || selectedIssue.assigneeId.id) === adminId
+                              : selectedIssue.assigneeId === adminId);
+                          return (
+                            <button
+                              key={adminId}
+                              onClick={() => handleAssignTo(adminId, adminName)}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-between gap-2 ${
+                                isCurrentAssignee
+                                  ? 'bg-primary/10 text-primary dark:text-primary-fixed-dim'
+                                  : 'text-on-surface dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                              }`}
+                            >
+                              <span>{adminName}</span>
+                              <span className="text-[9px] text-zinc-400 truncate">{admin.email}</span>
+                            </button>
+                          );
+                        })}
+
+                        {/* Unassign option */}
+                        {selectedIssue.assigneeId && (
+                          <>
+                            <div className="border-t border-zinc-100 dark:border-zinc-900 my-1" />
+                            <button
+                              onClick={handleUnassign}
+                              className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-rose-500 hover:bg-rose-500/5 transition-colors"
+                            >
+                              ✕ Unassign
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Comments Thread Area */}
             <div className="space-y-3 flex-1 flex flex-col">
-              <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">Thread Discussion Log ({selectedIssue.comments?.length || 0})</span>
+              <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                Thread Discussion Log ({selectedIssue.comments?.length || 0})
+              </span>
               
               <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 flex-1">
                 {selectedIssue.comments?.length === 0 ? (
@@ -329,7 +457,7 @@ export default function IssueTracker() {
                       >
                         <div className="flex justify-between items-center font-bold text-[10px] mb-1">
                           <span className={isSystemLog ? 'text-zinc-500' : 'text-primary'}>{comment.authorName}</span>
-                          <span className="text-zinc-400">{new Date(comment.createdAt).toLocaleTimeString()}</span>
+                          <span className="text-zinc-400">{new Date(comment.createdAt).toLocaleString()}</span>
                         </div>
                         <p className="font-semibold">{comment.message}</p>
                       </div>
@@ -411,13 +539,9 @@ export default function IssueTracker() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-zinc-150 dark:border-zinc-900">
-              <Button size="sm" variant="outline" onClick={() => setCreateModal(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" variant="primary" type="submit" className="font-bold">
-                Log Issue
-              </Button>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border-base dark:border-zinc-900">
+              <Button type="button" variant="outline" onClick={() => setCreateModal(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" className="font-bold">Log Issue</Button>
             </div>
           </form>
         </div>

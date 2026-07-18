@@ -51,6 +51,9 @@ router.delete('/tenants/:id', SystemAdminController.deleteTenant);
 // User search
 router.get('/users/search', SystemAdminController.searchUsers);
 
+// List all system admins (for issue assignment)
+router.get('/admins', SystemAdminController.listSystemAdmins);
+
 // Audit logs
 router.get('/audit-logs', SystemAdminController.getAuditLogs);
 

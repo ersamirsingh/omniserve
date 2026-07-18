@@ -71,3 +71,7 @@ export const addIssueCommentApi = (id, message) => {
 export const updateIssueStatusApi = (id, data) => {
   return api.post(`/system-admin/issues/${id}/status`, data);
 };
+
+export const listSystemAdminsApi = () => {
+  return api.get('/system-admin/admins');
+};

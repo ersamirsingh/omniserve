@@ -489,7 +489,7 @@ export class DiningOperationsController {
       const { tableId } = req.params;
       const { tenantId, outletId } = await resolveDiningContext(req);
 
-      const table = await Table.findOne({ _id: new Types.ObjectId(tableId), tenantId, isDeleted: false });
+      const table = await Table.findOne({ _id: new Types.ObjectId(tableId as string), tenantId, isDeleted: false });
       if (!table) {
         ApiResponseHandler.notFound(res, "Table not found");
         return;

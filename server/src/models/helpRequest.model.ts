@@ -4,6 +4,7 @@ export interface IHelpRequest extends Document {
   tenantId?: Types.ObjectId | null;
   userId: Types.ObjectId;
   userRole: string;
+  trackingCode: string;
   description: string;
   screenshot?: string;
   restaurantId?: Types.ObjectId | null;
@@ -28,6 +29,7 @@ const helpRequestSchema = new Schema<IHelpRequest>(
     tenantId: { type: Schema.Types.ObjectId, ref: 'Tenant', default: null },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     userRole: { type: String, required: true },
+    trackingCode: { type: String, required: true, unique: true, index: true },
     description: { type: String, required: true },
     screenshot: { type: String, default: null },
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', default: null },

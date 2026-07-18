@@ -3,7 +3,7 @@ import useAuth from '../../hooks/useAuth';
 import { useToast } from '../../components/ui/Toast';
 import Button from '../../components/ui/Button';
 import PageHeader from '../../components/ui/PageHeader';
-import { HiOutlineChatBubbleLeftRight, HiOutlineDocumentText, HiOutlineArrowUpTray } from 'react-icons/hi2';
+import { HiOutlineChatBubbleLeftRight, HiOutlineDocumentText, HiOutlineArrowUpTray, HiOutlineClipboard, HiOutlineCheckCircle } from 'react-icons/hi2';
 import { createHelpRequestApi } from '../../api/models/helpRequest.api';
 
 // Capture recent errors globally
@@ -24,6 +24,8 @@ export default function NeedHelpPage() {
   const [screenshot, setScreenshot] = useState('');
   const [loading, setLoading] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState([]);
+  const [trackingCode, setTrackingCode] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     // Populate logs from the captured queue
@@ -66,8 +68,10 @@ export default function NeedHelpPage() {
         }
       };
 
-      await createHelpRequestApi(payload);
-      addToast('Your support ticket has been submitted to the administrator.', 'success');
+      const res = await createHelpRequestApi(payload);
+      const code = res.data?.data?.trackingCode || res.data?.trackingCode;
+      setTrackingCode(code || null);
+      addToast('Your support ticket has been submitted. Save your tracking code!', 'success');
       setDescription('');
       setScreenshot('');
     } catch (err) {
@@ -75,6 +79,14 @@ export default function NeedHelpPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCopyCode = () => {
+    if (!trackingCode) return;
+    navigator.clipboard.writeText(trackingCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
   };
 
   return (
@@ -85,6 +97,34 @@ export default function NeedHelpPage() {
         description="Encountered a bug or system crash? Submit a support query with debug diagnostics directly to the administrators."
       />
 
+      {/* Tracking Code Banner */}
+      {trackingCode && (
+        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 dark:border-emerald-700/40 rounded-2xl p-5 flex items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-start gap-3">
+            <HiOutlineCheckCircle className="text-emerald-500 text-2xl shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Ticket Submitted Successfully</p>
+              <p className="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Use this code to track your support ticket status with an administrator.</p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="font-mono text-[20px] font-black text-emerald-600 dark:text-emerald-300 tracking-[0.2em] bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 px-3 py-1 rounded-lg">
+                  {trackingCode}
+                </span>
+                <button
+                  onClick={handleCopyCode}
+                  className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors"
+                >
+                  {copied ? <HiOutlineCheckCircle className="text-base" /> : <HiOutlineClipboard className="text-base" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setTrackingCode(null)}
+            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-lg font-bold transition-colors shrink-0"
+          >✕</button>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Help Form */}
         <div className="md:col-span-2 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 p-6 rounded-2xl shadow-2xs space-y-6">

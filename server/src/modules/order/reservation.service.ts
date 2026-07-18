@@ -154,12 +154,12 @@ export class ReservationService {
               if (seatNumbers && seatNumbers.length > 0) {
                 if (!existingRes.seatNumbers) existingRes.seatNumbers = [];
                 seatNumbers.forEach(s => {
-                  if (!existingRes.seatNumbers?.includes(s)) {
-                    existingRes.seatNumbers.push(s);
+                  if (!existingRes.seatNumbers!.includes(s)) {
+                    existingRes.seatNumbers!.push(s);
                   }
                 });
-                if (existingRes.seatNumbers.length > 0) {
-                  existingRes.seatNumber = existingRes.seatNumbers[0];
+                if (existingRes.seatNumbers!.length > 0) {
+                  existingRes.seatNumber = existingRes.seatNumbers![0] ?? null;
                 }
               }
               await existingRes.save();
@@ -598,11 +598,11 @@ export class ReservationService {
         tenantId,
         status: { $in: ["ACTIVE", "ORDERING", "DINING", "PAYMENT_PENDING", "OPEN", "ORDERED", "PAID"] },
         $or: [
-          { customerId: customer._id },
-          { "seats.customerId": customer._id }
+          { customerId: (customer as any)._id },
+          { "seats.customerId": (customer as any)._id }
         ],
         isDeleted: false
-      }).populate("tableId").lean();
+      }).populate("tableId").lean() as any;
 
       if (activeSession) {
         const tableNum = (activeSession.tableId as any)?.tableNumber || "N/A";
@@ -617,10 +617,10 @@ export class ReservationService {
       // 2b. Check for active/incomplete orders for this customer
       const activeOrder = await mongoose.model("Order").findOne({
         tenantId,
-        customerId: customer._id,
+        customerId: (customer as any)._id,
         orderStatus: { $in: ["PLACED", "ACCEPTED", "PREPARING", "READY", "PICKED_UP", "DELIVERED", "PARTIALLY_PAID"] },
         isDeleted: false
-      }).lean();
+      }).lean() as any;
 
       if (activeOrder) {
         return {

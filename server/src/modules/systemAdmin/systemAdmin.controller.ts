@@ -660,5 +660,18 @@ export class SystemAdminController {
       ApiResponseHandler.badRequest(res, error.message || 'Failed to update tracking issue');
     }
   }
+  /**
+   * List all system admin users (for issue assignment dropdown)
+   */
+  static async listSystemAdmins(req: Request, res: Response): Promise<void> {
+    try {
+      const admins = await User.find({ role: 'SYSTEM_ADMIN', isDeleted: false })
+        .select('firstName lastName email _id')
+        .sort({ firstName: 1 });
+      ApiResponseHandler.success(res, 200, 'System administrators retrieved successfully', admins);
+    } catch (error: any) {
+      ApiResponseHandler.badRequest(res, error.message || 'Failed to retrieve system admins');
+    }
+  }
 }
 

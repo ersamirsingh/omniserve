@@ -6,6 +6,16 @@ import { NotificationService } from '../notification/notification.service.js';
 import { NotificationType } from '../../models/enums.js';
 import { ApiResponseHandler } from '../../utils/apiResponse.js';
 
+/** Generate a unique 12-character alphanumeric tracking code (e.g. A3F9KX21M7QP) */
+function generateTrackingCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // exclude confusing chars: 0/O, 1/I
+  let code = '';
+  for (let i = 0; i < 12; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 export class HelpRequestController {
   /**
    * Create a new help support request
@@ -65,10 +75,13 @@ export class HelpRequestController {
         console.error('Failed to resolve outlet details for support ticket:', err);
       }
 
+      const trackingCode = generateTrackingCode();
+
       const helpRequest = new HelpRequest({
         tenantId: reqTenantId ? new Types.ObjectId(reqTenantId) : null,
         userId: new Types.ObjectId(req.user.userId),
         userRole: req.user.role,
+        trackingCode,
         description: description.trim(),
         screenshot: screenshot || null,
         restaurantId,
@@ -127,7 +140,10 @@ export class HelpRequestController {
         }
       }
 
-      ApiResponseHandler.success(res, 201, 'Help request submitted successfully', { helpRequest });
+      ApiResponseHandler.success(res, 201, 'Help request submitted successfully', {
+        helpRequest,
+        trackingCode: helpRequest.trackingCode,
+      });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || 'Failed to submit help request');
     }

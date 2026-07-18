@@ -429,7 +429,7 @@ export default function ReservationCalendar() {
                     const diffMs = Math.abs(selectedTime.getTime() - now.getTime());
                     const isWithinTwoHours = diffMs <= 2 * 60 * 60 * 1000;
                     
-                    const isUnavailable = isWithinTwoHours && ['OCCUPIED', 'RESERVED', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'ORDERING', 'DINING', 'CLEANING'].includes(t.operationalStatus);
+                    const isUnavailable = isWithinTwoHours && ['OCCUPIED', 'RESERVED', 'HELD', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'ORDERING', 'DINING', 'CLEANING'].includes(t.operationalStatus);
                     let statusLabel = '';
                     if (t.operationalStatus === 'BILL_REQUESTED') statusLabel = 'Bill Requested';
                     else if (t.operationalStatus === 'PAYMENT_PENDING') statusLabel = 'Payment Pending';
