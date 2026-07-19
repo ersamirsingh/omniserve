@@ -212,6 +212,10 @@ export default function FloorView({ onNavigate }) {
     }
   };
 
+  // View & Filter modes
+  const [viewMode, setViewMode] = useState('CARDS'); // 'CARDS' | 'MAP'
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
   const getTableColor = (table) => {
     if (table.operationalStatus === 'CLEANING') return 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-500/20';
     if (table.operationalStatus === 'BILL_REQUESTED') return 'bg-amber-500 text-black hover:bg-amber-600 shadow-amber-500/20';
@@ -220,6 +224,15 @@ export default function FloorView({ onNavigate }) {
     if (table.operationalStatus === 'HELD') return 'bg-zinc-400 text-white hover:bg-zinc-500 shadow-zinc-400/20';
     if (table.activeSessionId && table.operationalStatus !== 'AVAILABLE') return 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-500/20';
     return 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20';
+  };
+
+  const getStatusBadgeVariant = (status) => {
+    if (status === 'CLEANING') return 'purple';
+    if (status === 'BILL_REQUESTED' || status === 'PAYMENT_PENDING') return 'warning';
+    if (status === 'RESERVED') return 'info';
+    if (status === 'HELD') return 'secondary';
+    if (status === 'OCCUPIED' || status === 'DINING') return 'error';
+    return 'success';
   };
 
   const getStatusLabelText = (status) => {
@@ -237,96 +250,344 @@ export default function FloorView({ onNavigate }) {
     return <div className="flex items-center justify-center py-24"><Spinner size="lg" /></div>;
   }
 
-  const currentAreaTables = tables.filter(t => t.diningAreaId?.toString() === selectedAreaId || t.diningAreaId?._id?.toString() === selectedAreaId);
+  // Summary Metrics
+  const stats = {
+    total: tables.length,
+    available: tables.filter(t => t.operationalStatus === 'AVAILABLE').length,
+    occupied: tables.filter(t => t.activeSessionId || t.operationalStatus === 'OCCUPIED' || t.operationalStatus === 'DINING').length,
+    reserved: tables.filter(t => t.operationalStatus === 'RESERVED').length,
+    billRequested: tables.filter(t => t.operationalStatus === 'BILL_REQUESTED' || t.operationalStatus === 'PAYMENT_PENDING').length,
+    cleaning: tables.filter(t => t.operationalStatus === 'CLEANING').length,
+  };
+
+  // Filtered Table List
+  const filteredTables = tables.filter(t => {
+    if (selectedAreaId && selectedAreaId !== 'ALL') {
+      const tAreaId = t.diningAreaId?._id?.toString() || t.diningAreaId?.toString();
+      if (tAreaId !== selectedAreaId) return false;
+    }
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'OCCUPIED') {
+        return t.activeSessionId || t.operationalStatus === 'OCCUPIED' || t.operationalStatus === 'DINING';
+      }
+      if (statusFilter === 'BILL_REQUESTED') {
+        return t.operationalStatus === 'BILL_REQUESTED' || t.operationalStatus === 'PAYMENT_PENDING';
+      }
+      return t.operationalStatus === statusFilter;
+    }
+    return true;
+  });
+
   const availableTables = tables.filter(t => !t.activeSessionId && t._id?.toString() !== selectedTable?._id?.toString());
 
   return (
     <div className="relative flex flex-col gap-6 animate-fade-in pb-12">
-      {/* Restructured Top Header Area with Legend & Tabs */}
+      {/* Metrics Summary Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <button
+          onClick={() => setStatusFilter('ALL')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+            statusFilter === 'ALL'
+              ? 'bg-primary/10 border-primary text-primary dark:text-primary-fixed-dim font-bold shadow-xs'
+              : 'bg-white dark:bg-zinc-950 border-border-base dark:border-zinc-900 text-on-surface-variant hover:bg-surface-subtle dark:hover:bg-zinc-900'
+          }`}
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 block">Total Tables</span>
+          <span className="text-xl font-extrabold text-on-background">{stats.total}</span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('AVAILABLE')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+            statusFilter === 'AVAILABLE'
+              ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold shadow-xs'
+              : 'bg-white dark:bg-zinc-950 border-border-base dark:border-zinc-900 text-on-surface-variant hover:bg-surface-subtle dark:hover:bg-zinc-900'
+          }`}
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 block">Available</span>
+          <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{stats.available}</span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('OCCUPIED')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+            statusFilter === 'OCCUPIED'
+              ? 'bg-rose-500/15 border-rose-500 text-rose-700 dark:text-rose-300 font-bold shadow-xs'
+              : 'bg-white dark:bg-zinc-950 border-border-base dark:border-zinc-900 text-on-surface-variant hover:bg-surface-subtle dark:hover:bg-zinc-900'
+          }`}
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider text-rose-600 dark:text-rose-400 block">Occupied</span>
+          <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{stats.occupied}</span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('RESERVED')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+            statusFilter === 'RESERVED'
+              ? 'bg-blue-500/15 border-blue-500 text-blue-700 dark:text-blue-300 font-bold shadow-xs'
+              : 'bg-white dark:bg-zinc-950 border-border-base dark:border-zinc-900 text-on-surface-variant hover:bg-surface-subtle dark:hover:bg-zinc-900'
+          }`}
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400 block">Reserved</span>
+          <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">{stats.reserved}</span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('BILL_REQUESTED')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+            statusFilter === 'BILL_REQUESTED'
+              ? 'bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-300 font-bold shadow-xs'
+              : 'bg-white dark:bg-zinc-950 border-border-base dark:border-zinc-900 text-on-surface-variant hover:bg-surface-subtle dark:hover:bg-zinc-900'
+          }`}
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400 block">Bill Requested</span>
+          <span className="text-xl font-extrabold text-amber-600 dark:text-amber-400">{stats.billRequested}</span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('CLEANING')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+            statusFilter === 'CLEANING'
+              ? 'bg-purple-500/15 border-purple-500 text-purple-700 dark:text-purple-300 font-bold shadow-xs'
+              : 'bg-white dark:bg-zinc-950 border-border-base dark:border-zinc-900 text-on-surface-variant hover:bg-surface-subtle dark:hover:bg-zinc-900'
+          }`}
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider text-purple-600 dark:text-purple-400 block">Cleaning</span>
+          <span className="text-xl font-extrabold text-purple-600 dark:text-purple-400">{stats.cleaning}</span>
+        </button>
+      </div>
+
+      {/* Top Header Controls (Area Selector & View Mode Switcher) */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white dark:bg-zinc-950 p-4 rounded-2xl border border-border-base dark:border-zinc-900 shadow-2xs">
         {/* Area Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
-          {diningAreas.map(area => (
-            <button
-              key={area._id || area.id}
-              onClick={() => setSelectedAreaId(area._id || area.id)}
-              className={`px-4 py-2 rounded-xl text-[12px] font-bold cursor-pointer transition-all shrink-0 ${
-                selectedAreaId === (area._id || area.id)
-                  ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-xs'
-                  : 'bg-surface-subtle text-on-surface-variant border border-border-base/60 hover:bg-surface-container-low dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800'
-              }`}
-            >
-              📍 {area.name}
-            </button>
-          ))}
+          <button
+            onClick={() => setSelectedAreaId('ALL')}
+            className={`px-4 py-2 rounded-xl text-[12px] font-bold cursor-pointer transition-all shrink-0 ${
+              selectedAreaId === 'ALL'
+                ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-xs'
+                : 'bg-surface-subtle text-on-surface-variant border border-border-base/60 hover:bg-surface-container-low dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800'
+            }`}
+          >
+            All Areas ({tables.length})
+          </button>
+          {diningAreas.map(area => {
+            const count = tables.filter(t => (t.diningAreaId?._id?.toString() || t.diningAreaId?.toString()) === (area._id || area.id)).length;
+            return (
+              <button
+                key={area._id || area.id}
+                onClick={() => setSelectedAreaId(area._id || area.id)}
+                className={`px-4 py-2 rounded-xl text-[12px] font-bold cursor-pointer transition-all shrink-0 ${
+                  selectedAreaId === (area._id || area.id)
+                    ? 'bg-primary text-white dark:bg-primary-fixed dark:text-zinc-950 shadow-xs'
+                    : 'bg-surface-subtle text-on-surface-variant border border-border-base/60 hover:bg-surface-container-low dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800'
+                }`}
+              >
+                📍 {area.name} ({count})
+              </button>
+            );
+          })}
           <Button
             size="sm"
             variant="outline"
-            className="flex items-center gap-1.5 font-bold text-[12px] px-3.5 py-2.5 rounded-xl shrink-0"
+            className="flex items-center gap-1.5 font-bold text-[12px] px-3.5 py-2 rounded-xl shrink-0"
             onClick={() => fetchData()}
           >
             <HiOutlineArrowPath className="text-sm" /> Refresh
           </Button>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-3.5 text-[11px] font-bold text-on-surface-variant dark:text-zinc-400 border-t lg:border-t-0 lg:border-l border-border-base dark:border-zinc-800 pt-3 lg:pt-0 lg:pl-6">
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs" /> Available</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-xs" /> Reserved</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-400 shadow-xs" /> Held</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs" /> Occupied</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs" /> Bill Req</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-600 shadow-xs" /> Cleaning</div>
+        {/* View Switcher Toggle */}
+        <div className="flex items-center gap-1 bg-surface-subtle dark:bg-zinc-900 p-1 rounded-xl border border-border-base dark:border-zinc-800 shrink-0">
+          <button
+            onClick={() => setViewMode('CARDS')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'CARDS'
+                ? 'bg-white dark:bg-zinc-950 text-primary shadow-xs border border-border-base dark:border-zinc-800'
+                : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+            }`}
+          >
+            ⚡ Quick Cards
+          </button>
+          <button
+            onClick={() => setViewMode('MAP')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'MAP'
+                ? 'bg-white dark:bg-zinc-950 text-primary shadow-xs border border-border-base dark:border-zinc-800'
+                : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+            }`}
+          >
+            🗺️ Floor Map
+          </button>
         </div>
       </div>
 
-      {/* Grid Floor workspace */}
-      <div className="relative w-full h-[620px] bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl overflow-hidden shadow-inner flex">
-        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1.2px,transparent_1.2px)] [bg-size:24px_24px] opacity-60" />
-
-        {currentAreaTables.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center flex-col text-on-surface-variant dark:text-zinc-500 space-y-2 z-10">
-            <span className="text-3xl">🪑</span>
-            <span className="text-[13px] font-bold">No tables mapped to this area.</span>
-            <span className="text-[11px] font-medium opacity-80">Use the Floor Designer to place tables and chairs.</span>
+      {/* Main Floor Content Display */}
+      {viewMode === 'CARDS' ? (
+        /* Streamlined Cards Grid View */
+        filteredTables.length === 0 ? (
+          <div className="bg-white dark:bg-zinc-950 border border-dashed border-border-base dark:border-zinc-900 rounded-3xl p-16 text-center space-y-3">
+            <span className="text-4xl block">🪑</span>
+            <h3 className="text-sm font-extrabold text-on-background">No tables match the selected filter</h3>
+            <p className="text-xs text-on-surface-variant dark:text-zinc-400">Try switching areas or resetting your status filter.</p>
+            <Button size="sm" variant="outline" onClick={() => { setStatusFilter('ALL'); setSelectedAreaId('ALL'); }}>
+              Reset Filters
+            </Button>
           </div>
         ) : (
-          <div className="absolute inset-0 overflow-auto p-8">
-            {currentAreaTables.map((table) => {
-              const layout = table.layout || { x: 50, y: 50, width: 80, height: 80, rotation: 0, shape: 'square' };
-              const isRound = layout.shape === 'round';
-              const tableColor = getTableColor(table);
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredTables.map((table) => {
+              const areaName = diningAreas.find(a => (a._id || a.id) === (table.diningAreaId?._id?.toString() || table.diningAreaId?.toString()))?.name || 'Main Hall';
+              const statusText = getStatusLabelText(table.operationalStatus);
+              const isOccupied = table.activeSessionId || table.operationalStatus === 'OCCUPIED' || table.operationalStatus === 'DINING';
+              const isBillReq = table.operationalStatus === 'BILL_REQUESTED' || table.operationalStatus === 'PAYMENT_PENDING';
+              const isCleaning = table.operationalStatus === 'CLEANING';
 
               return (
-                <button
+                <div
                   key={table._id || table.id}
                   onClick={() => handleTableClick(table)}
-                  style={{
-                    position: 'absolute',
-                    left: `${layout.x}px`,
-                    top: `${layout.y}px`,
-                    width: `${layout.width}px`,
-                    height: `${layout.height}px`,
-                    transform: `rotate(${layout.rotation || 0}deg)`,
-                    zIndex: layout.zIndex || 10,
-                  }}
-                  className={`flex flex-col items-center justify-center p-2 cursor-pointer shadow-md transition-all hover:scale-105 active:scale-95 select-none focus:outline-none border border-black/10 dark:border-white/10 ${
-                    isRound ? 'rounded-full' : 'rounded-2xl'
-                  } ${tableColor}`}
+                  className={`bg-white dark:bg-zinc-950 border rounded-2xl p-4.5 space-y-4 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer relative group ${
+                    isOccupied ? 'border-rose-300 dark:border-rose-950/60' :
+                    isBillReq ? 'border-amber-300 dark:border-amber-950/60 ring-2 ring-amber-500/20' :
+                    isCleaning ? 'border-purple-300 dark:border-purple-950/60' :
+                    'border-border-base dark:border-zinc-900 hover:border-primary/50'
+                  }`}
                 >
-                  <span className="font-extrabold text-[13px] tracking-tight">{table.tableNumber}</span>
-                  <span className="text-[9px] font-bold opacity-80 mt-0.5">Cap: {table.seatCount}</span>
-                  {table.operationalStatus !== 'AVAILABLE' && (
-                    <span className="text-[8px] font-black uppercase tracking-wider bg-black/20 dark:bg-white/10 px-1.5 py-0.5 rounded-full mt-1.5 scale-90">
-                      {table.operationalStatus === 'BILL_REQUESTED' ? 'BILL' : table.operationalStatus.slice(0, 5)}
-                    </span>
-                  )}
-                </button>
+                  {/* Table Header */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-extrabold text-on-background">Table {table.tableNumber}</span>
+                        {table.isMerged && <Badge variant="info" size="xs">Merged</Badge>}
+                      </div>
+                      <span className="text-[10px] font-bold text-on-surface-variant/60 dark:text-zinc-500 block mt-0.5">
+                        📍 {areaName}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[11px] font-bold text-on-surface-variant/80 dark:text-zinc-400 bg-surface-subtle dark:bg-zinc-900 px-2 py-0.5 rounded-md border border-border-base/50 dark:border-zinc-800">
+                        👥 {table.seatCount} Seats
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Operational Status Pill */}
+                  <div className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/40 p-2.5 rounded-xl border border-border-base/40 dark:border-zinc-850/50">
+                    <span className="text-[11px] font-bold text-on-surface-variant dark:text-zinc-400">Status</span>
+                    <Badge variant={getStatusBadgeVariant(table.operationalStatus)} size="sm" className="font-extrabold uppercase text-[10px]">
+                      {statusText}
+                    </Badge>
+                  </div>
+
+                  {/* Direct 1-Click Action Button on Card */}
+                  <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                    {isCleaning ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        className="w-full text-white bg-purple-600 hover:bg-purple-700 font-bold text-xs py-2 rounded-xl"
+                        disabled={opLoading}
+                        onClick={() => runOperation('COMPLETE_CLEANING', { tableId: table._id || table.id })}
+                      >
+                        🧹 Mark Cleaned
+                      </Button>
+                    ) : isBillReq ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        className="w-full font-bold text-xs py-2 rounded-xl text-black bg-amber-400 hover:bg-amber-500"
+                        disabled={opLoading}
+                        onClick={() => handleTableClick(table)}
+                      >
+                        💳 Settle & Complete
+                      </Button>
+                    ) : isOccupied ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          className="font-bold text-[11px] py-2 rounded-xl"
+                          disabled={opLoading}
+                          onClick={() => runOperation('REQUEST_BILL', { sessionId: table.activeSessionId })}
+                        >
+                          💵 Request Bill
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="font-bold text-[11px] py-2 rounded-xl"
+                          onClick={() => handleTableClick(table)}
+                        >
+                          Manage
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full font-bold text-xs py-2 rounded-xl text-emerald-600 border-emerald-300 dark:border-emerald-950 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                        onClick={() => handleTableClick(table)}
+                      >
+                        ➕ Table Details
+                      </Button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
-        )}
-      </div>
+        )
+      ) : (
+        /* Interactive 2D Grid Floor Canvas View */
+        <div className="relative w-full h-[620px] bg-zinc-50 dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl overflow-hidden shadow-inner flex">
+          <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1.2px,transparent_1.2px)] [bg-size:24px_24px] opacity-60" />
+
+          {filteredTables.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center flex-col text-on-surface-variant dark:text-zinc-500 space-y-2 z-10">
+              <span className="text-3xl">🪑</span>
+              <span className="text-[13px] font-bold">No tables mapped to this area.</span>
+              <span className="text-[11px] font-medium opacity-80">Use the Floor Designer to place tables and chairs.</span>
+            </div>
+          ) : (
+            <div className="absolute inset-0 overflow-auto p-8">
+              {filteredTables.map((table) => {
+                const layout = table.layout || { x: 50, y: 50, width: 80, height: 80, rotation: 0, shape: 'square' };
+                const isRound = layout.shape === 'round';
+                const tableColor = getTableColor(table);
+
+                return (
+                  <button
+                    key={table._id || table.id}
+                    onClick={() => handleTableClick(table)}
+                    style={{
+                      position: 'absolute',
+                      left: `${layout.x}px`,
+                      top: `${layout.y}px`,
+                      width: `${layout.width}px`,
+                      height: `${layout.height}px`,
+                      transform: `rotate(${layout.rotation || 0}deg)`,
+                      zIndex: layout.zIndex || 10,
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 cursor-pointer shadow-md transition-all hover:scale-105 active:scale-95 select-none focus:outline-none border border-black/10 dark:border-white/10 ${
+                      isRound ? 'rounded-full' : 'rounded-2xl'
+                    } ${tableColor}`}
+                  >
+                    <span className="font-extrabold text-[13px] tracking-tight">{table.tableNumber}</span>
+                    <span className="text-[9px] font-bold opacity-80 mt-0.5">Cap: {table.seatCount}</span>
+                    {table.operationalStatus !== 'AVAILABLE' && (
+                      <span className="text-[8px] font-black uppercase tracking-wider bg-black/20 dark:bg-white/10 px-1.5 py-0.5 rounded-full mt-1.5 scale-90">
+                        {table.operationalStatus === 'BILL_REQUESTED' ? 'BILL' : table.operationalStatus.slice(0, 5)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Table Side Detail Drawer - Restructured UI */}
       {drawerOpen && selectedTable && (

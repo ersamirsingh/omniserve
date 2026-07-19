@@ -5,6 +5,7 @@ import User from '../../models/user.model.js';
 import { NotificationService } from '../notification/notification.service.js';
 import { NotificationType } from '../../models/enums.js';
 import { ApiResponseHandler } from '../../utils/apiResponse.js';
+import cloudinary from '../../config/cloudinary.js';
 
 /** Generate a unique 12-character alphanumeric tracking code (e.g. A3F9KX21M7QP) */
 function generateTrackingCode(): string {
@@ -75,28 +76,63 @@ export class HelpRequestController {
         console.error('Failed to resolve outlet details for support ticket:', err);
       }
 
-      const trackingCode = generateTrackingCode();
+      // Upload screenshot to Cloudinary if provided as base64 or file data
+      let screenshotUrl: string | null = null;
+      if (screenshot && typeof screenshot === 'string') {
+        if (screenshot.startsWith('data:image/')) {
+          try {
+            const uploadRes = await cloudinary.uploader.upload(screenshot, {
+              folder: 'omniserve/help_requests',
+              resource_type: 'auto',
+            });
+            screenshotUrl = uploadRes.secure_url;
+          } catch (cloudErr: any) {
+            console.error('Cloudinary upload failed for help request screenshot:', cloudErr.message || cloudErr);
+            screenshotUrl = screenshot; // fallback to original data URL if Cloudinary error
+          }
+        } else {
+          screenshotUrl = screenshot;
+        }
+      }
 
-      const helpRequest = new HelpRequest({
-        tenantId: reqTenantId ? new Types.ObjectId(reqTenantId) : null,
-        userId: new Types.ObjectId(req.user.userId),
-        userRole: req.user.role,
-        trackingCode,
-        description: description.trim(),
-        screenshot: screenshot || null,
-        restaurantId,
-        restaurantName,
-        outletId,
-        outletName,
-        context: {
-          pageRoute: context?.pageRoute || 'Unknown',
-          timestamp: context?.timestamp ? new Date(context.timestamp) : new Date(),
-          errorLogSnippet: context?.errorLogSnippet || null
-        },
-        status: 'OPEN'
-      });
+      let trackingCode = generateTrackingCode();
+      let helpRequest: any = null;
+      let attempts = 0;
+      const maxAttempts = 3;
 
-      await helpRequest.save();
+      while (attempts < maxAttempts) {
+        try {
+          helpRequest = new HelpRequest({
+            tenantId: reqTenantId ? new Types.ObjectId(reqTenantId) : null,
+            userId: new Types.ObjectId(req.user.userId),
+            userRole: req.user.role,
+            trackingCode,
+            description: description.trim(),
+            screenshot: screenshotUrl,
+            restaurantId,
+            restaurantName,
+            outletId,
+            outletName,
+            context: {
+              pageRoute: context?.pageRoute || 'Unknown',
+              timestamp: context?.timestamp ? new Date(context.timestamp) : new Date(),
+              errorLogSnippet: context?.errorLogSnippet || null
+            },
+            status: 'OPEN'
+          });
+
+          await helpRequest.save();
+          break;
+        } catch (saveErr: any) {
+          if (saveErr.code === 11000 && saveErr.keyPattern?.trackingCode) {
+            attempts++;
+            trackingCode = generateTrackingCode();
+            if (attempts >= maxAttempts) throw saveErr;
+          } else {
+            throw saveErr;
+          }
+        }
+      }
 
       // Automatically create an Issue tracker ticket for this help request
       try {
@@ -112,6 +148,8 @@ export class HelpRequestController {
           reporterId: new Types.ObjectId(req.user.userId),
           reporterName: `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.email,
           reporterEmail: sender.email,
+          trackingCode,
+          screenshot: screenshotUrl,
           status: 'OPEN',
           comments: [],
         });
@@ -229,6 +267,48 @@ export class HelpRequestController {
       ApiResponseHandler.success(res, 200, 'Help request updated successfully', { helpRequest });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || 'Failed to update help request');
+    }
+  }
+
+  /**
+   * Track support ticket status by 12-character tracking code
+   * GET /help-requests/track/:code
+   */
+  static async trackHelpRequest(req: Request, res: Response): Promise<void> {
+    try {
+      const rawCode = Array.isArray(req.params.code) ? req.params.code[0] : req.params.code;
+      if (!rawCode || rawCode.trim().length < 6) {
+        ApiResponseHandler.badRequest(res, 'A valid tracking code is required');
+        return;
+      }
+
+      const trackingCodeClean = rawCode.trim().toUpperCase();
+      const helpRequest = await HelpRequest.findOne({ trackingCode: trackingCodeClean })
+        .populate('userId', 'firstName lastName email')
+        .populate('resolvedBy', 'firstName lastName');
+
+      if (!helpRequest) {
+        ApiResponseHandler.notFound(res, 'No support ticket found matching this tracking code');
+        return;
+      }
+
+      let issueComments: any[] = [];
+      try {
+        const Issue = mongoose.model('Issue');
+        const issue = await Issue.findOne({ trackingCode: trackingCodeClean });
+        if (issue && issue.comments) {
+          issueComments = issue.comments;
+        }
+      } catch (err) {
+        console.error('Failed to fetch linked issue comments:', err);
+      }
+
+      ApiResponseHandler.success(res, 200, 'Support ticket retrieved successfully', {
+        helpRequest,
+        issueComments,
+      });
+    } catch (error: any) {
+      ApiResponseHandler.internalError(res, error.message || 'Failed to track support ticket');
     }
   }
 }

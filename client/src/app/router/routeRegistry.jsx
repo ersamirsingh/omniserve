@@ -140,8 +140,9 @@ export const dashboardRoutes = [
 
   // --- Offline ---
   { path: '/operations/offline-orders', title: 'Offline Orders', component: routeComponents.OfflineOrdersPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Offline Orders', icon: HiOutlineShoppingCart } },
+  { path: '/operations/offline-order-flow', title: 'Offline Order Flow', component: routeComponents.OfflineOrderFlowPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Offline Order Flow', icon: HiOutlineQueueList } },
+  { path: '/operations/kds', title: 'Kitchen Display (KDS)', component: routeComponents.OrderPreparationPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Kitchen Display (KDS)', icon: HiOutlineSquares2X2 } },
   { path: '/operations/offline-cockpit', title: 'Offline Cockpit', component: routeComponents.OperationsCockpitPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Offline Cockpit', icon: HiOutlineSquares2X2 } },
-  { path: '/operations/offline-order-flow', title: 'Offline Order Flow', component: routeComponents.OrderPreparationPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Offline Order Flow', icon: HiOutlineQueueList } },
   { path: '/operations/reservations', title: 'Reservations', component: routeComponents.ReservationsPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Reservations', icon: HiOutlineCalendarDays } },
   { path: '/floor-management', title: 'Floor Management', component: routeComponents.FloorManagementPage, roles: RESTAURANT_ROLES, nav: { section: 'Offline', label: 'Floor Management', icon: HiOutlineSquares2X2 } },
 
@@ -243,5 +244,28 @@ export function getSidebarSections(userRole) {
     }
   }
 
-  return Array.from(sections.entries()).map(([section, items]) => ({ section, items }));
+  let result = Array.from(sections.entries()).map(([section, items]) => ({ section, items }));
+
+  if (userRole === 'STAFF') {
+    const mainSec = result.find(s => s.section === 'Main');
+    const onlineSec = result.find(s => s.section === 'Online');
+    const offlineSec = result.find(s => s.section === 'Offline');
+    const otherSecs = result.filter(s => s.section !== 'Main' && s.section !== 'Online' && s.section !== 'Offline');
+
+    result = [];
+    if (mainSec) result.push(mainSec);
+    if (onlineSec) result.push(onlineSec);
+    if (offlineSec) result.push(offlineSec);
+    result.push(...otherSecs);
+  }
+
+  if (userRole === 'SYSTEM_ADMIN') {
+    const userSec = result.find(s => s.section === 'User');
+    if (userSec) {
+      const otherSecs = result.filter(s => s.section !== 'User');
+      result = [...otherSecs, userSec];
+    }
+  }
+
+  return result;
 }

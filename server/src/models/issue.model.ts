@@ -20,6 +20,8 @@ export interface IIssue extends Document {
   reporterEmail?: string;
   reporterId?: Types.ObjectId | null;
   assigneeId?: Types.ObjectId | null;
+  trackingCode?: string;
+  screenshot?: string;
   comments: IIssueComment[];
   createdAt: Date;
   updatedAt: Date;
@@ -60,6 +62,8 @@ const issueSchema = new Schema<IIssue>(
     reporterEmail: { type: String, default: '' },
     reporterId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     assigneeId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    trackingCode: { type: String, default: null },
+    screenshot: { type: String, default: null },
     comments: { type: [issueCommentSchema], default: [] },
   },
   { timestamps: true }

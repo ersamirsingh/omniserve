@@ -7,8 +7,8 @@ import { useToast } from '../ui/Toast';
 const onlineFlow = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'DELIVERED'];
 const dineInFlow = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED'];
 
-export const getNextStatus = (currentStatus, source) => {
-  const isDineIn = ['DINE_IN', 'QR_DINE_IN', 'WAITER', 'POS'].includes(source);
+export const getNextStatus = (currentStatus, source, diningContext) => {
+  const isDineIn = ['DINE_IN', 'QR_DINE_IN', 'WAITER', 'POS', 'WEBSITE'].includes(source) || !!diningContext?.tableId;
   const flow = isDineIn ? dineInFlow : onlineFlow;
   const idx = flow.indexOf(currentStatus);
   return idx >= 0 && idx < flow.length - 1 ? flow[idx + 1] : null;
@@ -34,7 +34,7 @@ export default function OrderLifecycleActions({ order, onStatusChanged }) {
 
   const currentStatus = order?.orderStatus || 'PENDING';
   const source = order?.source || 'ONLINE';
-  const nextStatus = getNextStatus(currentStatus, source);
+  const nextStatus = getNextStatus(currentStatus, source, order?.diningContext);
 
   const handleAdvanceStatus = async () => {
     if (!nextStatus) return;

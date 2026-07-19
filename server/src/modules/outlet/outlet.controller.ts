@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { OutletService } from "./outlet.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { UserStatus, WeekDay, UserRole } from "../../models/enums.js";
@@ -204,6 +204,22 @@ export class OutletController {
    */
   static async listOutlets(req: Request, res: Response): Promise<void> {
     try {
+      if (req.user?.role === UserRole.SYSTEM_ADMIN) {
+        const Outlet = mongoose.model('Outlet');
+        const filter: any = { isDeleted: false };
+        if (req.query.restaurantId && Types.ObjectId.isValid(req.query.restaurantId as string)) {
+          filter.restaurantId = new Types.ObjectId(req.query.restaurantId as string);
+        }
+        const outlets = await Outlet.find(filter).sort({ name: 1 }).lean();
+        res.status(200).json({
+          success: true,
+          message: 'Outlets fetched successfully',
+          data: { outlets },
+          outlets,
+        });
+        return;
+      }
+
       if (!req.user?.tenantId) {
         ApiResponseHandler.unauthorized(res, 'User not authenticated or tenantId not found');
         return;

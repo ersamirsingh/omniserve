@@ -234,7 +234,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
         { status: 'ACCEPTED', label: 'Accepted', color: 'text-blue-600 dark:text-blue-400 border-blue-500/20' },
         { status: 'PREPARING', label: 'Preparing', color: 'text-purple-600 dark:text-purple-400 border-purple-500/20' },
         { status: 'READY', label: 'Ready', color: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
-        { status: 'PICKED_UP', label: 'Out for Delivery', color: 'text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+        { status: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', color: 'text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
       ]
     : [
         { status: 'PENDING', label: 'Received', color: 'text-amber-600 dark:text-amber-400 border-amber-500/20' },
@@ -244,12 +244,22 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
         { status: 'SERVED', label: 'Served', color: 'text-sky-600 dark:text-sky-400 border-sky-500/20' },
       ];
 
+  const matchOrderStatus = (orderStatus, colStatus) => {
+    if (orderStatus === colStatus) return true;
+    if (colStatus === 'PREPARING') return orderStatus === 'PREPARING' || orderStatus === 'IN_PREPARATION';
+    if (colStatus === 'READY') return orderStatus === 'READY' || orderStatus === 'READY_FOR_PICKUP';
+    if (colStatus === 'OUT_FOR_DELIVERY') return orderStatus === 'OUT_FOR_DELIVERY' || orderStatus === 'PICKED_UP' || orderStatus === 'DISPATCHED';
+    return false;
+  };
+
   const nextStatusMap = isOnline
     ? {
         PENDING: 'ACCEPTED',
         ACCEPTED: 'PREPARING',
         PREPARING: 'READY',
-        READY: 'PICKED_UP',
+        READY: 'OUT_FOR_DELIVERY',
+        READY_FOR_PICKUP: 'OUT_FOR_DELIVERY',
+        OUT_FOR_DELIVERY: 'DELIVERED',
         PICKED_UP: 'DELIVERED'
       }
     : {
@@ -257,6 +267,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
         ACCEPTED: 'PREPARING',
         PREPARING: 'READY',
         READY: 'SERVED',
+        READY_FOR_PICKUP: 'SERVED',
         SERVED: 'COMPLETED'
       };
 
@@ -264,7 +275,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
     ACCEPTED: 'Accept',
     PREPARING: 'Start Prep',
     READY: 'Mark Ready',
-    PICKED_UP: 'Dispatch',
+    OUT_FOR_DELIVERY: 'Dispatch',
     DELIVERED: 'Complete',
     SERVED: 'Serve',
     COMPLETED: 'Complete'
@@ -320,7 +331,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
       {viewType === 'BOARD' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 h-[calc(100vh-230px)] min-h-[500px]">
           {flowColumns.map((col) => {
-            const colOrders = filtered.filter((o) => o.orderStatus === col.status);
+            const colOrders = filtered.filter((o) => matchOrderStatus(o.orderStatus, col.status));
             return (
               <div 
                 key={col.status} 

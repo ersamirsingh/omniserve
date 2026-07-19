@@ -74,28 +74,39 @@ export class CouponService {
     return { isValid: true, discount, coupon };
   }
 
-  /**
-   * Redeem a subscription coupon by marking it as used
-   */
   static async redeemSubscriptionCoupon(code: string, tenantId: string): Promise<void> {
     const formattedCode = code.trim().toUpperCase();
-    const coupon = await Coupon.findOne({
+    const tenantObjectId = tenantId ? new Types.ObjectId(tenantId) : null;
+
+    const query: any = {
       tenantId: null,
       code: formattedCode,
+      isActive: true,
+      status: "ACTIVE",
+      isRedeemed: false,
       isDeleted: false,
-    });
-    if (coupon) {
-      coupon.isRedeemed = true;
-      if (tenantId) {
-        const tenantObjectId = new Types.ObjectId(tenantId);
-        if (!coupon.redeemedTenants) {
-          coupon.redeemedTenants = [];
-        }
-        if (!coupon.redeemedTenants.some(id => id.toString() === tenantId)) {
-          coupon.redeemedTenants.push(tenantObjectId);
-        }
-      }
-      await coupon.save();
+      $or: [
+        { expirationDate: { $gt: new Date() } },
+        { expirationDate: null }
+      ]
+    };
+
+    if (tenantObjectId) {
+      query.redeemedTenants = { $ne: tenantObjectId };
+    }
+
+    const update: any = {
+      $set: { isRedeemed: true }
+    };
+
+    if (tenantObjectId) {
+      update.$addToSet = { redeemedTenants: tenantObjectId };
+    }
+
+    const redeemedCoupon = await Coupon.findOneAndUpdate(query, update, { new: true });
+
+    if (!redeemedCoupon) {
+      throw new Error("Coupon is invalid, expired, already redeemed, or already used by this tenant");
     }
   }
 

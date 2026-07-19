@@ -11,6 +11,7 @@ export default function OrderPreparationPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [viewMode, setViewMode] = useState('CARDS'); // 'CARDS' | 'LANES'
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [outletsList, setOutletsList] = useState([]);
@@ -44,9 +45,33 @@ export default function OrderPreparationPage() {
     localStorage.setItem('selectedOutletId', newId);
   };
 
-  // Outlet selector & view all action element
+  // Outlet selector & view switcher header actions
   const headerActions = (
     <div className="flex items-center gap-3">
+      {/* Top Right View Switcher */}
+      <div className="flex items-center gap-1 bg-surface-subtle dark:bg-zinc-900 p-1 rounded-xl border border-border-base dark:border-zinc-800 shrink-0">
+        <button
+          onClick={() => setViewMode('CARDS')}
+          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            viewMode === 'CARDS'
+              ? 'bg-white dark:bg-zinc-950 text-primary shadow-xs border border-border-base dark:border-zinc-800'
+              : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+          }`}
+        >
+          ⚡ Station Cards
+        </button>
+        <button
+          onClick={() => setViewMode('LANES')}
+          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            viewMode === 'LANES'
+              ? 'bg-white dark:bg-zinc-950 text-primary shadow-xs border border-border-base dark:border-zinc-800'
+              : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+          }`}
+        >
+          📊 Multi-Column Lanes
+        </button>
+      </div>
+
       <Button
         onClick={() => {
           setRefreshing(true);
@@ -103,7 +128,7 @@ export default function OrderPreparationPage() {
 
       {/* Embedded KDS Display */}
       <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-zinc-950 p-6 rounded-xl border border-border-base dark:border-zinc-900">
-        <KitchenDisplay key={`${selectedOutletId}-${refreshKey}`} onRefreshDone={() => setRefreshing(false)} />
+        <KitchenDisplay key={`${selectedOutletId}-${refreshKey}`} viewMode={viewMode} onRefreshDone={() => setRefreshing(false)} />
       </div>
     </div>
   );

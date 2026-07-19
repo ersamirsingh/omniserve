@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { RestaurantService } from "./restaurant.service.js";
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { RestaurantParams } from "../../types/restro.type.js";
 import { UserRole } from "../../models/enums.js";
 
@@ -13,6 +13,17 @@ export class RestaurantController {
       try {
 
          const tenantId: string | undefined = req.user?.tenantId;
+
+         if (req.user?.role === UserRole.SYSTEM_ADMIN) {
+            const Restaurant = mongoose.model('Restaurant');
+            const restaurants = await Restaurant.find({ isDeleted: false }).sort({ name: 1 }).lean();
+            res.status(200).json({
+               success: true,
+               message: 'Restaurants fetched successfully',
+               restaurants,
+            });
+            return;
+         }
 
          if (!tenantId || !Types.ObjectId.isValid(tenantId)) {
             res.status(401).json({

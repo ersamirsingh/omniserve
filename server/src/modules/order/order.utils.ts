@@ -9,7 +9,7 @@ export interface ResolvedContext {
 export async function resolveDiningContext(
   req: any
 ): Promise<ResolvedContext> {
-  const tenantIdStr = String(
+  let tenantIdStr = String(
     req.user?.tenantId ||
     req.query.tenantId ||
     req.body?.tenantId ||
@@ -26,7 +26,17 @@ export async function resolveDiningContext(
   );
 
   if (!tenantIdStr || !Types.ObjectId.isValid(tenantIdStr)) {
-    throw new Error("Invalid or missing Tenant ID");
+    if (req.user?.role === 'SYSTEM_ADMIN') {
+      const Tenant = mongoose.model("Tenant");
+      const firstTenant = await Tenant.findOne({ isDeleted: false }).select("_id").lean();
+      if (firstTenant) {
+        tenantIdStr = (firstTenant as any)._id.toString();
+      } else {
+        throw new Error("Invalid or missing Tenant ID");
+      }
+    } else {
+      throw new Error("Invalid or missing Tenant ID");
+    }
   }
   const tenantId = new Types.ObjectId(tenantIdStr);
 

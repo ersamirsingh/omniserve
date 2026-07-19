@@ -172,6 +172,17 @@ reservationSchema.index({ tenantId: 1, outletId: 1, status: 1 });
 reservationSchema.index({ customerId: 1 });
 reservationSchema.index({ tableId: 1, scheduledAt: 1 });
 reservationSchema.index({ isDeleted: 1 });
+reservationSchema.index(
+  { tenantId: 1, guestPhone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      guestPhone: { $exists: true, $type: "string" },
+      status: { $in: ["PENDING", "CONFIRMED", "SEATED", "HOLD"] },
+      isDeleted: false,
+    },
+  }
+);
 
 reservationSchema.pre('find', function () {
   this.where({ isDeleted: false });
