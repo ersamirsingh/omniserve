@@ -10,6 +10,7 @@ import { SubscriptionPlan } from "./enums.js";
 export interface IRestaurantSubscriptionDocument extends Document {
   tenantId: Types.ObjectId;
   restaurantId: Types.ObjectId;
+  outletId?: Types.ObjectId | null;
   planId: Types.ObjectId;
   plan: SubscriptionPlan;
   amount: number;
@@ -46,6 +47,11 @@ const restaurantSubscriptionSchema = new Schema<IRestaurantSubscriptionDocument>
       type: Schema.Types.ObjectId,
       ref: "Restaurant",
       required: [true, "Restaurant ID is required"],
+    },
+    outletId: {
+      type: Schema.Types.ObjectId,
+      ref: "Outlet",
+      default: null,
     },
     planId: {
       type: Schema.Types.ObjectId,
@@ -154,6 +160,7 @@ const restaurantSubscriptionSchema = new Schema<IRestaurantSubscriptionDocument>
 
 restaurantSubscriptionSchema.index({ tenantId: 1 });
 restaurantSubscriptionSchema.index({ restaurantId: 1 });
+restaurantSubscriptionSchema.index({ outletId: 1 });
 restaurantSubscriptionSchema.index({ tenantId: 1, status: 1 });
 restaurantSubscriptionSchema.index({ endDate: 1, status: 1 });
 restaurantSubscriptionSchema.index({ isDeleted: 1 });

@@ -5,11 +5,13 @@ import { SubscriptionService } from "./subscription.service.js";
 import { subscribeSchema } from "./subscription.validator.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { CouponService } from "../coupon/coupon.service.js";
+import { AccessScope } from "../../utils/accessScope.utils.js";
+import RestaurantSubscriptionModel from "../../models/subscription.model.js";
 
 export class RestaurantSubscriptionController {
   /**
    * GET /my-subscription
-   * Retrieves the current tenant's active plan configuration and limits.
+   * Retrieves the active plan configuration and limits for the tenant / outlet context.
    */
   static async getMySubscription(req: Request, res: Response): Promise<void> {
     try {
@@ -19,9 +21,30 @@ export class RestaurantSubscriptionController {
         return;
       }
 
-      const subscription = await SubscriptionRepository.findSubscriptionByTenant(tenantId);
+      const reqOutletId = req.query.outletId as string | undefined;
+      let targetOutletId: string | undefined = reqOutletId;
+
+      const allowedOutletIds = req.user ? await AccessScope.outletIdsForUser(req.user) : null;
+      if (targetOutletId) {
+        if (req.user && !(await AccessScope.canAccessOutlet(req.user, targetOutletId))) {
+          ApiResponseHandler.forbidden(res, "Access denied: You cannot view subscriptions for this outlet");
+          return;
+        }
+      } else if (allowedOutletIds && allowedOutletIds.length > 0) {
+        targetOutletId = allowedOutletIds[0];
+      }
+
+      const query: any = { tenantId: new Types.ObjectId(tenantId), isDeleted: false };
+      if (targetOutletId && Types.ObjectId.isValid(targetOutletId)) {
+        query.$or = [
+          { outletId: new Types.ObjectId(targetOutletId) },
+          { outletId: null }
+        ];
+      }
+
+      const subscription = await RestaurantSubscriptionModel.findOne(query).sort({ createdAt: -1 }).populate("planId");
       if (!subscription) {
-        ApiResponseHandler.notFound(res, "No subscription found. Please contact support.");
+        ApiResponseHandler.notFound(res, "No subscription found for the specified outlet context.");
         return;
       }
 
@@ -97,6 +120,18 @@ export class RestaurantSubscriptionController {
       }
 
       const validated = subscribeSchema.parse(req.body);
+      const outletId = req.body.outletId as string | undefined;
+
+      if (outletId) {
+        if (!Types.ObjectId.isValid(outletId)) {
+          ApiResponseHandler.badRequest(res, "Invalid outletId format");
+          return;
+        }
+        if (req.user && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+          ApiResponseHandler.forbidden(res, "Access denied: You cannot purchase a subscription for this outlet");
+          return;
+        }
+      }
 
       const subscription = await SubscriptionService.changeSubscriptionPlan(
         tenantId,
@@ -104,7 +139,8 @@ export class RestaurantSubscriptionController {
         validated.billingCycle,
         validated.paymentProvider,
         validated.couponCode,
-        userId
+        userId,
+        outletId
       );
 
       ApiResponseHandler.success(res, 200, "Subscription plan upgraded successfully", { subscription });

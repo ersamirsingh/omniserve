@@ -1,16 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getReservationsApi, createReservationApi, confirmReservationApi, seatReservationApi, markReservationNoShowApi, cancelReservationApi, getTablesApi, holdTableApi } from '../../../api/models/operations.api';
+import { listOutletsApi } from '../../../api/models/outlet.api';
+import { getList, getEntityId, getRefId } from '../../../utils/apiData';
+import useAuth from '../../../hooks/useAuth';
 import { useSocket } from '../../../context/SocketContext';
 import { useToast } from '../../../components/ui/Toast';
 import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
 import Badge from '../../../components/ui/Badge';
-import { HiOutlineCalendarDays, HiOutlineCheck, HiOutlineUserMinus, HiOutlineTrash, HiOutlinePlus, HiOutlineSparkles, HiOutlineArrowPath } from 'react-icons/hi2';
+import { HiOutlineCalendarDays, HiOutlineCheck, HiOutlineUserMinus, HiOutlineTrash, HiOutlinePlus, HiOutlineSparkles, HiOutlineArrowPath, HiOutlineBuildingStorefront } from 'react-icons/hi2';
 
 export default function ReservationCalendar() {
+  const { user } = useAuth();
   const { lastMessage } = useSocket();
   const { addToast } = useToast();
 
+  const [outlets, setOutlets] = useState([]);
+  const [selectedOutletId, setSelectedOutletId] = useState(() => localStorage.getItem('selectedOutletId') || '');
   const [reservations, setReservations] = useState([]);
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,12 +45,30 @@ export default function ReservationCalendar() {
     notes: ''
   });
 
-  const fetchData = useCallback(async (targetDate = selectedDate) => {
+  useEffect(() => {
+    const loadOutlets = async () => {
+      try {
+        const res = await listOutletsApi();
+        const list = getList(res, 'outlets');
+        setOutlets(list);
+        if (list.length > 0 && !selectedOutletId) {
+          const userOutlet = getRefId(user?.outletId || (user?.outletIds && user.outletIds[0]));
+          const initId = userOutlet || getEntityId(list[0]);
+          setSelectedOutletId(initId);
+          localStorage.setItem('selectedOutletId', initId);
+        }
+      } catch (err) {
+        console.error('Failed to load outlets for ReservationCalendar:', err);
+      }
+    };
+    loadOutlets();
+  }, [user]);
+
+  const fetchData = useCallback(async (targetDate = selectedDate, targetOutlet = selectedOutletId) => {
     try {
-      const currentOutletId = localStorage.getItem('selectedOutletId') || '';
       const [resResponse, tablesResponse] = await Promise.all([
-        getReservationsApi({ date: targetDate, ...(currentOutletId && { outletId: currentOutletId }) }),
-        getTablesApi()
+        getReservationsApi({ date: targetDate, ...(targetOutlet && { outletId: targetOutlet }) }),
+        getTablesApi(targetOutlet ? { outletId: targetOutlet } : {})
       ]);
       setReservations(resResponse.data?.data?.reservations || []);
       setTables(tablesResponse.data?.data?.tables || []);
@@ -53,11 +77,11 @@ export default function ReservationCalendar() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, addToast]);
+  }, [selectedDate, selectedOutletId, addToast]);
 
   useEffect(() => {
-    fetchData(selectedDate);
-  }, [selectedDate, fetchData]);
+    fetchData(selectedDate, selectedOutletId);
+  }, [selectedDate, selectedOutletId, fetchData]);
 
   // Handle WebSocket updates
   useEffect(() => {
@@ -221,11 +245,32 @@ export default function ReservationCalendar() {
             })}
           </div>
 
+          {outlets.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 px-3 py-1 rounded-lg">
+              <HiOutlineBuildingStorefront className="text-primary text-sm" />
+              <select
+                value={selectedOutletId}
+                onChange={(e) => {
+                  const newOid = e.target.value;
+                  setSelectedOutletId(newOid);
+                  localStorage.setItem('selectedOutletId', newOid);
+                }}
+                className="bg-transparent text-[12px] font-bold text-on-surface dark:text-zinc-200 outline-none cursor-pointer"
+              >
+                {outlets.map(o => (
+                  <option key={getEntityId(o)} value={getEntityId(o)}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <input 
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3.5 py-1.5 bg-white border border-border-base rounded-lg text-[12px] font-bold dark:bg-zinc-950 dark:border-zinc-900 text-on-surface outline-hidden"
+            className="px-3.5 py-1.5 bg-white border border-border-base rounded-lg text-[12px] font-bold dark:bg-zinc-950 dark:border-zinc-900 text-on-surface outline-hidden cursor-pointer"
           />
         </div>
         <div className="flex gap-2">

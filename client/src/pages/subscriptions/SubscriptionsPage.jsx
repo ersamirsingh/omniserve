@@ -7,6 +7,8 @@ import Modal from '../../components/ui/Modal';
 import Badge from '../../components/ui/Badge';
 import Table from '../../components/ui/Table';
 import PageHeader from '../../components/ui/PageHeader';
+import { listOutletsApi } from '../../api/models/outlet.api';
+import { getList, getEntityId, getRefId } from '../../utils/apiData';
 import {
   getMySubscriptionApi,
   getUsageApi,
@@ -92,6 +94,11 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('current');
 
+  // --- Outlet Scoping States ---
+  const [outlets, setOutlets] = useState([]);
+  const [selectedOutletId, setSelectedOutletId] = useState('');
+  const [loadingOutlets, setLoadingOutlets] = useState(true);
+
   // --- Common States ---
   const [plans, setPlans] = useState([]);
 
@@ -154,6 +161,26 @@ export default function SubscriptionsPage() {
     }
   });
 
+  useEffect(() => {
+    const loadOutlets = async () => {
+      setLoadingOutlets(true);
+      try {
+        const res = await listOutletsApi();
+        const list = getList(res, 'outlets');
+        setOutlets(list);
+        if (list.length > 0 && !selectedOutletId) {
+          const userOutlet = getRefId(user?.outletId || (user?.outletIds && user.outletIds[0]));
+          setSelectedOutletId(userOutlet || getEntityId(list[0]));
+        }
+      } catch (err) {
+        console.error('Failed to load outlets for SubscriptionsPage:', err);
+      } finally {
+        setLoadingOutlets(false);
+      }
+    };
+    loadOutlets();
+  }, [user]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -161,7 +188,7 @@ export default function SubscriptionsPage() {
         const [plansRes, analyticsRes, subsRes, invoicesRes] = await Promise.all([
           listPlansApi(),
           getSubscriptionAnalyticsApi(),
-          listAllSubscriptionsApi(),
+          listAllSubscriptionsApi(selectedOutletId ? { outletId: selectedOutletId } : {}),
           listAllInvoicesApi()
         ]);
         setPlans(plansRes.data?.data?.plans?.length ? plansRes.data.data.plans : FALLBACK_PLANS);
@@ -170,7 +197,7 @@ export default function SubscriptionsPage() {
         setAllInvoices(invoicesRes.data?.data?.invoices || []);
       } else {
         const [subRes, usageRes, invoiceRes, plansRes] = await Promise.all([
-          getMySubscriptionApi(),
+          getMySubscriptionApi(selectedOutletId ? { outletId: selectedOutletId } : {}),
           getUsageApi(),
           getInvoiceHistoryApi(),
           listPlansApi()
@@ -192,7 +219,7 @@ export default function SubscriptionsPage() {
 
   useEffect(() => {
     fetchData();
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, selectedOutletId]);
 
   // --- Owner Operations ---
   const handleCancelAutoRenew = async () => {
@@ -290,6 +317,7 @@ export default function SubscriptionsPage() {
         billingCycle: billingCycleToggle,
         paymentProvider,
         couponCode: appliedCoupon || undefined,
+        outletId: selectedOutletId || undefined,
       });
       addToast(`Payment Succeeded! Successfully subscribed to ${selectedPlan.name}`, 'success');
       setPaymentModalOpen(false);
@@ -414,6 +442,24 @@ export default function SubscriptionsPage() {
           section="Billing"
           title="Subscriptions Center"
           description="Scale your operational boundaries, verify automated recurring billing invoices, and upgrade features."
+          actions={
+            outlets.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-on-surface-variant dark:text-zinc-400">Outlet Scope:</span>
+                <select
+                  value={selectedOutletId}
+                  onChange={(e) => setSelectedOutletId(e.target.value)}
+                  className="px-3 py-1.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-xs text-on-surface dark:text-zinc-200 font-bold outline-none cursor-pointer"
+                >
+                  {outlets.map((o) => (
+                    <option key={getEntityId(o)} value={getEntityId(o)}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          }
         />
 
         {/* Tab Selection */}
@@ -1140,7 +1186,7 @@ export default function SubscriptionsPage() {
       )}
 
       {/* PLAN CREATE / EDIT MODAL (MULTI-STEP WIZARD) */}
-      <Modal isOpen={planFormOpen} onClose={() => setPlanFormOpen(false)} title={editingPlan ? `Configure Billing Plan: ${planForm.name || ''}` : 'Add New Billing Plan'} size="sm">
+      <Modal isOpen={planFormOpen} onClose={() => setPlanFormOpen(false)} title={editingPlan ? `Configure Billing Plan: ${planForm.name || ''}` : 'Add New Billing Plan'} size="lg">
         {/* Step Indicator Progress Bar */}
         <div className="mb-6 px-1">
           <div className="flex items-center justify-between relative">
@@ -1183,10 +1229,10 @@ export default function SubscriptionsPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSavePlan} className="space-y-3.5 max-h-[50vh] overflow-y-auto px-1">
+        <form onSubmit={handleSavePlan} className="space-y-4 px-1">
           {/* STEP 1: READ-ONLY PLAN SUMMARY */}
           {wizardStep === 1 && (
-            <div className="space-y-3.5 animate-fade-in">
+            <div className="space-y-4 animate-fade-in">
               <div className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] uppercase font-black tracking-widest px-3 py-1 rounded-bl-xl shadow">
                   {planForm.slug || 'custom'}
@@ -1194,7 +1240,7 @@ export default function SubscriptionsPage() {
                 <h4 className="text-base font-black text-on-background tracking-tight">{planForm.name || 'Untitled Plan'}</h4>
                 <p className="text-[11px] text-zinc-500 mt-1.5 leading-relaxed">{planForm.description || 'No description configured.'}</p>
                 
-                <div className="mt-3 flex gap-4">
+                <div className="mt-3 flex gap-6">
                   <div>
                     <span className="text-[9px] text-zinc-400 font-bold block uppercase tracking-wider">Monthly Price</span>
                     <span className="text-sm font-black text-on-background">₹{planForm.monthlyPrice.toLocaleString()}</span>
@@ -1210,9 +1256,9 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Resource Limits List */}
-                <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl space-y-2.5">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl space-y-2.5">
                   <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
                     <HiOutlineChartBar className="text-indigo-500 w-4 h-4" /> Allocated Limits
                   </h5>
@@ -1226,11 +1272,11 @@ export default function SubscriptionsPage() {
                 </div>
 
                 {/* Features Checklist */}
-                <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-border-base dark:border-zinc-900/85 rounded-xl">
                   <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
                     <HiOutlineShieldCheck className="text-indigo-500 w-4 h-4" /> Enabled Features
                   </h5>
-                  <div className="grid grid-cols-1 gap-2 max-h-[145px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {Object.entries(planForm.features).map(([feat, enabled]) => (
                       <div key={feat} className="flex items-center gap-2 text-xs font-semibold">
                         {enabled ? (

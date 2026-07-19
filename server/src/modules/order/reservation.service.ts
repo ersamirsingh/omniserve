@@ -585,10 +585,15 @@ export class ReservationService {
       date?: Date;
       status?: ReservationStatus;
       tableId?: string;
+      outletIds?: Types.ObjectId[];
     } = {}
   ): Promise<any[]> {
     const query: Record<string, any> = { tenantId, isDeleted: false };
-    if (outletId) query.outletId = outletId;
+    if (outletId) {
+      query.outletId = outletId;
+    } else if (filters.outletIds && filters.outletIds.length > 0) {
+      query.outletId = { $in: filters.outletIds };
+    }
 
     if (filters.status) query.status = filters.status;
     if (filters.tableId) query.tableId = new Types.ObjectId(filters.tableId);

@@ -9,6 +9,8 @@ import RestaurantSubscriptionModel from "../../models/subscription.model.js";
 import InvoiceModel from "../../models/invoice.model.js";
 import SubscriptionPlanModel from "../../models/subscriptionPlan.model.js";
 
+import { AccessScope } from "../../utils/accessScope.utils.js";
+
 export class AdminSubscriptionController {
   /**
    * GET /plans
@@ -96,13 +98,32 @@ export class AdminSubscriptionController {
 
   /**
    * GET /subscriptions
-   * Lists all active tenant subscriptions globally
+   * Lists all active subscriptions with role & outlet scoping
    */
   static async listSubscriptions(req: Request, res: Response): Promise<void> {
     try {
       const limit = Number(req.query.limit) || 20;
       const skip = Number(req.query.skip) || 0;
-      const result = await SubscriptionRepository.listSubscriptions({}, limit, skip);
+      const outletId = req.query.outletId as string | undefined;
+
+      const filter: any = {};
+      if (outletId && Types.ObjectId.isValid(outletId)) {
+        if (req.user && !(await AccessScope.canAccessOutlet(req.user, outletId))) {
+          ApiResponseHandler.forbidden(res, "Access denied: You cannot view subscriptions for this outlet");
+          return;
+        }
+        filter.outletId = new Types.ObjectId(outletId);
+      } else if (req.user) {
+        const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+        if (allowedOutletIds !== null) {
+          filter.$or = [
+            { outletId: { $in: allowedOutletIds.map(id => new Types.ObjectId(id)) } },
+            { outletId: null }
+          ];
+        }
+      }
+
+      const result = await SubscriptionRepository.listSubscriptions(filter, limit, skip);
       ApiResponseHandler.success(res, 200, "Subscriptions list retrieved successfully", result);
     } catch (error: any) {
       console.error("[AdminSubscriptionController] listSubscriptions error:", error);
