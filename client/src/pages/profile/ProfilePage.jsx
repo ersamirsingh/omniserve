@@ -24,15 +24,21 @@ import { toggleOutletStatusApi } from '../../api/models/outlet.api';
 import { fetchCurrentUser } from '../../store/authSlice';
 import { ROLE_LABELS, ROLE_BADGE_VARIANT } from '../../utils/constants';
 
-export default function ProfilePage() {
+export default function ProfilePage({ defaultTab }) {
   const { user } = useAuth();
   const dispatch = useDispatch();
   const { addToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState(defaultTab || 'personal');
   const [loading, setLoading] = useState(false);
   const [profileContext, setProfileContext] = useState(null);
   const [contextLoading, setContextLoading] = useState(false);
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   const fetchProfileContext = async () => {
     setContextLoading(true);
@@ -105,6 +111,9 @@ export default function ProfilePage() {
     lastName: '',
     phone: '',
     address: '',
+    city: '',
+    state: '',
+    pincode: '',
     password: '',
     newPassword: '',
     confirmPassword: '',
@@ -120,6 +129,9 @@ export default function ProfilePage() {
         lastName: user.lastName || '',
         phone: user.phone || '',
         address: user.address || '',
+        city: user.city || '',
+        state: user.state || '',
+        pincode: user.pincode || '',
         profileImage: user.profileImage || '',
         idProof: user.idProof || '',
       }));
@@ -175,9 +187,13 @@ export default function ProfilePage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await updateUserApi(user.id || user._id, {
+      const payload = {
         address: form.address.trim(),
-      });
+      };
+      if (form.city) payload.city = form.city.trim();
+      if (form.state) payload.state = form.state.trim();
+      if (form.pincode) payload.pincode = form.pincode.trim();
+      await updateUserApi(user.id || user._id, payload);
       addToast('Address details updated successfully', 'success');
       dispatch(fetchCurrentUser(true));
     } catch (err) {
@@ -295,63 +311,94 @@ export default function ProfilePage() {
       {/* Main Grid Content */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
         {/* Navigation Sidebar */}
-        <div className="md:col-span-1 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 p-2.5 rounded-2xl flex flex-row md:flex-col gap-1 overflow-x-auto scrollbar-none">
+        <div className="md:col-span-1 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 p-3 rounded-2xl flex flex-row md:flex-col gap-2 overflow-x-auto scrollbar-none shadow-2xs">
           <button
             onClick={() => setActiveTab('personal')}
-            className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full cursor-pointer border-none text-left font-sans select-none ${
+            className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl text-left transition-all duration-200 w-full cursor-pointer select-none border-none ${
               activeTab === 'personal'
-                ? 'bg-primary text-white'
-                : 'text-on-surface-variant dark:text-zinc-405 hover:bg-surface-container-low dark:hover:bg-zinc-900/60 hover:text-on-surface dark:hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-primary to-indigo-600 text-white shadow-md shadow-primary/10'
+                : 'text-on-surface hover:bg-zinc-50 dark:text-zinc-350 dark:hover:bg-zinc-900/60'
             }`}
           >
-            <HiUser className="text-sm shrink-0" /> Personal Info
+            <div className="flex items-center gap-2 font-extrabold text-xs">
+              <HiUser className="text-sm shrink-0" />
+              <span>Personal Info</span>
+            </div>
+            <span className={`text-[9px] font-medium leading-tight mt-0.5 ${activeTab === 'personal' ? 'text-white/80' : 'text-on-surface-variant/70 dark:text-zinc-500'}`}>
+              Basic details & photo
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('address')}
-            className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full cursor-pointer border-none text-left font-sans select-none ${
+            className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl text-left transition-all duration-200 w-full cursor-pointer select-none border-none ${
               activeTab === 'address'
-                ? 'bg-primary text-white'
-                : 'text-on-surface-variant dark:text-zinc-405 hover:bg-surface-container-low dark:hover:bg-zinc-900/60 hover:text-on-surface dark:hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-primary to-indigo-600 text-white shadow-md shadow-primary/10'
+                : 'text-on-surface hover:bg-zinc-50 dark:text-zinc-350 dark:hover:bg-zinc-900/60'
             }`}
           >
-            <HiMapPin className="text-sm shrink-0" /> Address Details
+            <div className="flex items-center gap-2 font-extrabold text-xs">
+              <HiMapPin className="text-sm shrink-0" />
+              <span>Address Details</span>
+            </div>
+            <span className={`text-[9px] font-medium leading-tight mt-0.5 ${activeTab === 'address' ? 'text-white/80' : 'text-on-surface-variant/70 dark:text-zinc-500'}`}>
+              Location & correspondence
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('verification')}
-            className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full cursor-pointer border-none text-left font-sans select-none ${
+            className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl text-left transition-all duration-200 w-full cursor-pointer select-none border-none ${
               activeTab === 'verification'
-                ? 'bg-primary text-white'
-                : 'text-on-surface-variant dark:text-zinc-405 hover:bg-surface-container-low dark:hover:bg-zinc-900/60 hover:text-on-surface dark:hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-primary to-indigo-600 text-white shadow-md shadow-primary/10'
+                : 'text-on-surface hover:bg-zinc-50 dark:text-zinc-350 dark:hover:bg-zinc-900/60'
             }`}
           >
-            <HiIdentification className="text-sm shrink-0" /> ID Verification
+            <div className="flex items-center gap-2 font-extrabold text-xs">
+              <HiIdentification className="text-sm shrink-0" />
+              <span>ID Verification</span>
+            </div>
+            <span className={`text-[9px] font-medium leading-tight mt-0.5 ${activeTab === 'verification' ? 'text-white/80' : 'text-on-surface-variant/70 dark:text-zinc-500'}`}>
+              Government credentials
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('organization')}
-            className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full cursor-pointer border-none text-left font-sans select-none ${
+            className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl text-left transition-all duration-200 w-full cursor-pointer select-none border-none ${
               activeTab === 'organization'
-                ? 'bg-primary text-white'
-                : 'text-on-surface-variant dark:text-zinc-405 hover:bg-surface-container-low dark:hover:bg-zinc-900/60 hover:text-on-surface dark:hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-primary to-indigo-600 text-white shadow-md shadow-primary/10'
+                : 'text-on-surface hover:bg-zinc-50 dark:text-zinc-350 dark:hover:bg-zinc-900/60'
             }`}
           >
-            <HiBuildingOffice className="text-sm shrink-0" /> Organization & Access
+            <div className="flex items-center gap-2 font-extrabold text-xs">
+              <HiBuildingOffice className="text-sm shrink-0" />
+              <span>Access Scopes</span>
+            </div>
+            <span className={`text-[9px] font-medium leading-tight mt-0.5 ${activeTab === 'organization' ? 'text-white/80' : 'text-on-surface-variant/70 dark:text-zinc-500'}`}>
+              Hierarchy boundaries
+            </span>
           </button>
+          <div className="hidden md:block border-t border-zinc-100 dark:border-zinc-900 my-1"></div>
           <button
             onClick={() => setActiveTab('security')}
-            className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full cursor-pointer border-none text-left font-sans select-none ${
+            className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl text-left transition-all duration-200 w-full cursor-pointer select-none border-none ${
               activeTab === 'security'
-                ? 'bg-primary text-white'
-                : 'text-on-surface-variant dark:text-zinc-405 hover:bg-surface-container-low dark:hover:bg-zinc-900/60 hover:text-on-surface dark:hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-primary to-indigo-600 text-white shadow-md shadow-primary/10'
+                : 'text-on-surface hover:bg-zinc-50 dark:text-zinc-350 dark:hover:bg-zinc-900/60'
             }`}
           >
-            <HiKey className="text-sm shrink-0" /> Security
+            <div className="flex items-center gap-2 font-extrabold text-xs">
+              <HiKey className="text-sm shrink-0" />
+              <span>Security</span>
+            </div>
+            <span className={`text-[9px] font-medium leading-tight mt-0.5 ${activeTab === 'security' ? 'text-white/80' : 'text-on-surface-variant/70 dark:text-zinc-500'}`}>
+              Password & protection
+            </span>
           </button>
         </div>
 
         {/* Tab Panels */}
-        <div className="md:col-span-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl p-6 shadow-xs min-h-[300px]">
+        <div className="md:col-span-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-900 rounded-3xl p-6 shadow-xs h-[520px] flex flex-col">
           {activeTab === 'personal' && (
-            <form onSubmit={handleSavePersonal} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSavePersonal} className="space-y-5 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Personal Details</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Update your basic profile contact information.</p>
@@ -422,36 +469,62 @@ export default function ProfilePage() {
           )}
 
           {activeTab === 'address' && (
-            <form onSubmit={handleSaveAddress} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSaveAddress} className="space-y-5 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Address Details</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Provide your current correspondence address details.</p>
               </div>
 
-              <div className="flex flex-col gap-1 w-full">
-                <label className="block font-label-sm text-label-sm text-on-surface-variant dark:text-zinc-400 text-[12px] font-semibold mb-1" htmlFor="p-address">
-                  Full Address
-                </label>
-                <textarea
-                  id="p-address"
-                  rows={4}
-                  value={form.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  placeholder="Enter house details, street name, city, state, pincode..."
-                  className="textarea textarea-bordered w-full p-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl text-xs font-semibold text-on-surface dark:text-zinc-200 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 resize-y min-h-24 placeholder-on-surface-variant/40"
-                />
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1 w-full">
+                  <label className="block text-on-surface-variant dark:text-zinc-400 text-[12px] font-semibold mb-1" htmlFor="p-address">
+                    Street Address
+                  </label>
+                  <textarea
+                    id="p-address"
+                    rows={3}
+                    value={form.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    placeholder="House / flat number, building name, street name, locality..."
+                    className="textarea textarea-bordered w-full p-3 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-800 rounded-xl text-xs font-semibold text-on-surface dark:text-zinc-200 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all duration-200 resize-y min-h-20 placeholder-on-surface-variant/40"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Input
+                    id="p-city"
+                    label="City"
+                    value={form.city || ''}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    placeholder="e.g. Mumbai"
+                  />
+                  <Input
+                    id="p-state"
+                    label="State"
+                    value={form.state || ''}
+                    onChange={(e) => handleInputChange('state', e.target.value)}
+                    placeholder="e.g. Maharashtra"
+                  />
+                  <Input
+                    id="p-pincode"
+                    label="Pincode"
+                    value={form.pincode || ''}
+                    onChange={(e) => handleInputChange('pincode', e.target.value)}
+                    placeholder="e.g. 400001"
+                  />
+                </div>
               </div>
 
-              <div className="flex justify-end pt-4 border-t border-border-base dark:bg-zinc-900">
-                <Button type="submit" loading={loading} className="px-5 font-bold">
-                  Save Address
+              <div className="flex justify-end pt-4 border-t border-border-base dark:border-zinc-900">
+                <Button type="submit" loading={loading} className="px-5 font-bold flex items-center gap-1.5">
+                  <HiMapPin className="text-xs" /> Save Address
                 </Button>
               </div>
             </form>
           )}
 
           {activeTab === 'verification' && (
-            <form onSubmit={handleSaveVerification} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSaveVerification} className="space-y-5 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Identity Verification</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">Upload government issued identification proof to verify your account.</p>
@@ -533,7 +606,7 @@ export default function ProfilePage() {
               </div>
 
               {user?.idProofStatus !== 'VERIFIED' && form.idProof !== user?.idProof && (
-                <div className="flex justify-end pt-4 border-t border-border-base dark:bg-zinc-900 animate-fade-in">
+                <div className="flex justify-end pt-4 border-t border-border-base dark:border-zinc-900 animate-fade-in">
                   <Button type="submit" loading={loading} className="px-5 font-bold flex items-center gap-1.5">
                     <HiArrowUpTray className="text-xs" /> Submit for Verification
                   </Button>
@@ -543,50 +616,63 @@ export default function ProfilePage() {
           )}
 
           {activeTab === 'security' && (
-            <form onSubmit={handleSavePassword} className="space-y-5 animate-fade-in">
+            <form onSubmit={handleSavePassword} className="space-y-6 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
-                <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Change Password</h3>
-                <p className="text-xs text-on-surface-variant dark:text-zinc-405">Update your password security regularly to prevent unauthorized access.</p>
+                <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Security Settings</h3>
+                <p className="text-xs text-on-surface-variant dark:text-zinc-405">Manage your account password and authentication credentials. Update your password regularly to keep your account secure.</p>
               </div>
 
-              <Input
-                id="p-curr-pass"
-                label="Current Password"
-                type="password"
-                value={form.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                required
-                placeholder="Enter current password"
-              />
-              <Input
-                id="p-new-pass"
-                label="New Password"
-                type="password"
-                value={form.newPassword}
-                onChange={(e) => handleInputChange('newPassword', e.target.value)}
-                required
-                placeholder="Enter new password"
-              />
-              <Input
-                id="p-conf-pass"
-                label="Confirm New Password"
-                type="password"
-                value={form.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                required
-                placeholder="Confirm new password"
-              />
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-4 text-[11px] text-amber-800 dark:text-amber-300 font-medium space-y-1">
+                <p className="font-bold text-xs">🔒 Password Requirements</p>
+                <ul className="list-disc list-inside space-y-0.5 text-amber-700 dark:text-amber-400">
+                  <li>Minimum 6 characters</li>
+                  <li>Include a mix of letters, numbers, and symbols for best security</li>
+                  <li>New password must differ from the current password</li>
+                </ul>
+              </div>
 
-              <div className="flex justify-end pt-4 border-t border-border-base dark:bg-zinc-900">
-                <Button type="submit" loading={loading} className="px-5 font-bold">
-                  Update Password
+              <div className="space-y-4">
+                <Input
+                  id="p-curr-pass"
+                  label="Current Password"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  required
+                  placeholder="Enter current password"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    id="p-new-pass"
+                    label="New Password"
+                    type="password"
+                    value={form.newPassword}
+                    onChange={(e) => handleInputChange('newPassword', e.target.value)}
+                    required
+                    placeholder="Enter new password"
+                  />
+                  <Input
+                    id="p-conf-pass"
+                    label="Confirm New Password"
+                    type="password"
+                    value={form.confirmPassword}
+                    onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                    required
+                    placeholder="Confirm new password"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-border-base dark:border-zinc-900">
+                <Button type="submit" loading={loading} className="px-5 font-bold flex items-center gap-1.5">
+                  <HiKey className="text-xs" /> Update Password
                 </Button>
               </div>
             </form>
           )}
 
           {activeTab === 'organization' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in overflow-y-auto pr-1 flex-1 scrollbar-thin">
               <div>
                 <h3 className="text-title-lg font-bold text-on-surface dark:text-zinc-150 text-[18px]">Organization & Access</h3>
                 <p className="text-xs text-on-surface-variant dark:text-zinc-405">View your organizational hierarchy and access boundaries resolved by the system.</p>

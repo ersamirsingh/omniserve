@@ -12,7 +12,7 @@ if(process.env.NODE_ENV !== 'production'){
 import http from 'http';
 import app from './src/app.js';
 import connectToMongoDB from './src/config/db.js';
-import connectRedis from './src/config/redis.js';
+import connectRedis, { getRedisClient } from './src/config/redis.js';
 import { OutboxPollerService } from './src/modules/integration/outbox-poller.service.js';
 import { RealtimeService } from './src/sockets/realtime.service.js';
 import { startWaiterTaskEscalationWorker, stopWaiterTaskEscalationWorker } from './src/jobs/waiter-task-escalation.worker.js';
@@ -23,7 +23,13 @@ const PORT = process.env.PORT || 5000;
 
 const bootstrap = async () => {
    try {
-      await Promise.all([connectToMongoDB(), connectRedis()]);
+      // Connect MongoDB and Redis in parallel; Redis failure is non-fatal
+      await Promise.all([
+         connectToMongoDB(),
+         connectRedis().catch((err: Error) => {
+            console.warn('[Server] Redis startup failed — continuing without cache:', err.message);
+         }),
+      ]);
 
       // Start outbox poller
       OutboxPollerService.start();
@@ -69,10 +75,10 @@ const bootstrap = async () => {
                await mongoose.connection.close();
                console.log('[Server] MongoDB connection closed.');
 
-               // 4. Close Redis connections
-               const redisClient = await connectRedis();
-               if (redisClient && redisClient.isOpen) {
-                  await redisClient.quit();
+               // 4. Close Redis connection if it is open
+               const rc = getRedisClient();
+               if (rc && rc.isOpen) {
+                  await rc.quit();
                   console.log('[Server] Redis connection closed.');
                }
             } catch (err: any) {

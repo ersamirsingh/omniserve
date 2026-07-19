@@ -169,6 +169,41 @@ export class AnalyticsController {
   }
 
   /**
+   * Retrieve extended analytical statistics
+   * GET /analytics/extended
+   */
+  static async getExtendedStats(req: Request, res: Response): Promise<void> {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) {
+        ApiResponseHandler.unauthorized(res, 'User not authenticated or tenant ID not found');
+        return;
+      }
+
+      const outletId = req.query.outletId as string | undefined;
+      if (outletId) {
+        const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
+        if (!isOwner) {
+          ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
+          return;
+        }
+        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
+          ApiResponseHandler.forbidden(res, 'You cannot access analytics for this outlet');
+          return;
+        }
+      }
+
+      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
+      const scopedOutletIds = outletId ? [outletId] : allowedOutletIds;
+      const extended = await AnalyticsService.getExtendedStats(tenantId, scopedOutletIds);
+
+      ApiResponseHandler.success(res, 200, 'Extended analytics stats retrieved successfully', extended);
+    } catch (error: any) {
+      ApiResponseHandler.internalError(res, error.message || 'Failed to retrieve extended analytics');
+    }
+  }
+
+  /**
    * Submit review
    * POST /analytics/reviews
    */

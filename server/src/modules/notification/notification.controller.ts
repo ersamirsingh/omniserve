@@ -39,7 +39,8 @@ export class NotificationController {
       const { notifications, total } = await NotificationService.getNotificationsForUser(
         req.user.userId,
         req.user.tenantId,
-        filters
+        filters,
+        req.user.role
       );
 
       ApiResponseHandler.success(res, 200, 'Notifications retrieved successfully', {
@@ -90,7 +91,8 @@ export class NotificationController {
       const notification = await NotificationService.markAsRead(
         id,
         req.user.userId,
-        req.user.tenantId
+        req.user.tenantId,
+        req.user.role
       );
 
       if (!notification) {
@@ -123,7 +125,7 @@ export class NotificationController {
         return;
       }
 
-      await NotificationService.markAllAsRead(req.user.userId, req.user.tenantId);
+      await NotificationService.markAllAsRead(req.user.userId, req.user.tenantId, req.user.role);
 
       ApiResponseHandler.success(res, 200, 'All notifications marked as read');
     } catch (error: any) {
@@ -155,7 +157,8 @@ export class NotificationController {
       const notification = await NotificationService.deleteNotification(
         id,
         req.user.userId,
-        req.user.tenantId
+        req.user.tenantId,
+        req.user.role
       );
 
       if (!notification) {

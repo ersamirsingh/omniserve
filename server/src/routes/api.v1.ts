@@ -29,6 +29,7 @@ import diningAnalyticsRouter from "../modules/analytics/dining-analytics.routes.
 import systemAdminRoutes from "../modules/systemAdmin/systemAdmin.routes.js";
 import healthRoutes from "../modules/health/health.routes.js";
 import aiCopilotRoutes from "../modules/aiCopilot/routes/aiCopilot.routes.js";
+import helpRequestRouter from "../modules/helpRequest/helpRequest.routes.js";
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use("/auth", authRoutes);
 router.use("/system-admin", systemAdminRoutes);
 router.use("/health", healthRoutes);
 router.use("/subscriptions", subscriptionRoutes);
+router.use("/help-requests", helpRequestRouter);
 router.use("/restaurants", restaurantRouter);
 router.use("/outlets", outletRoutes);
 router.use("/categories", categoryRouter);

@@ -51,10 +51,25 @@ router.delete('/tenants/:id', SystemAdminController.deleteTenant);
 // User search
 router.get('/users/search', SystemAdminController.searchUsers);
 
+// List all system admins (for issue assignment)
+router.get('/admins', SystemAdminController.listSystemAdmins);
+
 // Audit logs
 router.get('/audit-logs', SystemAdminController.getAuditLogs);
 
 // Detailed health checks
 router.get('/health/detailed', HealthController.getDetailedHealth);
+
+// Detailed database stats
+router.get('/health/stats', SystemAdminController.getHealthStats);
+
+// Schema relationship graph
+router.get('/schema/graph', SystemAdminController.getSchemaGraph);
+
+// Issue Tracker routes
+router.get('/issues', SystemAdminController.listIssues);
+router.post('/issues', SystemAdminController.createIssue);
+router.post('/issues/:id/comments', SystemAdminController.addComment);
+router.post('/issues/:id/status', SystemAdminController.updateIssueStatus);
 
 export default router;

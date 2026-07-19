@@ -237,7 +237,7 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        section="CRM"
+        section="Management"
         title="Customers"
         description="View customer order stats and manage profile contact directories."
         actions={actions}

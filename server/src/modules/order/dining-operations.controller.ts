@@ -11,6 +11,8 @@ import { DiningAreaService } from "../outlet/dining-area.service.js";
 import { TableService } from "../outlet/table.service.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 import { UserRole } from "../../models/enums.js";
+import TableLock from "../../models/tableLock.model.js";
+import { EventBusService } from "../../events/eventBus.js";
 
 export class DiningOperationsController {
   /**
@@ -475,6 +477,73 @@ export class DiningOperationsController {
     } catch (error: any) {
       console.error("[DiningOperationsController] archiveDiningArea error:", error);
       ApiResponseHandler.badRequest(res, error.message || "Failed to archive dining area");
+    }
+  }
+
+  /**
+   * POST /api/v1/dining/tables/:tableId/hold
+   * Places a temporary lock/hold on a table (operationalStatus = HELD)
+   */
+  static async holdTable(req: Request, res: Response): Promise<void> {
+    try {
+      const { tableId } = req.params;
+      const { tenantId, outletId } = await resolveDiningContext(req);
+
+      const table = await Table.findOne({ _id: new Types.ObjectId(tableId as string), tenantId, isDeleted: false });
+      if (!table) {
+        ApiResponseHandler.notFound(res, "Table not found");
+        return;
+      }
+
+      // If table is occupied or already reserved, block hold creation
+      if (["OCCUPIED", "DINING", "BILL_REQUESTED", "PAYMENT_PENDING", "RESERVED"].includes(table.operationalStatus)) {
+        ApiResponseHandler.badRequest(res, `Table is currently ${table.operationalStatus} and cannot be held`);
+        return;
+      }
+
+      // Check if it's already held by another staff member
+      const activeLock = await TableLock.findOne({ tableId: table._id, expiresAt: { $gt: new Date() } });
+      if (activeLock && activeLock.ipAddress !== req.ip) {
+        ApiResponseHandler.badRequest(res, "Table is already held by another staff member");
+        return;
+      }
+
+      // Set hold duration: 15 minutes
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+      await TableLock.findOneAndUpdate(
+        { tableId: table._id },
+        {
+          $set: {
+            ipAddress: req.ip || "unknown",
+            lockedAt: new Date(),
+            expiresAt
+          }
+        },
+        { upsert: true }
+      );
+
+      table.operationalStatus = "HELD";
+      await table.save();
+
+      // Broadcast update
+      await EventBusService.publishTableStatusChanged(
+        tenantId,
+        outletId,
+        table._id,
+        {
+          tableId: table._id.toString(),
+          tableNumber: table.tableNumber,
+          status: "HELD",
+          updatedAt: new Date()
+        },
+        { sourceSystem: "SYSTEM" }
+      );
+
+      ApiResponseHandler.success(res, 200, "Table placed on hold successfully", { tableId, expiresAt });
+    } catch (error: any) {
+      console.error("[DiningOperationsController] holdTable error:", error);
+      ApiResponseHandler.badRequest(res, error.message || "Failed to hold table");
     }
   }
 

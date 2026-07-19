@@ -6,6 +6,7 @@ const variants = {
   danger: 'badge badge-error bg-red-500/12 text-red-400 border-none',
   info: 'badge badge-info bg-blue-500/12 text-blue-400 border-none',
   neutral: 'badge badge-neutral bg-slate-500/12 text-slate-400 border-none',
+  outline: 'badge bg-transparent border border-border-base dark:border-zinc-700',
 };
 
 export default function Badge({ variant = 'neutral', children, className = '' }) {

@@ -1,17 +1,10 @@
-import connectRedis from "../config/redis.js";
+import { isRedisReady, getRedisClient } from "../config/redis.js";
 
 export class CacheUtils {
-  private static async getClient() {
-    try {
-      const client = await connectRedis();
-      if (client && client.isOpen) {
-        return client;
-      }
-      return null;
-    } catch (err) {
-      console.error("[CacheUtils] Failed to retrieve Redis client:", err);
-      return null;
-    }
+  /** Synchronously returns the client if ready, otherwise null */
+  private static getClient() {
+    if (!isRedisReady()) return null;
+    return getRedisClient();
   }
 
   /**
@@ -19,7 +12,7 @@ export class CacheUtils {
    */
   static async get<T>(key: string): Promise<T | null> {
     try {
-      const client = await this.getClient();
+      const client = this.getClient();
       if (!client) return null;
       
       const val = await client.get(key);
@@ -37,7 +30,7 @@ export class CacheUtils {
    */
   static async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
     try {
-      const client = await this.getClient();
+      const client = this.getClient();
       if (!client) return;
       
       const payload = JSON.stringify(value);
@@ -56,7 +49,7 @@ export class CacheUtils {
    */
   static async del(key: string): Promise<void> {
     try {
-      const client = await this.getClient();
+      const client = this.getClient();
       if (!client) return;
       
       await client.del(key);
@@ -70,7 +63,7 @@ export class CacheUtils {
    */
   static async delPattern(pattern: string): Promise<void> {
     try {
-      const client = await this.getClient();
+      const client = this.getClient();
       if (!client) return;
 
       let cursor = "0";

@@ -40,6 +40,10 @@ For "numeric-analytics", identify which tool and parameters to use from this lib
 - "getTopMenuItems" (params: startDate, endDate, limit)
 - "getLowInventoryAlerts" (no parameters)
 - "getReviewSentimentTrends" (no parameters)
+- "getPeakHours" (no parameters)
+- "getCustomerRetention" (no parameters)
+- "getTableTurnoverAndReservations" (no parameters)
+- "getOrderVolumeByChannel" (no parameters)
 
 Return raw JSON strictly in this format (do not wrap in markdown code blocks):
 {

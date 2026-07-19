@@ -120,16 +120,19 @@ export class NotificationService {
   static async getNotificationsForUser(
     userId: string,
     tenantId: string | undefined | null,
-    filters: { isRead?: boolean; limit: number; skip: number }
+    filters: { isRead?: boolean; limit: number; skip: number },
+    userRole?: string
   ): Promise<{ notifications: INotification[]; total: number }> {
     const query: any = {
       userId: new Types.ObjectId(userId),
       isDeleted: false,
     };
-    if (tenantId) {
-      query.tenantId = new Types.ObjectId(tenantId);
-    } else {
-      query.tenantId = null;
+    if (userRole !== 'SYSTEM_ADMIN') {
+      if (tenantId) {
+        query.tenantId = new Types.ObjectId(tenantId);
+      } else {
+        query.tenantId = null;
+      }
     }
 
     if (filters.isRead !== undefined) {
@@ -153,17 +156,20 @@ export class NotificationService {
   static async markAsRead(
     id: string,
     userId: string,
-    tenantId: string | undefined | null
+    tenantId: string | undefined | null,
+    userRole?: string
   ): Promise<INotification | null> {
     const query: any = {
       _id: new Types.ObjectId(id),
       userId: new Types.ObjectId(userId),
       isDeleted: false,
     };
-    if (tenantId) {
-      query.tenantId = new Types.ObjectId(tenantId);
-    } else {
-      query.tenantId = null;
+    if (userRole !== 'SYSTEM_ADMIN') {
+      if (tenantId) {
+        query.tenantId = new Types.ObjectId(tenantId);
+      } else {
+        query.tenantId = null;
+      }
     }
     return await Notification.findOneAndUpdate(
       query,
@@ -181,17 +187,20 @@ export class NotificationService {
    */
   static async markAllAsRead(
     userId: string,
-    tenantId: string | undefined | null
+    tenantId: string | undefined | null,
+    userRole?: string
   ): Promise<void> {
     const query: any = {
       userId: new Types.ObjectId(userId),
       isRead: false,
       isDeleted: false,
     };
-    if (tenantId) {
-      query.tenantId = new Types.ObjectId(tenantId);
-    } else {
-      query.tenantId = null;
+    if (userRole !== 'SYSTEM_ADMIN') {
+      if (tenantId) {
+        query.tenantId = new Types.ObjectId(tenantId);
+      } else {
+        query.tenantId = null;
+      }
     }
     await Notification.updateMany(
       query,
@@ -209,17 +218,20 @@ export class NotificationService {
   static async deleteNotification(
     id: string,
     userId: string,
-    tenantId: string | undefined | null
+    tenantId: string | undefined | null,
+    userRole?: string
   ): Promise<INotification | null> {
     const query: any = {
       _id: new Types.ObjectId(id),
       userId: new Types.ObjectId(userId),
       isDeleted: false,
     };
-    if (tenantId) {
-      query.tenantId = new Types.ObjectId(tenantId);
-    } else {
-      query.tenantId = null;
+    if (userRole !== 'SYSTEM_ADMIN') {
+      if (tenantId) {
+        query.tenantId = new Types.ObjectId(tenantId);
+      } else {
+        query.tenantId = null;
+      }
     }
     return await Notification.findOneAndUpdate(
       query,

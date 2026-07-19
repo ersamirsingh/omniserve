@@ -4,6 +4,7 @@ import Table from "../../models/table.model.js";
 import { EventBusService } from "../../events/eventBus.js";
 import { QRSessionService } from "./qrsession.service.js";
 import Outlet from "../../models/outlet.model.js";
+import TableLock from "../../models/tableLock.model.js";
 
 export interface ICreateReservationInput {
   outletId: Types.ObjectId;
@@ -20,6 +21,8 @@ export interface ICreateReservationInput {
   seatNumber?: string;
   seatNumbers?: string[];
   createdBy?: Types.ObjectId;
+  allowMerge?: boolean;
+  ipAddress?: string;
 }
 
 export interface IReservationResult {
@@ -80,6 +83,23 @@ export class ReservationService {
         throw new Error(`Table capacity (${table.seatCount}) is smaller than party size (${input.partySize})`);
       }
 
+      // Check operationalStatus availability (only for reservations scheduled within the next 2 hours)
+      const now = new Date();
+      const diffMs = Math.abs(input.scheduledAt.getTime() - now.getTime());
+      const isWithinTwoHours = diffMs <= 2 * 60 * 60 * 1000;
+
+      if (isWithinTwoHours && ["OCCUPIED", "RESERVED", "BILL_REQUESTED", "PAYMENT_PENDING", "CLEANING", "HELD"].includes(table.operationalStatus)) {
+        if (table.operationalStatus === "HELD") {
+          const activeLock = await TableLock.findOne({ tableId: table._id, expiresAt: { $gt: new Date() } });
+          if (activeLock && activeLock.ipAddress !== input.ipAddress) {
+            throw new Error(`Table ${table.tableNumber} is currently held and cannot be reserved`);
+          }
+        } else {
+          const statusStr = table.operationalStatus.toLowerCase().replace('_', ' ');
+          throw new Error(`Table ${table.tableNumber} is currently ${statusStr} and cannot be reserved`);
+        }
+      }
+
       // Check for time-overlapping confirmed/active reservations (within ±2 hour window)
       const windowStart = new Date(input.scheduledAt.getTime() - 2 * 60 * 60 * 1000);
       const windowEnd = new Date(input.scheduledAt.getTime() + 2 * 60 * 60 * 1000);
@@ -121,6 +141,91 @@ export class ReservationService {
       tableNumber = table.tableNumber;
     }
 
+    // Check for duplicate active booking
+    if (input.guestPhone) {
+      const activeBooking = await ReservationService.checkActiveBooking(tenantId, input.guestPhone);
+      if (activeBooking && activeBooking.hasActive) {
+        if (input.allowMerge && activeBooking.bookingId) {
+          // Perform the merge!
+          if (activeBooking.type === "RESERVATION") {
+            const existingRes = await Reservation.findById(activeBooking.bookingId);
+            if (existingRes) {
+              existingRes.partySize += Number(input.partySize);
+              if (seatNumbers && seatNumbers.length > 0) {
+                if (!existingRes.seatNumbers) existingRes.seatNumbers = [];
+                seatNumbers.forEach(s => {
+                  if (!existingRes.seatNumbers!.includes(s)) {
+                    existingRes.seatNumbers!.push(s);
+                  }
+                });
+                if (existingRes.seatNumbers!.length > 0) {
+                  existingRes.seatNumber = existingRes.seatNumbers![0] ?? null;
+                }
+              }
+              await existingRes.save();
+
+              // Update the table status to RESERVED
+              if (existingRes.tableId) {
+                const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
+                await TableServiceMod.updateTableOperationalStatus(
+                  tenantId,
+                  existingRes.outletId,
+                  existingRes.tableId,
+                  "RESERVED",
+                  { correlationId: existingRes._id.toString() }
+                );
+              }
+              
+              // Return merged result
+              return {
+                reservationId: existingRes._id.toString(),
+                guestName: existingRes.guestName,
+                partySize: existingRes.partySize,
+                scheduledAt: existingRes.scheduledAt,
+                status: existingRes.status,
+                tableId: existingRes.tableId?.toString() ?? null,
+                tableNumber
+              };
+            }
+          } else if (activeBooking.type === "SESSION") {
+            const QRSession = mongoose.model("QRSession");
+            const activeSession = await QRSession.findById(activeBooking.bookingId);
+            if (activeSession) {
+              // Merge into the QR session by adding seat(s)
+              if (seatNumbers && seatNumbers.length > 0) {
+                seatNumbers.forEach(seatNum => {
+                  if (!activeSession.seats.some((s: any) => s.seatNumber === seatNum)) {
+                    activeSession.seats.push({
+                      seatNumber: seatNum,
+                      joinedAt: new Date()
+                    });
+                  }
+                });
+                await activeSession.save();
+              }
+              // Return the session's active table
+              return {
+                reservationId: activeSession._id.toString(),
+                guestName: input.guestName,
+                partySize: Number(input.partySize),
+                scheduledAt: new Date(),
+                status: "SEATED",
+                tableId: activeSession.tableId.toString(),
+                tableNumber
+              };
+            }
+          }
+        } else {
+          // Block creation and return details
+          throw new Error(`ACTIVE_BOOKING_EXISTS:${JSON.stringify({
+            type: activeBooking.type,
+            bookingId: activeBooking.bookingId,
+            details: activeBooking.details
+          })}`);
+        }
+      }
+    }
+
     const reservation = await Reservation.create({
       tenantId,
       outletId: input.outletId,
@@ -135,10 +240,26 @@ export class ReservationService {
       ...(input.customerId && { customerId: new Types.ObjectId(input.customerId) }),
       ...(input.specialRequests && { specialRequests: input.specialRequests }),
       ...(input.notes && { notes: input.notes }),
-      seatNumber,
-      seatNumbers,
-      ...(input.createdBy && { createdBy: input.createdBy })
+      ...(input.seatNumbers && { seatNumbers: input.seatNumbers }),
+      ...(seatNumber && { seatNumber: seatNumber })
     });
+
+    if (reservation.tableId) {
+      // Delete any TableLock for this table
+      await TableLock.deleteOne({ tableId: reservation.tableId });
+      
+      const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
+      const table = await mongoose.model("Table").findById(reservation.tableId);
+      if (table && table.operationalStatus === "HELD") {
+        await TableServiceMod.updateTableOperationalStatus(
+          tenantId,
+          reservation.outletId,
+          reservation.tableId,
+          "AVAILABLE",
+          { correlationId: reservation._id.toString() }
+        );
+      }
+    }
 
     return {
       reservationId: reservation._id.toString(),
@@ -146,7 +267,7 @@ export class ReservationService {
       partySize: reservation.partySize,
       scheduledAt: reservation.scheduledAt,
       status: "PENDING",
-      tableId: input.tableId ?? null,
+      tableId: reservation.tableId?.toString() ?? null,
       tableNumber
     };
   }
@@ -173,6 +294,19 @@ export class ReservationService {
     reservation.confirmedAt = new Date();
     if (updatedBy) reservation.updatedBy = updatedBy;
     await reservation.save();
+
+    if (reservation.tableId) {
+      const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
+      await TableServiceMod.updateTableOperationalStatus(
+        tenantId,
+        reservation.outletId,
+        reservation.tableId,
+        "RESERVED",
+        { correlationId: reservation._id.toString() }
+      );
+      // Delete any TableLock for this table
+      await TableLock.deleteOne({ tableId: reservation.tableId });
+    }
 
     await EventBusService.publishReservationConfirmed(
       tenantId,
@@ -238,6 +372,17 @@ export class ReservationService {
     if (activeSessionId) reservation.sessionId = new Types.ObjectId(activeSessionId);
     if (options.updatedBy) reservation.updatedBy = options.updatedBy;
     await reservation.save();
+
+    if (finalTableId) {
+      const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
+      await TableServiceMod.updateTableOperationalStatus(
+        tenantId,
+        reservation.outletId,
+        finalTableId,
+        "OCCUPIED",
+        { correlationId: reservation._id.toString() }
+      );
+    }
 
     await EventBusService.publishReservationSeated(
       tenantId,
@@ -309,6 +454,17 @@ export class ReservationService {
     if (updatedBy) reservation.updatedBy = updatedBy;
     await reservation.save();
 
+    if (reservation.tableId) {
+      const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
+      await TableServiceMod.updateTableOperationalStatus(
+        tenantId,
+        reservation.outletId,
+        reservation.tableId,
+        "AVAILABLE",
+        { correlationId: reservation._id.toString() }
+      );
+    }
+
     return {
       reservationId: reservation._id.toString(),
       guestName: reservation.guestName,
@@ -342,6 +498,17 @@ export class ReservationService {
     if (options.reason) reservation.cancellationReason = options.reason;
     if (options.updatedBy) reservation.updatedBy = options.updatedBy;
     await reservation.save();
+
+    if (reservation.tableId) {
+      const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
+      await TableServiceMod.updateTableOperationalStatus(
+        tenantId,
+        reservation.outletId,
+        reservation.tableId,
+        "AVAILABLE",
+        { correlationId: reservation._id.toString() }
+      );
+    }
 
     await EventBusService.publishReservationCancelled(
       tenantId,
@@ -388,5 +555,83 @@ export class ReservationService {
       .sort({ scheduledAt: 1 })
       .populate("tableId", "tableNumber seatCount")
       .lean();
+  }
+
+  /**
+   * Check if a guest has any active bookings (incomplete reservations, active QR sessions, or active orders)
+   */
+  static async checkActiveBooking(
+    tenantId: Types.ObjectId,
+    phone: string
+  ): Promise<{ hasActive: boolean; type?: "RESERVATION" | "ORDER" | "SESSION"; bookingId?: string; details?: string } | null> {
+    if (!phone) return { hasActive: false };
+    const formattedPhone = phone.trim();
+
+    // 1. Check for active/incomplete reservation under guestPhone
+    const activeRes = await Reservation.findOne({
+      tenantId,
+      guestPhone: formattedPhone,
+      status: { $in: ["PENDING", "CONFIRMED", "SEATED", "HOLD"] },
+      isDeleted: false
+    }).populate("tableId").lean();
+
+    if (activeRes) {
+      const tableNum = (activeRes.tableId as any)?.tableNumber || "N/A";
+      return {
+        hasActive: true,
+        type: "RESERVATION",
+        bookingId: activeRes._id.toString(),
+        details: `Active reservation at Table ${tableNum} scheduled for ${new Date(activeRes.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      };
+    }
+
+    // 2. Check if a Customer account exists with this phone number
+    const customer = await mongoose.model("Customer").findOne({
+      tenantId,
+      phone: formattedPhone,
+      isDeleted: false
+    }).lean();
+
+    if (customer) {
+      // 2a. Check for active sessions for this customer
+      const activeSession = await mongoose.model("QRSession").findOne({
+        tenantId,
+        status: { $in: ["ACTIVE", "ORDERING", "DINING", "PAYMENT_PENDING", "OPEN", "ORDERED", "PAID"] },
+        $or: [
+          { customerId: (customer as any)._id },
+          { "seats.customerId": (customer as any)._id }
+        ],
+        isDeleted: false
+      }).populate("tableId").lean() as any;
+
+      if (activeSession) {
+        const tableNum = (activeSession.tableId as any)?.tableNumber || "N/A";
+        return {
+          hasActive: true,
+          type: "SESSION",
+          bookingId: activeSession._id.toString(),
+          details: `Active dining session at Table ${tableNum}`
+        };
+      }
+
+      // 2b. Check for active/incomplete orders for this customer
+      const activeOrder = await mongoose.model("Order").findOne({
+        tenantId,
+        customerId: (customer as any)._id,
+        orderStatus: { $in: ["PLACED", "ACCEPTED", "PREPARING", "READY", "PICKED_UP", "DELIVERED", "PARTIALLY_PAID"] },
+        isDeleted: false
+      }).lean() as any;
+
+      if (activeOrder) {
+        return {
+          hasActive: true,
+          type: "ORDER",
+          bookingId: activeOrder._id.toString(),
+          details: `Active order #${activeOrder.orderNumber} (Status: ${activeOrder.orderStatus})`
+        };
+      }
+    }
+
+    return { hasActive: false };
   }
 }
