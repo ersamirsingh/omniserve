@@ -57,12 +57,43 @@ export class ReservationController {
    */
   static async getReservations(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, outletId } = await resolveDiningContext(req);
+      let tenantId: Types.ObjectId;
+      let outletId: Types.ObjectId | undefined;
+
+      if (req.user?.role === 'SYSTEM_ADMIN') {
+        const Tenant = (await import("mongoose")).default.model("Tenant");
+        const Outlet = (await import("mongoose")).default.model("Outlet");
+        const tenantStr = req.query.tenantId as string || req.headers["x-tenant-id"] as string;
+        const outletStr = req.query.outletId as string || req.headers["x-outlet-id"] as string;
+        
+        if (tenantStr && Types.ObjectId.isValid(tenantStr)) {
+          tenantId = new Types.ObjectId(tenantStr);
+        } else {
+          const firstT = await Tenant.findOne({ isDeleted: false }).lean();
+          if (!firstT) {
+            ApiResponseHandler.success(res, 200, "Reservations retrieved", { count: 0, reservations: [] });
+            return;
+          }
+          tenantId = (firstT as any)._id;
+        }
+
+        if (outletStr && Types.ObjectId.isValid(outletStr)) {
+          outletId = new Types.ObjectId(outletStr);
+        } else {
+          const firstO = await Outlet.findOne({ tenantId, isDeleted: false }).lean();
+          if (firstO) outletId = (firstO as any)._id;
+        }
+      } else {
+        const context = await resolveDiningContext(req);
+        tenantId = context.tenantId;
+        outletId = context.outletId;
+      }
+
       const status = req.query.status as ReservationStatus | undefined;
       const tableId = req.query.tableId as string | undefined;
       const date = req.query.date ? new Date(String(req.query.date)) : undefined;
 
-      const reservations = await ReservationService.getReservations(tenantId, outletId, {
+      const reservations = await ReservationService.getReservations(tenantId, outletId!, {
         ...(date && { date }),
         ...(status && { status }),
         ...(tableId && { tableId })

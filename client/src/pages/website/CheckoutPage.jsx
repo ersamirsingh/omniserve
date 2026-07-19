@@ -27,7 +27,8 @@ export default function CheckoutPage() {
   // Form states
   const [customerName, setCustomerName] = useState(() => localStorage.getItem("guestName") || "");
   const [customerPhone, setCustomerPhone] = useState(() => localStorage.getItem("guestPhone") || "");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerEmail, setCustomerEmail] = useState(() => localStorage.getItem("guestEmail") || "");
+  const [sessionBill, setSessionBill] = useState(null);
 
   const [fulfillmentType, setFulfillmentType] = useState(hasTableSession ? "DINE_IN" : "DELIVERY");
   const [addressLine1, setAddressLine1] = useState("");
@@ -59,6 +60,18 @@ export default function CheckoutPage() {
       .finally(() => {
         setLoading(false);
       });
+
+    // If on active table session, load previous orders session bill for cumulative total
+    const sessionToken = localStorage.getItem("sessionToken");
+    if (sessionToken && !sessionToken.startsWith("WEB-SESS-")) {
+      import("../../api/models/public.api").then(({ getQrSessionBillApi }) => {
+        getQrSessionBillApi(sessionToken)
+          .then((res) => {
+            setSessionBill(res.data?.data?.billSession || null);
+          })
+          .catch(() => {});
+      });
+    }
   }, []);
 
   if (loading) {
@@ -204,6 +217,13 @@ export default function CheckoutPage() {
     try {
       const res = await checkoutCartApi(payload);
       const orderId = res.data.data.processedOrder.internalOrderId;
+
+      // Save guest info for subsequent orders in the same session
+      localStorage.setItem("guestName", customerName);
+      localStorage.setItem("guestPhone", customerPhone);
+      if (customerEmail) {
+        localStorage.setItem("guestEmail", customerEmail);
+      }
 
       // Clear session timer lock since they have placed an order and occupied the table
       localStorage.removeItem("lockExpiresAt");
@@ -571,6 +591,25 @@ export default function CheckoutPage() {
                 <span>Total Payable</span>
                 <span className="text-primary tabular-nums">{formatINR(totalAmount)}</span>
               </div>
+
+              {/* Running Cumulative Session Bill if adding items in active table session */}
+              {sessionBill && ((sessionBill.subtotal || 0) > 0) && (
+                <div className="mt-3 p-3 bg-primary/10 border border-primary/30 rounded-xl space-y-1.5 text-xs animate-fade-in">
+                  <p className="font-bold text-[11px] uppercase tracking-wider text-primary">Cumulative Session Summary</p>
+                  <div className="flex justify-between text-on-surface font-medium">
+                    <span>Previous Orders Total:</span>
+                    <span className="tabular-nums">{formatINR((sessionBill.subtotal || 0) + (sessionBill.tax || 0))}</span>
+                  </div>
+                  <div className="flex justify-between text-on-surface font-medium">
+                    <span>New Items Total:</span>
+                    <span className="tabular-nums">{formatINR(totalAmount)}</span>
+                  </div>
+                  <div className="border-t border-primary/20 pt-1 flex justify-between font-black text-sm text-primary">
+                    <span>Total Session Bill:</span>
+                    <span className="tabular-nums">{formatINR((sessionBill.subtotal || 0) + (sessionBill.tax || 0) + totalAmount)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Submit checkout button */}

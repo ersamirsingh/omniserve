@@ -307,6 +307,24 @@ export default function IssueTracker() {
             {/* Description card */}
             <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 border border-border-base dark:border-zinc-900 rounded-xl text-xs space-y-2">
               <p className="text-on-surface-variant dark:text-zinc-300 font-medium leading-relaxed whitespace-pre-wrap">{selectedIssue.description}</p>
+              
+              {selectedIssue.screenshot && (
+                <div className="pt-2 border-t border-zinc-200/50 dark:border-zinc-900/50 space-y-1">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide block">Attachment Screenshot (Cloudinary)</span>
+                  <a 
+                    href={selectedIssue.screenshot} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-block relative group rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800"
+                  >
+                    <img src={selectedIssue.screenshot} alt="Issue Attachment" className="max-h-40 object-contain rounded-lg bg-black/5 dark:bg-black/20" />
+                    <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold text-white transition-opacity">
+                      Open Full Size ↗
+                    </span>
+                  </a>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-4 text-[10px] text-zinc-400 font-bold pt-1 border-t border-zinc-200/50 dark:border-zinc-900/50 mt-1">
                 <span>Reporter: {selectedIssue.reporterName || 'System'} {selectedIssue.reporterEmail ? `(${selectedIssue.reporterEmail})` : ''}</span>
                 {selectedIssue.trackingCode && (

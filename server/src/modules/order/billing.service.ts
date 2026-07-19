@@ -203,13 +203,21 @@ export class BillingService {
     splitType: SplitType,
     customSplits?: Array<{ seatNumber?: string; customerId?: string; amount: number }>
   ): Promise<ISplitBillResult> {
-    const billSession = await BillSession.findOne({
-      _id: new Types.ObjectId(billSessionId),
-      tenantId,
-      isDeleted: false
-    });
-    if (!billSession) throw new Error(`Bill session ${billSessionId} not found`);
-    if (billSession.status === "SETTLED") throw new Error("Bill is already settled");
+    const billSession = await BillSession.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(billSessionId),
+        tenantId,
+        status: { $ne: "SETTLED" },
+        isDeleted: false
+      },
+      { $set: { updatedAt: new Date() } },
+      { new: true }
+    );
+    if (!billSession) {
+      const existing = await BillSession.findOne({ _id: new Types.ObjectId(billSessionId), tenantId });
+      if (!existing) throw new Error(`Bill session ${billSessionId} not found`);
+      throw new Error("Bill is already settled");
+    }
 
     const session = await QRSession.findById(billSession.sessionId);
     if (!session) throw new Error("Associated QR session not found");
@@ -340,13 +348,21 @@ export class BillingService {
       settledBy?: Types.ObjectId;
     } = {}
   ): Promise<ISettleBillResult> {
-    const billSession = await BillSession.findOne({
-      _id: new Types.ObjectId(billSessionId),
-      tenantId,
-      isDeleted: false
-    });
-    if (!billSession) throw new Error(`Bill session ${billSessionId} not found`);
-    if (billSession.status === "SETTLED") throw new Error("Bill is already settled");
+    const billSession = await BillSession.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(billSessionId),
+        tenantId,
+        status: { $ne: "SETTLED" },
+        isDeleted: false
+      },
+      { $set: { updatedAt: new Date() } },
+      { new: true }
+    );
+    if (!billSession) {
+      const existing = await BillSession.findOne({ _id: new Types.ObjectId(billSessionId), tenantId });
+      if (!existing) throw new Error(`Bill session ${billSessionId} not found`);
+      throw new Error("Bill is already settled");
+    }
 
     const settledAt = new Date();
 

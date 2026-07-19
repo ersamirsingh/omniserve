@@ -179,16 +179,42 @@ export class TableService {
     outletId: string | Types.ObjectId,
     tableId: string | Types.ObjectId,
     status: TableOperationalStatus,
-    options: { correlationId?: string; triggeredById?: string } = {}
+    options: { correlationId?: string; triggeredById?: string; force?: boolean } = {}
   ): Promise<ITable> {
+    const allowedPriorMap: Record<TableOperationalStatus, TableOperationalStatus[]> = {
+      HELD: ['AVAILABLE', 'RESERVED', 'HELD'],
+      RESERVED: ['AVAILABLE', 'HELD', 'RESERVED'],
+      OCCUPIED: ['AVAILABLE', 'HELD', 'RESERVED', 'ORDERING', 'DINING', 'OCCUPIED'],
+      ORDERING: ['AVAILABLE', 'HELD', 'RESERVED', 'OCCUPIED', 'DINING', 'ORDERING'],
+      DINING: ['AVAILABLE', 'HELD', 'RESERVED', 'OCCUPIED', 'ORDERING', 'DINING'],
+      BILL_REQUESTED: ['OCCUPIED', 'ORDERING', 'DINING', 'PAYMENT_PENDING', 'BILL_REQUESTED'],
+      PAYMENT_PENDING: ['OCCUPIED', 'ORDERING', 'DINING', 'BILL_REQUESTED', 'PAYMENT_PENDING'],
+      CLEANING: ['OCCUPIED', 'ORDERING', 'DINING', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'AVAILABLE', 'CLEANING'],
+      AVAILABLE: ['CLEANING', 'HELD', 'RESERVED', 'OCCUPIED', 'ORDERING', 'DINING', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'AVAILABLE'],
+    };
+
+    const query: any = {
+      _id: new Types.ObjectId(tableId),
+      tenantId: new Types.ObjectId(tenantId),
+      isDeleted: false
+    };
+
+    if (!options.force && allowedPriorMap[status]) {
+      query.operationalStatus = { $in: allowedPriorMap[status] };
+    }
+
     const table = await Table.findOneAndUpdate(
-      { _id: new Types.ObjectId(tableId), tenantId: new Types.ObjectId(tenantId), isDeleted: false },
+      query,
       { $set: { operationalStatus: status } },
       { new: true }
     );
 
     if (!table) {
-      throw new Error(`Table not found: ${tableId}`);
+      const existing = await Table.findOne({ _id: new Types.ObjectId(tableId), tenantId: new Types.ObjectId(tenantId) });
+      if (!existing) {
+        throw new Error(`Table not found: ${tableId}`);
+      }
+      throw new Error(`Invalid status transition from ${existing.operationalStatus} to ${status}`);
     }
 
     // Publish event depending on the status transition

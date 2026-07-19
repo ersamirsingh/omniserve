@@ -102,61 +102,66 @@ async function checkExpiredTableLocks() {
       activeSessionId: { $ne: null }
     });
 
-    for (const table of occupiedTables) {
-      const lockExists = await TableLock.findOne({ tableId: table._id });
-      if (!lockExists) {
-        // No lock exists in DB (meaning it expired and was deleted by TTL, or was never created)
-        const session = await QRSession.findById(table.activeSessionId);
-        if (session) {
-          // If the session was created more than 5 minutes ago, check if we should expire it
-          const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-          if (session.openedAt <= fiveMinutesAgo) {
-            const ordersCount = await Order.countDocuments({
-              "diningContext.sessionId": session._id,
-              orderStatus: { $ne: "CANCELLED" }
-            });
+    if (occupiedTables.length > 0) {
+      const tableIds = occupiedTables.map(t => t._id);
+      const activeLocks = await TableLock.find({ tableId: { $in: tableIds } }, 'tableId').lean();
+      const lockedTableIdSet = new Set(activeLocks.map(l => l.tableId.toString()));
 
-            if (ordersCount === 0) {
-              session.status = "EXPIRED";
-              session.closedAt = now;
-              await session.save();
+      for (const table of occupiedTables) {
+        if (!lockedTableIdSet.has(table._id.toString())) {
+          // No lock exists in DB (meaning it expired and was deleted by TTL, or was never created)
+          const session = await QRSession.findById(table.activeSessionId);
+          if (session) {
+            // If the session was created more than 5 minutes ago, check if we should expire it
+            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+            if (session.openedAt <= fiveMinutesAgo) {
+              const ordersCount = await Order.countDocuments({
+                "diningContext.sessionId": session._id,
+                orderStatus: { $ne: "CANCELLED" }
+              });
 
-              table.activeSessionId = null;
-              table.operationalStatus = "AVAILABLE";
-              await table.save();
+              if (ordersCount === 0) {
+                session.status = "EXPIRED";
+                session.closedAt = now;
+                await session.save();
 
-              await EventBusService.publishTableAvailable(
-                table.tenantId,
-                table.outletId,
-                table._id,
-                {
-                  tableId: table._id.toString(),
-                  tableNumber: table.tableNumber,
-                  status: "AVAILABLE",
-                  updatedAt: now
-                },
-                { sourceSystem: "SYSTEM" }
-              );
+                table.activeSessionId = null;
+                table.operationalStatus = "AVAILABLE";
+                await table.save();
+
+                await EventBusService.publishTableAvailable(
+                  table.tenantId,
+                  table.outletId,
+                  table._id,
+                  {
+                    tableId: table._id.toString(),
+                    tableNumber: table.tableNumber,
+                    status: "AVAILABLE",
+                    updatedAt: now
+                  },
+                  { sourceSystem: "SYSTEM" }
+                );
+              }
             }
-          }
-        } else {
-          // Session is missing, free table
-          table.activeSessionId = null;
-          table.operationalStatus = "AVAILABLE";
-          await table.save();
+          } else {
+            // Session is missing, free table
+            table.activeSessionId = null;
+            table.operationalStatus = "AVAILABLE";
+            await table.save();
 
-          await EventBusService.publishTableAvailable(
-            table.tenantId,
-            table.outletId,
-            table._id,
-            {
-              tableId: table._id.toString(),
-              tableNumber: table.tableNumber,
-              status: "AVAILABLE",
-              updatedAt: now
-            },
-            { sourceSystem: "SYSTEM" }
-          );
+            await EventBusService.publishTableAvailable(
+              table.tenantId,
+              table.outletId,
+              table._id,
+              {
+                tableId: table._id.toString(),
+                tableNumber: table.tableNumber,
+                status: "AVAILABLE",
+                updatedAt: now
+              },
+              { sourceSystem: "SYSTEM" }
+            );
+          }
         }
       }
     }
@@ -185,18 +190,23 @@ export function startReservationHoldWorker() {
       for (const res of impendingReservations) {
         if (!res.tableId) continue;
         
-        // Update reservation to HOLD
-        res.status = "HOLD";
-        await res.save();
-
-        // Update table to RESERVED
-        await TableService.updateTableOperationalStatus(
-          res.tenantId.toString(),
-          res.outletId.toString(),
-          res.tableId.toString(),
-          "RESERVED",
-          { correlationId: res._id.toString() }
+        // Update reservation to HOLD atomically
+        const updatedRes = await Reservation.findOneAndUpdate(
+          { _id: res._id, status: "CONFIRMED" },
+          { $set: { status: "HOLD" } },
+          { new: true }
         );
+
+        if (updatedRes) {
+          // Update table to RESERVED
+          await TableService.updateTableOperationalStatus(
+            res.tenantId.toString(),
+            res.outletId.toString(),
+            res.tableId.toString(),
+            "RESERVED",
+            { correlationId: res._id.toString() }
+          );
+        }
       }
     } catch (error) {
       console.error("[ReservationHoldWorker] Error checking hold windows:", error);

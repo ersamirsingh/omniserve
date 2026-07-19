@@ -3,6 +3,7 @@ import { getTablesApi, getUnifiedTimelineApi } from '../../../api/models/operati
 import { useSocket } from '../../../context/SocketContext';
 import { useToast } from '../../../components/ui/Toast';
 import Spinner from '../../../components/ui/Spinner';
+import Badge from '../../../components/ui/Badge';
 import { HiOutlineListBullet, HiOutlineClock, HiOutlineFunnel } from 'react-icons/hi2';
 
 export default function OperationsTimeline() {
@@ -76,7 +77,9 @@ export default function OperationsTimeline() {
     return <div className="flex items-center justify-center py-24"><Spinner size="lg" /></div>;
   }
 
-  const filteredTimeline = timeline.filter(event => {
+  const safeTimeline = Array.isArray(timeline) ? timeline : [];
+  const filteredTimeline = safeTimeline.filter(event => {
+    if (!event) return false;
     if (filterType === 'ALL') return true;
     return event.type === filterType;
   });
@@ -145,9 +148,9 @@ export default function OperationsTimeline() {
                 
                 <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant dark:text-zinc-550 font-bold">
                   <HiOutlineClock className="text-sm" />
-                  <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
-                  <Badge variant={event.type === 'TABLE' ? 'info' : event.type === 'ORDER' ? 'success' : 'warning'} size="xs" className="uppercase text-[9px] font-bold tracking-wider">
-                    {event.type}
+                  <span>{event?.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '—'}</span>
+                  <Badge variant={event?.type === 'TABLE' ? 'info' : event?.type === 'ORDER' ? 'success' : 'warning'} size="xs" className="uppercase text-[9px] font-bold tracking-wider">
+                    {event?.type || 'EVENT'}
                   </Badge>
                 </div>
 

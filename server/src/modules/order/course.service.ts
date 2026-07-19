@@ -64,12 +64,13 @@ export class CourseService {
 
     if (!item) throw new Error(`Order item ${itemId} not found`);
 
-    if (item.holdStatus === "FIRED") {
-      throw new Error(`Item "${item.name}" has already been fired to KDS and cannot be held`);
+    if (item.holdStatus === "HELD") {
+      throw new Error(`Item "${item.name}" is already on hold`);
     }
 
     const prevStatus = item.holdStatus;
     item.holdStatus = "HELD";
+    (item as any).firedAt = undefined;
     await item.save();
 
     // Fetch parent order for session context

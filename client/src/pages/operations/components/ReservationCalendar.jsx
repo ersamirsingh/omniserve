@@ -41,8 +41,9 @@ export default function ReservationCalendar() {
 
   const fetchData = useCallback(async (targetDate = selectedDate) => {
     try {
+      const currentOutletId = localStorage.getItem('selectedOutletId') || '';
       const [resResponse, tablesResponse] = await Promise.all([
-        getReservationsApi({ date: targetDate }),
+        getReservationsApi({ date: targetDate, ...(currentOutletId && { outletId: currentOutletId }) }),
         getTablesApi()
       ]);
       setReservations(resResponse.data?.data?.reservations || []);
