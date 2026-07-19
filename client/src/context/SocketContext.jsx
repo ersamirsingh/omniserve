@@ -11,9 +11,11 @@ export function SocketProvider({ children }) {
   const [lastMessage, setLastMessage] = useState(null);
 
   const connectSocket = useCallback(() => {
-    if (!isAuthenticated || !user) return;
+    const hasSessionToken = !!localStorage.getItem('sessionToken');
+    const hasGuestToken = !!localStorage.getItem('guestSessionToken');
+    if (!isAuthenticated && !user && !hasSessionToken && !hasGuestToken) return;
 
-    const token = localStorage.getItem('accessToken') || localStorage.getItem('sessionToken');
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('guestSessionToken') || localStorage.getItem('sessionToken');
     const socketUrl = import.meta.env.VITE_WS_URL || window.location.origin;
 
     console.log('[SocketContext] Connecting websocket...', socketUrl);
@@ -29,8 +31,8 @@ export function SocketProvider({ children }) {
       setConnected(true);
 
       // Join kitchen room if staff/manager/owner has outletId
-      const outletId = user.outletId || (user.outletIds && user.outletIds[0]);
-      if (outletId && user.role !== 'CUSTOMER') {
+      const outletId = user?.outletId || (user?.outletIds && user?.outletIds[0]);
+      if (outletId && user?.role !== 'CUSTOMER') {
         newSocket.emit('join_kitchen', { outletId });
       }
     });

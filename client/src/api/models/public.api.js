@@ -44,3 +44,7 @@ export const getQrSessionBillApi = (sessionToken) =>
 
 export const payQrSessionBillApi = (sessionToken, data) =>
   api.post(`/public/qr/session/${sessionToken}/pay`, data);
+
+export const submitQrSessionFeedbackApi = (sessionToken, data) =>
+  api.post(`/public/qr/session/${sessionToken}/feedback`, data);
+
