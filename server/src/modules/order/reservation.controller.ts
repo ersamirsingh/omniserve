@@ -40,7 +40,8 @@ export class ReservationController {
         ...(specialRequests && { specialRequests }),
         ...(notes && { notes }),
         ...(seatNumber && { seatNumber }),
-        ...(userId && { createdBy: userId })
+        ...(userId && { createdBy: userId }),
+        ipAddress: req.ip || "unknown"
       });
 
       ApiResponseHandler.success(res, 201, "Reservation created successfully", result);

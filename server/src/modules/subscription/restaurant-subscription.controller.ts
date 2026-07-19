@@ -219,7 +219,8 @@ export class RestaurantSubscriptionController {
         return;
       }
 
-      const result = await CouponService.validateSubscriptionCoupon(code as string, Number(subtotal));
+      const tenantId = req.user?.tenantId;
+      const result = await CouponService.validateSubscriptionCoupon(code as string, Number(subtotal), tenantId);
 
       if (!result.isValid) {
         ApiResponseHandler.success(res, 200, result.reason || "Invalid coupon", {

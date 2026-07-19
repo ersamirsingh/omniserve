@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
+import PageHeader from '../../components/ui/PageHeader';
 import Badge from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import { HiPlus } from 'react-icons/hi2';
@@ -178,23 +179,24 @@ export default function OutletsPage() {
     }] : []),
   ];
 
+  const actions = user?.role !== 'OUTLET_MANAGER' && (
+    <Button 
+      onClick={openCreate} 
+      disabled={!restaurants.length} 
+      className="flex items-center gap-1 font-bold shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
+    >
+      <HiPlus /> Add Outlet
+    </Button>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
-        <div>
-          <h2 className="text-headline-lg font-headline-lg text-on-surface dark:text-zinc-100 text-[24px] font-bold tracking-tight">
-            Outlets
-          </h2>
-          <p className="text-body-md text-on-surface-variant dark:text-zinc-400 text-[14px]">
-            Manage physical kitchen outlet sites.
-          </p>
-        </div>
-        {user?.role !== 'OUTLET_MANAGER' && (
-          <Button onClick={openCreate} disabled={!restaurants.length} className="flex items-center gap-1 font-bold">
-            <HiPlus /> Add Outlet
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        section="Management"
+        title="Outlets"
+        description="Manage physical kitchen outlet sites and locations."
+        actions={actions}
+      />
 
       <Table columns={columns} data={data} loading={loading} />
 

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import * as Models from '../../../models/index.js';
+import { AnalyticsService } from '../../analytics/analytics.service.js';
 
 export class AggregationTools {
   /**
@@ -287,5 +288,40 @@ export class AggregationTools {
     ];
 
     return Models.ReviewAnalytics.aggregate(pipeline);
+  }
+
+  /**
+   * 7. Get peak hours density data
+   */
+  static async getPeakHours(tenantId: string, outletId?: string): Promise<any[]> {
+    const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
+    return res.peakHours;
+  }
+
+  /**
+   * 8. Get customer retention repeat rate
+   */
+  static async getCustomerRetention(tenantId: string, outletId?: string): Promise<number> {
+    const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
+    return res.customerRetention;
+  }
+
+  /**
+   * 9. Get table turnover and average reservation duration
+   */
+  static async getTableTurnoverAndReservations(tenantId: string, outletId?: string): Promise<any> {
+    const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
+    return {
+      tableTurnover: res.tableTurnover,
+      avgReservationDurationMinutes: res.avgReservationDuration
+    };
+  }
+
+  /**
+   * 10. Get order volume grouped by sales channel
+   */
+  static async getOrderVolumeByChannel(tenantId: string, outletId?: string): Promise<any[]> {
+    const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
+    return res.channelVolume;
   }
 }

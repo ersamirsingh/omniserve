@@ -6,15 +6,17 @@ import Button from '../../../components/ui/Button';
 import Spinner from '../../../components/ui/Spinner';
 import { HiOutlineFire, HiOutlinePause, HiOutlineChevronDoubleRight, HiOutlineArrowPath } from 'react-icons/hi2';
 
-export default function KitchenDisplay() {
+export default function KitchenDisplay({ onRefreshDone }) {
   const { lastMessage } = useSocket();
   const { addToast } = useToast();
   
   const [kdsItems, setKdsItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch all pending kitchen tickets
   const fetchKdsQueue = useCallback(async () => {
+    setRefreshing(true);
     try {
       const res = await getKdsQueueApi();
       setKdsItems(res.data?.data?.items || []);
@@ -22,8 +24,10 @@ export default function KitchenDisplay() {
       addToast('Failed to load KDS queue', 'error');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      if (onRefreshDone) onRefreshDone();
     }
-  }, [addToast]);
+  }, [addToast, onRefreshDone]);
 
   useEffect(() => {
     fetchKdsQueue();
@@ -118,7 +122,7 @@ export default function KitchenDisplay() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <h3 className="text-[14px] font-bold text-on-background uppercase tracking-wider">Kitchen Display Channels</h3>
-        <Button size="xs" variant="outline" onClick={fetchKdsQueue} className="flex items-center gap-1">
+        <Button size="xs" variant="outline" onClick={fetchKdsQueue} loading={refreshing} disabled={refreshing} className="flex items-center gap-1">
           <HiOutlineArrowPath /> Refresh KDS
         </Button>
       </div>

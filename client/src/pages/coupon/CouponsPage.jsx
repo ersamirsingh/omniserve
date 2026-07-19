@@ -21,6 +21,7 @@ const emptyForm = {
   maxDiscountAmount: '',
   expirationDate: '',
   isActive: true,
+  status: 'ACTIVE',
   outletId: '',
 };
 
@@ -78,6 +79,7 @@ export default function CouponsPage() {
       maxDiscountAmount: item.maxDiscountAmount ?? '',
       expirationDate: item.expirationDate ? new Date(item.expirationDate).toISOString().substring(0, 10) : '',
       isActive: item.isActive !== false,
+      status: item.status || 'ACTIVE',
       outletId: item.outletId || '',
     });
     setModal({ open: true, mode: 'edit', item });
@@ -99,6 +101,7 @@ export default function CouponsPage() {
         maxDiscountAmount: form.discountType === 'PERCENTAGE' && form.maxDiscountAmount ? Number(form.maxDiscountAmount) : null,
         expirationDate: form.expirationDate ? new Date(form.expirationDate) : null,
         isActive: form.isActive,
+        status: form.status || 'ACTIVE',
       };
 
       if (!isSystemAdmin) {
@@ -129,6 +132,16 @@ export default function CouponsPage() {
       fetchData();
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to delete coupon', 'error');
+    }
+  };
+
+  const handleReleaseHold = async (item) => {
+    try {
+      await updateCouponApi(getEntityId(item), { status: 'ACTIVE', isActive: true });
+      addToast(`Coupon "${item.code}" released from hold successfully`, 'success');
+      fetchData();
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to release coupon', 'error');
     }
   };
 
@@ -198,21 +211,36 @@ export default function CouponsPage() {
       ),
     },
     {
-      key: 'isActive',
+      key: 'status',
       label: 'Status',
-      render: (r) => (
-        <button
-          onClick={() => handleToggleStatus(r)}
-          className="flex items-center gap-1 cursor-pointer select-none focus:outline-none bg-transparent border-none text-left p-0"
-          title="Click to toggle status"
-        >
-          {r.isActive ? (
-            <Badge variant="success" className="gap-1"><HiOutlineCheckCircle /> Active</Badge>
-          ) : (
-            <Badge variant="neutral" className="gap-1"><HiOutlineXCircle /> Inactive</Badge>
-          )}
-        </button>
-      ),
+      render: (r) => {
+        if (r.status === 'HELD') {
+          return (
+            <button
+              onClick={() => handleReleaseHold(r)}
+              className="flex items-center gap-1 cursor-pointer select-none focus:outline-none bg-transparent border-none text-left p-0"
+              title="Click to release hold and activate coupon"
+            >
+              <Badge variant="warning" className="gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Held
+              </Badge>
+            </button>
+          );
+        }
+        return (
+          <button
+            onClick={() => handleToggleStatus(r)}
+            className="flex items-center gap-1 cursor-pointer select-none focus:outline-none bg-transparent border-none text-left p-0"
+            title="Click to toggle status"
+          >
+            {r.isActive ? (
+              <Badge variant="success" className="gap-1"><HiOutlineCheckCircle /> Active</Badge>
+            ) : (
+              <Badge variant="neutral" className="gap-1"><HiOutlineXCircle /> Inactive</Badge>
+            )}
+          </button>
+        );
+      }
     },
     {
       key: 'actions',
@@ -346,17 +374,32 @@ export default function CouponsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2 py-2">
-            <input
-              id="c-active"
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              className="checkbox checkbox-primary rounded border-border-base text-primary accent-primary cursor-pointer"
-            />
-            <label htmlFor="c-active" className="text-xs font-semibold text-on-surface-variant dark:text-zinc-350 cursor-pointer select-none">
-              Mark as Active immediately
-            </label>
+          <div className="flex flex-col gap-2 py-2">
+            <div className="flex items-center gap-2">
+              <input
+                id="c-active"
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                className="checkbox checkbox-primary rounded border-border-base text-primary accent-primary cursor-pointer"
+              />
+              <label htmlFor="c-active" className="text-xs font-semibold text-on-surface-variant dark:text-zinc-350 cursor-pointer select-none">
+                Mark as Active immediately
+              </label>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <input
+                id="c-hold"
+                type="checkbox"
+                checked={form.status === 'HELD'}
+                onChange={(e) => setForm({ ...form, status: e.target.checked ? 'HELD' : 'ACTIVE' })}
+                className="checkbox checkbox-primary rounded border-border-base text-primary accent-primary cursor-pointer"
+              />
+              <label htmlFor="c-hold" className="text-xs font-semibold text-on-surface-variant dark:text-zinc-350 cursor-pointer select-none">
+                Place on Hold (inactive until released)
+              </label>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border-base dark:border-zinc-850">

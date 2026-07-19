@@ -41,7 +41,7 @@ export default function AppRouter() {
               <Route path="/menu-items" element={<Navigate to="/menu-management?tab=items" replace />} />
               <Route path="/variants" element={<Navigate to="/menu-management?tab=variants" replace />} />
               <Route path="/addons" element={<Navigate to="/menu-management?tab=addons" replace />} />
-              <Route path="/operations" element={<Navigate to="/operations/dine-in" replace />} />
+              <Route path="/operations" element={<Navigate to="/operations/offline-cockpit" replace />} />
               {dashboardRoutes.map(({ path, component, roles }) => {
                 const Component = component;
                 const element = <Component />;

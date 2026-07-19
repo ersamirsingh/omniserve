@@ -216,7 +216,9 @@ export class BillingService {
 
     let splits: IBillSplitDetail[] = [];
 
-    if (splitType === "EQUAL") {
+    if (splitType === "NONE") {
+      splits = [];
+    } else if (splitType === "EQUAL") {
       const seatCount = session.seats.length || 1;
       const perSeat = parseFloat((billSession.totalAmount / seatCount).toFixed(2));
       // Adjust last split for rounding

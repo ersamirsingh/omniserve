@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Table from '../../components/ui/Table';
+import PageHeader from '../../components/ui/PageHeader';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { getAuditLogsApi } from '../../api/models/systemAdmin.api';
@@ -144,15 +145,11 @@ export default function GlobalAuditLogs() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-1.5">
-        <h2 className="text-headline-lg font-headline-lg text-on-surface dark:text-zinc-100 text-[24px] font-bold tracking-tight">
-          Global Audit Logging
-        </h2>
-        <p className="text-body-md text-on-surface-variant dark:text-zinc-400 text-[14px]">
-          Track user authentication, tenant status shifts, subscription manual overrides, and system changes.
-        </p>
-      </div>
+      <PageHeader
+        section="System Admin"
+        title="Global Audit Logs"
+        description="Track user authentication, tenant status shifts, subscription manual overrides, and system changes."
+      />
 
       {/* Filters */}
       <Card className="p-4">

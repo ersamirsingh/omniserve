@@ -10,6 +10,7 @@ router.get('/daily', verifyToken, AnalyticsController.getDailyStats);
 
 // Aggregated tenant summary
 router.get('/summary', verifyToken, AnalyticsController.getSummaryStats);
+router.get('/extended', verifyToken, AnalyticsController.getExtendedStats);
 
 // Review analytics routes
 // IMPORTANT: Place /reviews/sentiment before any parametric /reviews/:id routes to prevent collisions

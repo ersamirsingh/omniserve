@@ -62,7 +62,11 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
   const fetchPage = async () => {
     setLoading(true);
     try {
-      const menuItemResponse = await listMenuItemsApi({ limit: 1000 });
+      const params = { limit: 1000 };
+      if (selectedOutletId && selectedOutletId !== 'all') {
+        params.outletId = selectedOutletId;
+      }
+      const menuItemResponse = await listMenuItemsApi(params);
       const items = getList(menuItemResponse, 'menuItems');
       const initialMenuItemId = selectedMenuItemId || getEntityId(items[0]);
 
@@ -82,7 +86,7 @@ export default function AddonsPage({ isEmbedded = false, selectedOutletId }) {
     }
   };
 
-  useEffect(() => { fetchPage(); }, []);
+  useEffect(() => { fetchPage(); }, [selectedOutletId]);
 
   useEffect(() => {
     if (menuItems.length > 0) {

@@ -1,7 +1,7 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 import crypto from 'crypto';
 
-export type TableOperationalStatus = 'AVAILABLE' | 'RESERVED' | 'OCCUPIED' | 'ORDERING' | 'DINING' | 'BILL_REQUESTED' | 'PAYMENT_PENDING' | 'CLEANING';
+export type TableOperationalStatus = 'AVAILABLE' | 'HELD' | 'RESERVED' | 'OCCUPIED' | 'ORDERING' | 'DINING' | 'BILL_REQUESTED' | 'PAYMENT_PENDING' | 'CLEANING';
 
 export interface ITable extends Document {
   tenantId: Types.ObjectId;
@@ -80,7 +80,7 @@ const tableSchema = new Schema<ITable>(
     operationalStatus: {
       type: String,
       enum: {
-        values: ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'ORDERING', 'DINING', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'CLEANING'],
+        values: ['AVAILABLE', 'HELD', 'RESERVED', 'OCCUPIED', 'ORDERING', 'DINING', 'BILL_REQUESTED', 'PAYMENT_PENDING', 'CLEANING'],
         message: 'Invalid operational status: {VALUE}',
       },
       default: 'AVAILABLE',

@@ -5,7 +5,7 @@ import { UserRole } from "../../models/enums.js";
 
 const couponRouter: Router = express.Router();
 
-couponRouter.use(verifyToken, authorizeRole(UserRole.SYSTEM_ADMIN, UserRole.SUPER_ADMIN, UserRole.RESTAURANT_OWNER, UserRole.OUTLET_MANAGER));
+couponRouter.use(verifyToken, authorizeRole(UserRole.SYSTEM_ADMIN));
 
 couponRouter.get("/", CouponController.listCoupons);
 couponRouter.post("/", CouponController.createCoupon);

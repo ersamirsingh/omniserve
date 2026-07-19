@@ -47,3 +47,4 @@ export const cancelReservationApi = (reservationId, data) => api.post(`/reservat
 export const getDiningAnalyticsSummaryApi = (params) => api.get('/dining-analytics/summary', { params });
 export const getWaiterTasksApi = (params) => api.get('/dining/waiter-tasks', { params });
 export const rotateTableQrTokenApi = (tableId) => api.post(`/dining/tables/${tableId}/rotate-qr`);
+export const holdTableApi = (tableId) => api.post(`/dining/tables/${tableId}/hold`);

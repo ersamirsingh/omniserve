@@ -167,7 +167,7 @@ export class QRSessionService {
     } else if (status === "PAYMENT_PENDING") {
       tableStatus = "BILL_REQUESTED";
     } else if (status === "CLOSED") {
-      tableStatus = "CLEANING";
+      tableStatus = "AVAILABLE";
     }
 
     if (tableStatus) {

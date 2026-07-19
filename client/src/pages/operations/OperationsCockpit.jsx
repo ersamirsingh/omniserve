@@ -90,10 +90,8 @@ export default function OperationsCockpit() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: HiOutlinePresentationChartLine, component: RestaurantOperationsDashboard },
-    { id: 'dine-in-orders', label: 'Dine-In Orders', icon: HiOutlineListBullet, component: null },
     { id: 'waiters', label: 'Waiter Console', icon: HiOutlineUserGroup, component: WaiterConsole },
     { id: 'billing', label: 'Billing Splits', icon: HiOutlineReceiptPercent, component: BillingWorkspace },
-    { id: 'reservations', label: 'Reservations', icon: HiOutlineCalendarDays, component: ReservationCalendar },
     { id: 'analytics', label: 'Analytics', icon: HiOutlineChartPie, component: DiningAnalyticsDashboard },
     { id: 'timeline', label: 'Activity Feed', icon: HiOutlineListBullet, component: OperationsTimeline }
   ];
@@ -105,7 +103,7 @@ export default function OperationsCockpit() {
       {/* Top Banner with WebSocket connectivity status */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
         <PageHeader 
-          title="Operations Cockpit" 
+          title="Offline Cockpit" 
           subtitle="Real-time control center for dining floor, kitchen, service tasks, and outlets."
         />
         <div className="flex items-center gap-4 self-start sm:self-center flex-wrap">
@@ -191,11 +189,7 @@ export default function OperationsCockpit() {
 
       {/* Primary Subpage Workspace wrapper */}
       <div className="flex-1 overflow-y-auto min-h-0" key={outlet?.id || outlet?._id}>
-        {activeTab === 'dine-in-orders' ? (
-          <OrdersPage mode="DINE_IN" hideHeader={true} onNavigate={setActiveTab} />
-        ) : (
-          <ActiveComponent onNavigate={setActiveTab} />
-        )}
+        <ActiveComponent onNavigate={setActiveTab} />
       </div>
     </div>
   );

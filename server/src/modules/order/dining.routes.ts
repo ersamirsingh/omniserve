@@ -18,6 +18,7 @@ router.get("/tables", verifyToken, DiningOperationsController.listTables);
 router.post("/tables", verifyToken, isOutletManager, DiningOperationsController.createTable);
 router.patch("/tables/:id", verifyToken, isOutletManager, DiningOperationsController.updateTable);
 router.delete("/tables/:id", verifyToken, isOutletManager, DiningOperationsController.archiveTable);
+router.post("/tables/:tableId/hold", verifyToken, DiningOperationsController.holdTable);
 router.post("/tables/:tableId/rotate-qr", verifyToken, isOutletManager, DiningOperationsController.rotateTableQrToken);
 
 // Dining areas routes
