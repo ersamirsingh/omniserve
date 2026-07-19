@@ -90,6 +90,70 @@ export class AnalyticsController {
   }
 
   /**
+   * Helper to validate tiered report scope (TENANT / RESTAURANT / OUTLET) per user role
+   */
+  private static async validateReportScope(
+    req: Request,
+    res: Response
+  ): Promise<{ scopedOutletIds: string[] | null } | null> {
+    const scope = req.query.scope as string | undefined;
+    const restaurantId = req.query.restaurantId as string | undefined;
+    const outletId = req.query.outletId as string | undefined;
+    const user = req.user;
+
+    if (!user) {
+      ApiResponseHandler.unauthorized(res, 'User context missing');
+      return null;
+    }
+
+    // 1. TENANT scope — SUPER_ADMIN or SYSTEM_ADMIN only
+    if (scope === 'TENANT') {
+      if (!AccessScope.isTenantWide(user.role)) {
+        ApiResponseHandler.forbidden(res, 'Tenant-level aggregate reports are restricted to Tenant Super Admins');
+        return null;
+      }
+      return { scopedOutletIds: null };
+    }
+
+    // 2. RESTAURANT scope — RESTAURANT_OWNER (their own restaurant) or SUPER_ADMIN
+    if (scope === 'RESTAURANT' || restaurantId) {
+      if (restaurantId) {
+        if (!(await AccessScope.canAccessRestaurant(user, restaurantId))) {
+          ApiResponseHandler.forbidden(res, 'You cannot access reports for this restaurant');
+          return null;
+        }
+        const outlets = await Outlet.find({ restaurantId: new Types.ObjectId(restaurantId), isDeleted: false }).select('_id');
+        const rOutletIds = outlets.map(o => o._id.toString());
+        const userAllowed = await AccessScope.outletIdsForUser(user);
+        const scopedOutletIds = userAllowed === null ? rOutletIds : rOutletIds.filter(id => userAllowed.includes(id));
+        return { scopedOutletIds };
+      } else {
+        if (user.role === 'OUTLET_MANAGER') {
+          ApiResponseHandler.forbidden(res, 'Outlet Managers cannot generate restaurant-level aggregate reports');
+          return null;
+        }
+      }
+    }
+
+    // 3. OUTLET scope — specific outlet access check
+    if (outletId) {
+      if (!Types.ObjectId.isValid(outletId)) {
+        ApiResponseHandler.badRequest(res, 'Invalid outletId format');
+        return null;
+      }
+      if (!(await AccessScope.canAccessOutlet(user, outletId))) {
+        ApiResponseHandler.forbidden(res, 'You cannot access reports for this outlet');
+        return null;
+      }
+      return { scopedOutletIds: [outletId] };
+    }
+
+    // Default fallback: return outletIdsForUser
+    const allowedOutletIds = await AccessScope.outletIdsForUser(user);
+    return { scopedOutletIds: allowedOutletIds };
+  }
+
+  /**
    * Retrieve daily stats list
    * GET /analytics/daily
    */
@@ -101,27 +165,20 @@ export class AnalyticsController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
+      const scopeResult = await AnalyticsController.validateReportScope(req, res);
+      if (!scopeResult) return;
+
       const from = req.query.from as string | undefined;
       const to = req.query.to as string | undefined;
 
-      // Validate outlet ownership if filtering by outlet
-      if (outletId) {
-        const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
-        if (!isOwner) {
-          ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
-          return;
-        }
-        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
-          ApiResponseHandler.forbidden(res, 'You cannot access analytics for this outlet');
-          return;
-        }
+      const filters: { outletId?: string; outletIds?: string[]; from?: string; to?: string } = {};
+      if (scopeResult.scopedOutletIds?.length === 1) {
+        const singleOutlet = scopeResult.scopedOutletIds[0];
+        if (singleOutlet) filters.outletId = singleOutlet;
+      } else if (scopeResult.scopedOutletIds) {
+        filters.outletIds = scopeResult.scopedOutletIds;
       }
 
-      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
-      const filters: { outletId?: string; outletIds?: string[]; from?: string; to?: string } = {};
-      if (outletId) filters.outletId = outletId;
-      else if (allowedOutletIds) filters.outletIds = allowedOutletIds;
       if (from) filters.from = from;
       if (to) filters.to = to;
 
@@ -145,22 +202,10 @@ export class AnalyticsController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
-      if (outletId) {
-        const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
-        if (!isOwner) {
-          ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
-          return;
-        }
-        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
-          ApiResponseHandler.forbidden(res, 'You cannot access analytics for this outlet');
-          return;
-        }
-      }
+      const scopeResult = await AnalyticsController.validateReportScope(req, res);
+      if (!scopeResult) return;
 
-      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
-      const scopedOutletIds = outletId ? [outletId] : allowedOutletIds;
-      const summary = await AnalyticsService.getSummaryStats(tenantId, scopedOutletIds);
+      const summary = await AnalyticsService.getSummaryStats(tenantId, scopeResult.scopedOutletIds);
 
       ApiResponseHandler.success(res, 200, 'Tenant stats summary retrieved successfully', summary);
     } catch (error: any) {
@@ -180,22 +225,10 @@ export class AnalyticsController {
         return;
       }
 
-      const outletId = req.query.outletId as string | undefined;
-      if (outletId) {
-        const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
-        if (!isOwner) {
-          ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
-          return;
-        }
-        if (!(await AccessScope.canAccessOutlet(req.user, outletId))) {
-          ApiResponseHandler.forbidden(res, 'You cannot access analytics for this outlet');
-          return;
-        }
-      }
+      const scopeResult = await AnalyticsController.validateReportScope(req, res);
+      if (!scopeResult) return;
 
-      const allowedOutletIds = await AccessScope.outletIdsForUser(req.user);
-      const scopedOutletIds = outletId ? [outletId] : allowedOutletIds;
-      const extended = await AnalyticsService.getExtendedStats(tenantId, scopedOutletIds);
+      const extended = await AnalyticsService.getExtendedStats(tenantId, scopeResult.scopedOutletIds);
 
       ApiResponseHandler.success(res, 200, 'Extended analytics stats retrieved successfully', extended);
     } catch (error: any) {

@@ -3,16 +3,26 @@ import { Types } from "mongoose";
 import { CourseService, CourseType, KdsStation } from "./course.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import Outlet from "../../models/outlet.model.js";
+import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class KdsController {
   private static async resolveOutletId(tenantId: Types.ObjectId, req: Request): Promise<Types.ObjectId> {
     const rawId = req.user?.outletId || req.query.outletId || req.body?.outletId || req.headers["x-outlet-id"];
     if (rawId && Types.ObjectId.isValid(String(rawId))) {
-      return new Types.ObjectId(String(rawId));
+      const oid = String(rawId);
+      if (req.user && !(await AccessScope.canAccessOutlet(req.user, oid))) {
+        throw new Error("Access denied: You cannot access KDS for this outlet");
+      }
+      return new Types.ObjectId(oid);
     }
-    const firstOutlet = await Outlet.findOne({ tenantId, isDeleted: false }).select("_id");
+    const allowed = req.user ? await AccessScope.outletIdsForUser(req.user) : null;
+    const query: any = { tenantId, isDeleted: false };
+    if (allowed && allowed.length > 0) {
+      query._id = { $in: allowed.map(id => new Types.ObjectId(id)) };
+    }
+    const firstOutlet = await Outlet.findOne(query).select("_id");
     if (!firstOutlet) {
-      throw new Error("No active outlets found for this tenant. Please create an outlet first.");
+      throw new Error("No active outlets found for this tenant or role access level.");
     }
     return firstOutlet._id as Types.ObjectId;
   }

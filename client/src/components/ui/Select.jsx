@@ -22,7 +22,7 @@ export default function Select({ label, error, id, className = '', children, opt
       >
         {children}
         {options && options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-950 text-on-surface dark:text-zinc-200">
             {opt.label}
           </option>
         ))}

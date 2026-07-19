@@ -10,7 +10,8 @@ import {
   HiOutlineDocumentArrowDown, 
   HiOutlineArrowPath, 
   HiOutlineArrowDownTray,
-  HiOutlineFunnel
+  HiOutlineFunnel,
+  HiOutlineChartBarSquare
 } from 'react-icons/hi2';
 import { listRestaurantsApi } from '../../api/models/restaurant.api';
 import { listOutletsApi } from '../../api/models/outlet.api';
@@ -99,16 +100,26 @@ export default function ReportsPage() {
     { id: 'reservations', title: 'Reservations & Seating Report', desc: 'Floor seating metrics, no-show rates, and turnover speeds.', type: 'CSV / PDF / JSON' },
   ];
 
+  const [scopeTier, setScopeTier] = useState(
+    isSuperAdmin ? 'TENANT' : isRestaurantOwner ? 'RESTAURANT' : 'OUTLET'
+  );
+
   const getSelectedScopeText = () => {
+    if (scopeTier === 'TENANT') {
+      return 'Whole Tenant Scope (All Restaurants & Outlets)';
+    }
+    if (scopeTier === 'RESTAURANT') {
+      if (selectedRestaurantId) {
+        const rest = restaurants.find(r => getEntityId(r) === selectedRestaurantId);
+        return rest ? `Restaurant: ${rest.name} (All Outlets)` : 'Selected Restaurant (All Outlets)';
+      }
+      return `All Outlets under ${getRestaurantName()}`;
+    }
     if (selectedOutletId) {
       const out = outlets.find(o => getEntityId(o) === selectedOutletId);
       return out ? `Outlet: ${out.name}` : `Outlet ID: ${selectedOutletId}`;
     }
-    if (selectedRestaurantId) {
-      const rest = restaurants.find(r => getEntityId(r) === selectedRestaurantId);
-      return rest ? `All Outlets of ${rest.name}` : 'All Outlets of Restaurant';
-    }
-    return 'All System Restaurants & Outlets';
+    return 'All Outlets Scoped';
   };
 
   const handleOpenDownloadModal = (report) => {
@@ -222,9 +233,52 @@ export default function ReportsPage() {
 
       {/* Dynamic Scoping Selection Panel */}
       <div className="bg-white dark:bg-zinc-950 p-6 rounded-2xl border border-border-base dark:border-zinc-900 shadow-2xs space-y-4">
-        <h3 className="text-xs font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide flex items-center gap-1.5">
-          <HiOutlineFunnel className="text-primary text-sm" /> Report Export Scope Settings
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-base dark:border-zinc-900 pb-3">
+          <h3 className="text-xs font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wide flex items-center gap-1.5">
+            <HiOutlineFunnel className="text-primary text-sm" /> Report Scope Level Settings
+          </h3>
+
+          {/* Tier Scope Buttons */}
+          <div className="flex items-center gap-1 bg-surface-subtle dark:bg-zinc-900 p-1 rounded-xl border border-border-base dark:border-zinc-800 shrink-0">
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setScopeTier('TENANT')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  scopeTier === 'TENANT'
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+                }`}
+              >
+                🌐 Tenant Level
+              </button>
+            )}
+            {(isSuperAdmin || isRestaurantOwner) && (
+              <button
+                type="button"
+                onClick={() => setScopeTier('RESTAURANT')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  scopeTier === 'RESTAURANT'
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+                }`}
+              >
+                🏢 Restaurant Level
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setScopeTier('OUTLET')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                scopeTier === 'OUTLET'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface'
+              }`}
+            >
+              📍 Single Outlet Level
+            </button>
+          </div>
+        </div>
 
         {loadingScope ? (
           <div className="flex items-center gap-2 py-2 text-xs font-semibold text-zinc-500 animate-pulse">
@@ -233,54 +287,64 @@ export default function ReportsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Restaurant Selector */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-on-surface-variant dark:text-zinc-500 uppercase tracking-wider block">
-                Restaurant
-              </label>
-              {isSuperAdmin ? (
-                <select
-                  value={selectedRestaurantId}
-                  onChange={(e) => {
-                    setSelectedRestaurantId(e.target.value);
-                    setSelectedOutletId('');
-                  }}
-                  className="w-full bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2.5 text-xs text-on-background outline-none font-semibold cursor-pointer"
-                >
-                  <option value="">All Restaurants (System-wide)</option>
-                  {restaurants.map(r => (
-                    <option key={getEntityId(r)} value={getEntityId(r)}>{r.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <div className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base/50 dark:border-zinc-850 rounded-lg p-2.5 text-xs text-on-surface-variant font-bold">
-                  🏢 {getRestaurantName()}
+            {/* Scope Summary / Restaurant Selector */}
+            {scopeTier === 'TENANT' ? (
+              <div className="md:col-span-2 p-3 bg-primary-container/10 border border-primary-container/20 rounded-xl text-xs font-semibold text-primary dark:text-primary-fixed-dim">
+                🌐 <strong>Tenant Scope Active:</strong> Exporting aggregate metrics across all tenant restaurants and outlets.
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-on-surface-variant dark:text-zinc-500 uppercase tracking-wider block">
+                    Restaurant
+                  </label>
+                  {isSuperAdmin ? (
+                    <select
+                      value={selectedRestaurantId}
+                      onChange={(e) => {
+                        setSelectedRestaurantId(e.target.value);
+                        setSelectedOutletId('');
+                      }}
+                      className="w-full bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2.5 text-xs text-on-background outline-none font-semibold cursor-pointer"
+                    >
+                      <option value="">All Restaurants (Tenant-wide)</option>
+                      {restaurants.map(r => (
+                        <option key={getEntityId(r)} value={getEntityId(r)}>{r.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base/50 dark:border-zinc-850 rounded-lg p-2.5 text-xs text-on-surface-variant font-bold">
+                      🏢 {getRestaurantName()}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Outlet Selector */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-on-surface-variant dark:text-zinc-555 uppercase tracking-wider block">
-                Outlet
-              </label>
-              {isOutletManager ? (
-                <div className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base/50 dark:border-zinc-850 rounded-lg p-2.5 text-xs text-on-surface-variant font-bold">
-                  📍 {outlets[0]?.name || 'Your Assigned Outlet'}
-                </div>
-              ) : (
-                <select
-                  value={selectedOutletId}
-                  onChange={(e) => setSelectedOutletId(e.target.value)}
-                  className="w-full bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2.5 text-xs text-on-background outline-none font-semibold cursor-pointer"
-                >
-                  <option value="">All Outlets</option>
-                  {filteredOutlets.map(o => (
-                    <option key={getEntityId(o)} value={getEntityId(o)}>{o.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
+                {/* Outlet Selector (only when scopeTier is OUTLET) */}
+                {scopeTier === 'OUTLET' && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-on-surface-variant dark:text-zinc-500 uppercase tracking-wider block">
+                      Outlet
+                    </label>
+                    {isOutletManager ? (
+                      <div className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base/50 dark:border-zinc-850 rounded-lg p-2.5 text-xs text-on-surface-variant font-bold">
+                        📍 {outlets[0]?.name || 'Your Assigned Outlet'}
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedOutletId}
+                        onChange={(e) => setSelectedOutletId(e.target.value)}
+                        className="w-full bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2.5 text-xs text-on-background outline-none font-semibold cursor-pointer"
+                      >
+                        <option value="">Select Outlet</option>
+                        {filteredOutlets.map(o => (
+                          <option key={getEntityId(o)} value={getEntityId(o)}>{o.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -397,7 +461,7 @@ export default function ReportsPage() {
 
       <Card className="p-6">
         <div className="flex items-center gap-4">
-          <span className="material-symbols-outlined text-primary text-3xl">analytics</span>
+          <HiOutlineChartBarSquare className="text-primary text-3xl shrink-0" />
           <div>
             <h4 className="font-bold text-[14px] text-on-surface dark:text-zinc-250">Need a custom aggregate report?</h4>
             <p className="text-xs text-on-surface-variant dark:text-zinc-400 mt-1">

@@ -4,6 +4,7 @@ import { ReservationService } from "./reservation.service.js";
 import { ReservationStatus } from "../../models/reservation.model.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { resolveDiningContext } from "./order.utils.js";
+import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class ReservationController {
   /**
@@ -25,6 +26,14 @@ export class ReservationController {
       if (!outletId || !guestName || !partySize || !scheduledAt) {
         ApiResponseHandler.badRequest(res, "outletId, guestName, partySize, and scheduledAt are required");
         return;
+      }
+
+      if (req.user) {
+        const canAccess = await AccessScope.canAccessOutlet(req.user, String(outletId));
+        if (!canAccess) {
+          ApiResponseHandler.forbidden(res, "Access denied: You cannot create reservations for this outlet");
+          return;
+        }
       }
 
       const result = await ReservationService.createReservation(tenantId, {
@@ -57,46 +66,47 @@ export class ReservationController {
    */
   static async getReservations(req: Request, res: Response): Promise<void> {
     try {
-      let tenantId: Types.ObjectId;
-      let outletId: Types.ObjectId | undefined;
+      const context = await resolveDiningContext(req);
+      const tenantId = context.tenantId;
 
-      if (req.user?.role === 'SYSTEM_ADMIN') {
-        const Tenant = (await import("mongoose")).default.model("Tenant");
-        const Outlet = (await import("mongoose")).default.model("Outlet");
-        const tenantStr = req.query.tenantId as string || req.headers["x-tenant-id"] as string;
-        const outletStr = req.query.outletId as string || req.headers["x-outlet-id"] as string;
-        
-        if (tenantStr && Types.ObjectId.isValid(tenantStr)) {
-          tenantId = new Types.ObjectId(tenantStr);
-        } else {
-          const firstT = await Tenant.findOne({ isDeleted: false }).lean();
-          if (!firstT) {
+      const reqOutletId = req.query.outletId as string | undefined || req.headers["x-outlet-id"] as string | undefined;
+
+      let targetOutletId: Types.ObjectId | undefined;
+      let targetOutletIds: Types.ObjectId[] | undefined;
+
+      if (reqOutletId && Types.ObjectId.isValid(reqOutletId)) {
+        if (req.user && !(await AccessScope.canAccessOutlet(req.user, reqOutletId))) {
+          ApiResponseHandler.forbidden(res, "Access denied: You cannot view reservations for this outlet");
+          return;
+        }
+        targetOutletId = new Types.ObjectId(reqOutletId);
+      } else if (req.user) {
+        const allowedIds = await AccessScope.outletIdsForUser(req.user);
+        if (allowedIds !== null) {
+          if (allowedIds.length === 1) {
+            const firstId = allowedIds[0];
+            if (firstId) targetOutletId = new Types.ObjectId(firstId);
+          } else if (allowedIds.length > 1) {
+            targetOutletIds = allowedIds.map(id => new Types.ObjectId(id));
+          } else {
+            // No outlets assigned
             ApiResponseHandler.success(res, 200, "Reservations retrieved", { count: 0, reservations: [] });
             return;
           }
-          tenantId = (firstT as any)._id;
         }
-
-        if (outletStr && Types.ObjectId.isValid(outletStr)) {
-          outletId = new Types.ObjectId(outletStr);
-        } else {
-          const firstO = await Outlet.findOne({ tenantId, isDeleted: false }).lean();
-          if (firstO) outletId = (firstO as any)._id;
-        }
-      } else {
-        const context = await resolveDiningContext(req);
-        tenantId = context.tenantId;
-        outletId = context.outletId;
+      } else if (context.outletId) {
+        targetOutletId = context.outletId;
       }
 
       const status = req.query.status as ReservationStatus | undefined;
       const tableId = req.query.tableId as string | undefined;
       const date = req.query.date ? new Date(String(req.query.date)) : undefined;
 
-      const reservations = await ReservationService.getReservations(tenantId, outletId!, {
+      const reservations = await ReservationService.getReservations(tenantId, targetOutletId, {
         ...(date && { date }),
         ...(status && { status }),
-        ...(tableId && { tableId })
+        ...(tableId && { tableId }),
+        ...(targetOutletIds && { outletIds: targetOutletIds })
       });
 
       ApiResponseHandler.success(res, 200, "Reservations retrieved", { count: reservations.length, reservations });

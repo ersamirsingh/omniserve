@@ -1,4 +1,5 @@
 import React from 'react';
+import { HiArrowTrendingUp, HiArrowTrendingDown } from 'react-icons/hi2';
 
 const iconColors = {
   indigo: 'bg-primary-container/10 text-primary-container dark:text-primary-fixed-dim',
@@ -39,9 +40,7 @@ export default function StatCard({ title, value, icon, trend, trendUp, color = '
                 : 'text-error bg-error/10'
             }`}
           >
-            <span className="material-symbols-outlined text-[13px] font-bold">
-              {trendUp ? 'trending_up' : 'trending_down'}
-            </span>
+            {trendUp ? <HiArrowTrendingUp className="text-[13px]" /> : <HiArrowTrendingDown className="text-[13px]" />}
             {trend}
           </span>
         )}

@@ -228,7 +228,8 @@ export class SubscriptionService {
     billingCycle: BillingCycle,
     provider: PaymentProvider,
     couponCode?: string,
-    userId?: string | Types.ObjectId
+    userId?: string | Types.ObjectId,
+    outletId?: string | Types.ObjectId
   ): Promise<IRestaurantSubscriptionDocument> {
     const subscription = await this.getOrCreateSubscription(tenantId, userId);
 
@@ -294,6 +295,7 @@ export class SubscriptionService {
     // 5. Update subscription record
     const updated = await SubscriptionRepository.updateSubscription(subscription._id, {
       planId: newPlan._id as Types.ObjectId,
+      outletId: outletId ? new Types.ObjectId(outletId) : (subscription.outletId ?? null),
       status: SubscriptionStatus.ACTIVE,
       billingCycle,
       startDate,

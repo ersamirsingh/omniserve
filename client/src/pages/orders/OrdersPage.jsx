@@ -1,28 +1,41 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
 import { fetchOrders, updateOrderStatus, cancelOrder } from '../../store/orderSlice';
 import { getOrderByIdApi } from '../../api/models/order.api';
+import { listOutletsApi } from '../../api/models/outlet.api';
 import Table from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
-import { ORDER_STATUS_VARIANT, ORDER_STATUS_LABELS, PAYMENT_STATUS_VARIANT } from '../../utils/constants';
+import { ORDER_STATUS_VARIANT, ORDER_STATUS_LABELS, PAYMENT_STATUS_VARIANT, USER_ROLES } from '../../utils/constants';
+import { getList, getEntityId, getRefId } from '../../utils/apiData';
 import { HiOutlineShoppingCart, HiOutlineEye, HiOutlineXMark, HiOutlineClock, HiOutlineArrowPath } from 'react-icons/hi2';
 import { useSocket } from '../../context/SocketContext';
 import OrderLifecycleActions from '../../components/shared/OrderLifecycleActions';
 
 export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType = 'TABLE' }) {
   const dispatch = useDispatch();
+  const { user } = useAuth();
   const { orders, loading } = useSelector((s) => s.orders);
   const { addToast } = useToast();
   const { lastMessage } = useSocket();
   const [filter, setFilter] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const orderIdParam = searchParams.get('orderId');
-  
+
+  // Outlet Scoping State
+  const [outlets, setOutlets] = useState([]);
+  const [selectedOutletId, setSelectedOutletId] = useState('');
+  const [loadingOutlets, setLoadingOutlets] = useState(true);
+
+  const isSuperAdmin = user?.role === USER_ROLES.SUPER_ADMIN || user?.role === USER_ROLES.SYSTEM_ADMIN;
+  const isRestaurantOwner = user?.role === USER_ROLES.RESTAURANT_OWNER;
+  const isOutletManager = user?.role === USER_ROLES.OUTLET_MANAGER;
+
   // Details Modal State
   const [detailsModal, setDetailsModal] = useState({ open: false, orderId: null, data: null, loading: false });
   // Cancel Reason State
@@ -30,11 +43,38 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
 
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    const loadOutlets = async () => {
+      setLoadingOutlets(true);
+      try {
+        const rId = getRefId(user?.restaurantId || (user?.restaurantIds && user.restaurantIds[0]));
+        const res = await listOutletsApi(isRestaurantOwner && rId ? { restaurantId: rId } : {});
+        let list = getList(res, 'outlets');
+        if (isOutletManager) {
+          const userOutletId = getRefId(user?.outletId || (user?.outletIds && user.outletIds[0]));
+          if (userOutletId) {
+            list = list.filter(o => getEntityId(o) === userOutletId);
+            setSelectedOutletId(userOutletId);
+          }
+        }
+        setOutlets(list);
+      } catch (err) {
+        console.error('Failed to load outlets in OrdersPage:', err);
+      } finally {
+        setLoadingOutlets(false);
+      }
+    };
+    loadOutlets();
+  }, [user, isSuperAdmin, isRestaurantOwner, isOutletManager]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     const params = {};
     if (mode !== 'ALL') {
       params.operationalMode = mode;
+    }
+    if (selectedOutletId) {
+      params.outletId = selectedOutletId;
     }
     try {
       await dispatch(fetchOrders(params)).unwrap();
@@ -76,8 +116,11 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
     if (mode !== 'ALL') {
       params.operationalMode = mode;
     }
+    if (selectedOutletId) {
+      params.outletId = selectedOutletId;
+    }
     dispatch(fetchOrders(params)); 
-  }, [dispatch, mode]);
+  }, [dispatch, mode, selectedOutletId]);
 
   useEffect(() => {
     if (!lastMessage) return;
@@ -87,9 +130,12 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
       if (mode !== 'ALL') {
         params.operationalMode = mode;
       }
+      if (selectedOutletId) {
+        params.outletId = selectedOutletId;
+      }
       dispatch(fetchOrders(params));
     }
-  }, [lastMessage, dispatch, mode]);
+  }, [lastMessage, dispatch, mode, selectedOutletId]);
 
   useEffect(() => {
     if (orderIdParam) {
@@ -318,8 +364,32 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
       )}
 
       <div className="flex items-center gap-3 mb-4 flex-wrap">
+        {/* Outlet Filter Dropdown */}
+        <div className="flex items-center gap-2">
+          {isOutletManager ? (
+            <div className="px-4 py-2.5 bg-surface-container dark:bg-zinc-900 border border-border-base/50 dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm font-bold flex items-center gap-1.5">
+              <span>📍</span> {outlets[0]?.name || 'Assigned Outlet'}
+            </div>
+          ) : (
+            <select
+              className="px-4 py-2.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none cursor-pointer focus:border-primary transition-all duration-200 font-medium"
+              value={selectedOutletId}
+              onChange={(e) => setSelectedOutletId(e.target.value)}
+              disabled={loadingOutlets}
+            >
+              <option value="">All Outlets</option>
+              {outlets.map((o) => (
+                <option key={getEntityId(o)} value={getEntityId(o)}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Status Filter Dropdown */}
         <select 
-          className="px-4 py-2.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none cursor-pointer focus:border-primary transition-all duration-200" 
+          className="px-4 py-2.5 bg-surface-subtle dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg text-on-surface dark:text-zinc-200 text-sm outline-none cursor-pointer focus:border-primary transition-all duration-200 font-medium" 
           value={filter} 
           onChange={(e) => setFilter(e.target.value)}
         >

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { HiChevronRight } from 'react-icons/hi2';
 
 export default function PageHeader({ 
   section, 
@@ -20,7 +21,7 @@ export default function PageHeader({
               <span>{section}</span>
               {title && (
                 <>
-                  <span className="material-symbols-outlined text-[13px]">chevron_right</span>
+                  <HiChevronRight className="text-[13px] text-zinc-400 dark:text-zinc-600" />
                   <span className="text-primary dark:text-primary-fixed-dim">{title}</span>
                 </>
               )}
