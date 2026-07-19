@@ -95,28 +95,44 @@ export class HelpRequestController {
         }
       }
 
-      const trackingCode = generateTrackingCode();
+      let trackingCode = generateTrackingCode();
+      let helpRequest: any = null;
+      let attempts = 0;
+      const maxAttempts = 3;
 
-      const helpRequest = new HelpRequest({
-        tenantId: reqTenantId ? new Types.ObjectId(reqTenantId) : null,
-        userId: new Types.ObjectId(req.user.userId),
-        userRole: req.user.role,
-        trackingCode,
-        description: description.trim(),
-        screenshot: screenshotUrl,
-        restaurantId,
-        restaurantName,
-        outletId,
-        outletName,
-        context: {
-          pageRoute: context?.pageRoute || 'Unknown',
-          timestamp: context?.timestamp ? new Date(context.timestamp) : new Date(),
-          errorLogSnippet: context?.errorLogSnippet || null
-        },
-        status: 'OPEN'
-      });
+      while (attempts < maxAttempts) {
+        try {
+          helpRequest = new HelpRequest({
+            tenantId: reqTenantId ? new Types.ObjectId(reqTenantId) : null,
+            userId: new Types.ObjectId(req.user.userId),
+            userRole: req.user.role,
+            trackingCode,
+            description: description.trim(),
+            screenshot: screenshotUrl,
+            restaurantId,
+            restaurantName,
+            outletId,
+            outletName,
+            context: {
+              pageRoute: context?.pageRoute || 'Unknown',
+              timestamp: context?.timestamp ? new Date(context.timestamp) : new Date(),
+              errorLogSnippet: context?.errorLogSnippet || null
+            },
+            status: 'OPEN'
+          });
 
-      await helpRequest.save();
+          await helpRequest.save();
+          break;
+        } catch (saveErr: any) {
+          if (saveErr.code === 11000 && saveErr.keyPattern?.trackingCode) {
+            attempts++;
+            trackingCode = generateTrackingCode();
+            if (attempts >= maxAttempts) throw saveErr;
+          } else {
+            throw saveErr;
+          }
+        }
+      }
 
       // Automatically create an Issue tracker ticket for this help request
       try {
@@ -260,13 +276,13 @@ export class HelpRequestController {
    */
   static async trackHelpRequest(req: Request, res: Response): Promise<void> {
     try {
-      const { code } = req.params;
-      if (!code || code.trim().length < 6) {
+      const rawCode = Array.isArray(req.params.code) ? req.params.code[0] : req.params.code;
+      if (!rawCode || rawCode.trim().length < 6) {
         ApiResponseHandler.badRequest(res, 'A valid tracking code is required');
         return;
       }
 
-      const trackingCodeClean = code.trim().toUpperCase();
+      const trackingCodeClean = rawCode.trim().toUpperCase();
       const helpRequest = await HelpRequest.findOne({ trackingCode: trackingCodeClean })
         .populate('userId', 'firstName lastName email')
         .populate('resolvedBy', 'firstName lastName');

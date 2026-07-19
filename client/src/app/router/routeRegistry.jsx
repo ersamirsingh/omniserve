@@ -244,5 +244,28 @@ export function getSidebarSections(userRole) {
     }
   }
 
-  return Array.from(sections.entries()).map(([section, items]) => ({ section, items }));
+  let result = Array.from(sections.entries()).map(([section, items]) => ({ section, items }));
+
+  if (userRole === 'STAFF') {
+    const mainSec = result.find(s => s.section === 'Main');
+    const onlineSec = result.find(s => s.section === 'Online');
+    const offlineSec = result.find(s => s.section === 'Offline');
+    const otherSecs = result.filter(s => s.section !== 'Main' && s.section !== 'Online' && s.section !== 'Offline');
+
+    result = [];
+    if (mainSec) result.push(mainSec);
+    if (onlineSec) result.push(onlineSec);
+    if (offlineSec) result.push(offlineSec);
+    result.push(...otherSecs);
+  }
+
+  if (userRole === 'SYSTEM_ADMIN') {
+    const userSec = result.find(s => s.section === 'User');
+    if (userSec) {
+      const otherSecs = result.filter(s => s.section !== 'User');
+      result = [...otherSecs, userSec];
+    }
+  }
+
+  return result;
 }

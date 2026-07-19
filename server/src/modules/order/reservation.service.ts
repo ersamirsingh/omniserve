@@ -5,6 +5,7 @@ import { EventBusService } from "../../events/eventBus.js";
 import { QRSessionService } from "./qrsession.service.js";
 import Outlet from "../../models/outlet.model.js";
 import TableLock from "../../models/tableLock.model.js";
+import Customer from "../../models/customer.model.js";
 
 export interface ICreateReservationInput {
   outletId: Types.ObjectId;
@@ -146,23 +147,25 @@ export class ReservationService {
       const activeBooking = await ReservationService.checkActiveBooking(tenantId, input.guestPhone);
       if (activeBooking && activeBooking.hasActive) {
         if (input.allowMerge && activeBooking.bookingId) {
-          // Perform the merge!
+          // Perform the merge atomically!
           if (activeBooking.type === "RESERVATION") {
-            const existingRes = await Reservation.findById(activeBooking.bookingId);
+            const updateQuery: any = {
+              $inc: { partySize: Number(input.partySize) }
+            };
+            if (seatNumbers && seatNumbers.length > 0) {
+              updateQuery.$addToSet = { seatNumbers: { $each: seatNumbers } };
+            }
+            const existingRes = await Reservation.findOneAndUpdate(
+              { _id: activeBooking.bookingId, tenantId, isDeleted: false },
+              updateQuery,
+              { new: true }
+            );
+
             if (existingRes) {
-              existingRes.partySize += Number(input.partySize);
-              if (seatNumbers && seatNumbers.length > 0) {
-                if (!existingRes.seatNumbers) existingRes.seatNumbers = [];
-                seatNumbers.forEach(s => {
-                  if (!existingRes.seatNumbers!.includes(s)) {
-                    existingRes.seatNumbers!.push(s);
-                  }
-                });
-                if (existingRes.seatNumbers!.length > 0) {
-                  existingRes.seatNumber = existingRes.seatNumbers![0] ?? null;
-                }
+              if (seatNumbers && seatNumbers.length > 0 && !existingRes.seatNumber) {
+                existingRes.seatNumber = seatNumbers[0] ?? null;
+                await existingRes.save();
               }
-              await existingRes.save();
 
               // Update the table status to RESERVED
               if (existingRes.tableId) {
@@ -189,21 +192,18 @@ export class ReservationService {
             }
           } else if (activeBooking.type === "SESSION") {
             const QRSession = mongoose.model("QRSession");
-            const activeSession = await QRSession.findById(activeBooking.bookingId);
+            const updateObj: any = {};
+            if (seatNumbers && seatNumbers.length > 0) {
+              const seatEntries = seatNumbers.map(s => ({ seatNumber: s, joinedAt: new Date() }));
+              updateObj.$addToSet = { seats: { $each: seatEntries } };
+            }
+            const activeSession = await QRSession.findOneAndUpdate(
+              { _id: activeBooking.bookingId, isDeleted: false },
+              Object.keys(updateObj).length > 0 ? updateObj : { $set: { updatedAt: new Date() } },
+              { new: true }
+            );
+
             if (activeSession) {
-              // Merge into the QR session by adding seat(s)
-              if (seatNumbers && seatNumbers.length > 0) {
-                seatNumbers.forEach(seatNum => {
-                  if (!activeSession.seats.some((s: any) => s.seatNumber === seatNum)) {
-                    activeSession.seats.push({
-                      seatNumber: seatNum,
-                      joinedAt: new Date()
-                    });
-                  }
-                });
-                await activeSession.save();
-              }
-              // Return the session's active table
               return {
                 reservationId: activeSession._id.toString(),
                 guestName: input.guestName,
@@ -218,31 +218,44 @@ export class ReservationService {
         } else {
           // Block creation and return details
           throw new Error(`ACTIVE_BOOKING_EXISTS:${JSON.stringify({
-            type: activeBooking.type,
             bookingId: activeBooking.bookingId,
+            type: activeBooking.type,
             details: activeBooking.details
           })}`);
         }
       }
     }
 
-    const reservation = await Reservation.create({
-      tenantId,
-      outletId: input.outletId,
-      guestName: input.guestName,
-      partySize: input.partySize,
-      scheduledAt: input.scheduledAt,
-      status: "PENDING",
-      ...(input.guestPhone && { guestPhone: input.guestPhone }),
-      ...(input.guestEmail && { guestEmail: input.guestEmail }),
-      ...(input.tableId && { tableId: new Types.ObjectId(input.tableId) }),
-      ...(input.diningAreaId && { diningAreaId: new Types.ObjectId(input.diningAreaId) }),
-      ...(input.customerId && { customerId: new Types.ObjectId(input.customerId) }),
-      ...(input.specialRequests && { specialRequests: input.specialRequests }),
-      ...(input.notes && { notes: input.notes }),
-      ...(input.seatNumbers && { seatNumbers: input.seatNumbers }),
-      ...(seatNumber && { seatNumber: seatNumber })
-    });
+    let reservation: any;
+    try {
+      reservation = await Reservation.create({
+        tenantId,
+        outletId: input.outletId,
+        guestName: input.guestName,
+        partySize: input.partySize,
+        scheduledAt: input.scheduledAt,
+        status: "PENDING",
+        ...(input.guestPhone && { guestPhone: input.guestPhone }),
+        ...(input.guestEmail && { guestEmail: input.guestEmail }),
+        ...(input.tableId && { tableId: new Types.ObjectId(input.tableId) }),
+        ...(input.diningAreaId && { diningAreaId: new Types.ObjectId(input.diningAreaId) }),
+        ...(input.customerId && { customerId: new Types.ObjectId(input.customerId) }),
+        ...(input.specialRequests && { specialRequests: input.specialRequests }),
+        ...(input.notes && { notes: input.notes }),
+        ...(input.seatNumbers && { seatNumbers: input.seatNumbers }),
+        ...(seatNumber && { seatNumber: seatNumber })
+      });
+    } catch (createErr: any) {
+      if (createErr.code === 11000 && input.guestPhone) {
+        const activeBooking = await ReservationService.checkActiveBooking(tenantId, input.guestPhone);
+        throw new Error(`ACTIVE_BOOKING_EXISTS:${JSON.stringify({
+          bookingId: activeBooking?.bookingId,
+          type: activeBooking?.type,
+          details: activeBooking?.details
+        })}`);
+      }
+      throw createErr;
+    }
 
     if (reservation.tableId) {
       // Delete any TableLock for this table
@@ -280,20 +293,28 @@ export class ReservationService {
     reservationId: string,
     updatedBy?: Types.ObjectId
   ): Promise<IReservationResult> {
-    const reservation = await Reservation.findOne({
-      _id: new Types.ObjectId(reservationId),
-      tenantId,
-      isDeleted: false
-    });
-    if (!reservation) throw new Error(`Reservation ${reservationId} not found`);
-    if (reservation.status !== "PENDING") {
-      throw new Error(`Reservation is ${reservation.status} — only PENDING reservations can be confirmed`);
-    }
+    const reservation = await Reservation.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(reservationId),
+        tenantId,
+        status: "PENDING",
+        isDeleted: false
+      },
+      {
+        $set: {
+          status: "CONFIRMED",
+          confirmedAt: new Date(),
+          ...(updatedBy && { updatedBy })
+        }
+      },
+      { new: true }
+    );
 
-    reservation.status = "CONFIRMED";
-    reservation.confirmedAt = new Date();
-    if (updatedBy) reservation.updatedBy = updatedBy;
-    await reservation.save();
+    if (!reservation) {
+      const existing = await Reservation.findOne({ _id: new Types.ObjectId(reservationId), tenantId });
+      if (!existing) throw new Error(`Reservation ${reservationId} not found`);
+      throw new Error(`Reservation is ${existing.status} — only PENDING reservations can be confirmed`);
+    }
 
     if (reservation.tableId) {
       const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
@@ -304,7 +325,6 @@ export class ReservationService {
         "RESERVED",
         { correlationId: reservation._id.toString() }
       );
-      // Delete any TableLock for this table
       await TableLock.deleteOne({ tableId: reservation.tableId });
     }
 
@@ -312,7 +332,7 @@ export class ReservationService {
       tenantId,
       reservation.outletId,
       reservation._id,
-      { reservationId, tableId: reservation.tableId?.toString() }
+      { reservationId: reservation._id.toString(), tableId: reservation.tableId?.toString() }
     ).catch(err => console.error("Failed to publish reservation confirmed event", err));
 
     return {
@@ -333,24 +353,38 @@ export class ReservationService {
     reservationId: string,
     options: { tableId?: string; sessionId?: string; updatedBy?: Types.ObjectId } = {}
   ): Promise<IReservationResult> {
-    const reservation = await Reservation.findOne({
-      _id: new Types.ObjectId(reservationId),
-      tenantId,
-      isDeleted: false
-    });
-    if (!reservation) throw new Error(`Reservation ${reservationId} not found`);
-    if (!["PENDING", "CONFIRMED"].includes(reservation.status)) {
-      throw new Error(`Cannot seat a reservation with status ${reservation.status}`);
+    const targetTableId = options.tableId ? new Types.ObjectId(options.tableId) : undefined;
+    const targetSessionId = options.sessionId ? new Types.ObjectId(options.sessionId) : undefined;
+
+    const reservation = await Reservation.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(reservationId),
+        tenantId,
+        status: { $in: ["PENDING", "CONFIRMED"] },
+        isDeleted: false
+      },
+      {
+        $set: {
+          status: "SEATED",
+          seatedAt: new Date(),
+          ...(targetTableId && { tableId: targetTableId }),
+          ...(targetSessionId && { sessionId: targetSessionId }),
+          ...(options.updatedBy && { updatedBy: options.updatedBy })
+        }
+      },
+      { new: true }
+    );
+
+    if (!reservation) {
+      const existing = await Reservation.findOne({ _id: new Types.ObjectId(reservationId), tenantId });
+      if (!existing) throw new Error(`Reservation ${reservationId} not found`);
+      throw new Error(`Cannot seat a reservation with status ${existing.status}`);
     }
 
-    reservation.status = "SEATED";
-    reservation.seatedAt = new Date();
-    
     let activeSessionId = options.sessionId;
     const finalTableId = options.tableId || reservation.tableId?.toString();
     
     if (finalTableId && !activeSessionId) {
-      // Create a new QR session for this table
       const session = await QRSessionService.createSession(
         tenantId.toString(),
         reservation.outletId.toString(),
@@ -366,12 +400,8 @@ export class ReservationService {
         }
       );
       activeSessionId = session._id.toString();
+      await Reservation.findByIdAndUpdate(reservation._id, { sessionId: new Types.ObjectId(activeSessionId) });
     }
-
-    if (options.tableId) reservation.tableId = new Types.ObjectId(options.tableId);
-    if (activeSessionId) reservation.sessionId = new Types.ObjectId(activeSessionId);
-    if (options.updatedBy) reservation.updatedBy = options.updatedBy;
-    await reservation.save();
 
     if (finalTableId) {
       const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
@@ -388,7 +418,7 @@ export class ReservationService {
       tenantId,
       reservation.outletId,
       reservation._id,
-      { reservationId, tableId: reservation.tableId?.toString(), sessionId: reservation.sessionId?.toString() }
+      { reservationId: reservation._id.toString(), tableId: reservation.tableId?.toString(), sessionId: activeSessionId }
     ).catch(err => console.error("Failed to publish reservation seated event", err));
 
     return {
@@ -439,20 +469,28 @@ export class ReservationService {
     reservationId: string,
     updatedBy?: Types.ObjectId
   ): Promise<IReservationResult> {
-    const reservation = await Reservation.findOne({
-      _id: new Types.ObjectId(reservationId),
-      tenantId,
-      isDeleted: false
-    });
-    if (!reservation) throw new Error(`Reservation ${reservationId} not found`);
-    if (!["PENDING", "CONFIRMED"].includes(reservation.status)) {
-      throw new Error(`Cannot mark ${reservation.status} reservation as no-show`);
-    }
+    const reservation = await Reservation.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(reservationId),
+        tenantId,
+        status: { $in: ["PENDING", "CONFIRMED"] },
+        isDeleted: false
+      },
+      {
+        $set: {
+          status: "NO_SHOW",
+          noShowAt: new Date(),
+          ...(updatedBy && { updatedBy })
+        }
+      },
+      { new: true }
+    );
 
-    reservation.status = "NO_SHOW";
-    reservation.noShowAt = new Date();
-    if (updatedBy) reservation.updatedBy = updatedBy;
-    await reservation.save();
+    if (!reservation) {
+      const existing = await Reservation.findOne({ _id: new Types.ObjectId(reservationId), tenantId });
+      if (!existing) throw new Error(`Reservation ${reservationId} not found`);
+      throw new Error(`Cannot mark ${existing.status} reservation as no-show`);
+    }
 
     if (reservation.tableId) {
       const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
@@ -481,23 +519,33 @@ export class ReservationService {
   static async cancelReservation(
     tenantId: Types.ObjectId,
     reservationId: string,
-    options: { reason?: string; updatedBy?: Types.ObjectId } = {}
+    options: { reason?: string; updatedBy?: Types.ObjectId; expectedStatus?: ReservationStatus } = {}
   ): Promise<IReservationResult> {
-    const reservation = await Reservation.findOne({
-      _id: new Types.ObjectId(reservationId),
-      tenantId,
-      isDeleted: false
-    });
-    if (!reservation) throw new Error(`Reservation ${reservationId} not found`);
-    if (["COMPLETED", "CANCELLED"].includes(reservation.status)) {
-      throw new Error(`Reservation is already ${reservation.status}`);
-    }
+    const statusQuery = options.expectedStatus ? options.expectedStatus : { $nin: ["COMPLETED", "CANCELLED"] };
 
-    reservation.status = "CANCELLED";
-    reservation.cancelledAt = new Date();
-    if (options.reason) reservation.cancellationReason = options.reason;
-    if (options.updatedBy) reservation.updatedBy = options.updatedBy;
-    await reservation.save();
+    const reservation = await Reservation.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(reservationId),
+        tenantId,
+        status: statusQuery,
+        isDeleted: false
+      },
+      {
+        $set: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          ...(options.reason && { cancellationReason: options.reason }),
+          ...(options.updatedBy && { updatedBy: options.updatedBy })
+        }
+      },
+      { new: true }
+    );
+
+    if (!reservation) {
+      const existing = await Reservation.findOne({ _id: new Types.ObjectId(reservationId), tenantId });
+      if (!existing) throw new Error(`Reservation ${reservationId} not found`);
+      throw new Error(`Reservation is already ${existing.status}`);
+    }
 
     if (reservation.tableId) {
       const TableServiceMod = await import("../outlet/table.service.js").then(m => m.TableService);
@@ -514,7 +562,7 @@ export class ReservationService {
       tenantId,
       reservation.outletId,
       reservation._id,
-      { reservationId, tableId: reservation.tableId?.toString(), reason: options.reason }
+      { reservationId: reservation._id.toString(), tableId: reservation.tableId?.toString(), reason: options.reason }
     ).catch(err => console.error("Failed to publish reservation cancelled event", err));
 
     return {
@@ -532,22 +580,22 @@ export class ReservationService {
    */
   static async getReservations(
     tenantId: Types.ObjectId,
-    outletId: Types.ObjectId,
+    outletId?: Types.ObjectId,
     filters: {
       date?: Date;
       status?: ReservationStatus;
       tableId?: string;
     } = {}
   ): Promise<any[]> {
-    const query: Record<string, any> = { tenantId, outletId, isDeleted: false };
+    const query: Record<string, any> = { tenantId, isDeleted: false };
+    if (outletId) query.outletId = outletId;
 
     if (filters.status) query.status = filters.status;
     if (filters.tableId) query.tableId = new Types.ObjectId(filters.tableId);
-    if (filters.date) {
-      const dayStart = new Date(filters.date);
-      dayStart.setUTCHours(0, 0, 0, 0);
-      const dayEnd = new Date(filters.date);
-      dayEnd.setUTCHours(23, 59, 59, 999);
+    if (filters.date && !isNaN(new Date(filters.date).getTime())) {
+      const parsed = new Date(filters.date);
+      const dayStart = new Date(parsed.getTime() - 12 * 60 * 60 * 1000);
+      const dayEnd = new Date(parsed.getTime() + 36 * 60 * 60 * 1000);
       query.scheduledAt = { $gte: dayStart, $lte: dayEnd };
     }
 
@@ -586,7 +634,7 @@ export class ReservationService {
     }
 
     // 2. Check if a Customer account exists with this phone number
-    const customer = await mongoose.model("Customer").findOne({
+    const customer = await Customer.findOne({
       tenantId,
       phone: formattedPhone,
       isDeleted: false

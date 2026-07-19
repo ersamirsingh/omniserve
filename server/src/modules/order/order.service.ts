@@ -482,7 +482,7 @@ export class OrderService {
         }
       } else if (newStatus === OrderStatus.SERVED) {
         updateFields.servedAt = new Date();
-      } else if (newStatus === OrderStatus.PICKED_UP) {
+      } else if (newStatus === OrderStatus.PICKED_UP || newStatus === OrderStatus.OUT_FOR_DELIVERY) {
         updateFields.pickedUpAt = new Date();
       } else if (newStatus === OrderStatus.DELIVERED || newStatus === OrderStatus.COMPLETED) {
         if (newStatus === OrderStatus.DELIVERED) {
