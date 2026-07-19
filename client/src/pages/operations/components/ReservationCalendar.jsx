@@ -258,7 +258,7 @@ export default function ReservationCalendar() {
                 className="bg-transparent text-[12px] font-bold text-on-surface dark:text-zinc-200 outline-none cursor-pointer"
               >
                 {outlets.map(o => (
-                  <option key={getEntityId(o)} value={getEntityId(o)}>
+                  <option key={getEntityId(o)} value={getEntityId(o)} className="bg-white dark:bg-zinc-950 text-on-surface dark:text-zinc-200">
                     {o.name}
                   </option>
                 ))}
@@ -468,7 +468,7 @@ export default function ReservationCalendar() {
                   onChange={handleTableSelect}
                   className="w-full bg-surface-container dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-lg p-2 text-xs text-on-background outline-none"
                 >
-                  <option value="">Choose Table...</option>
+                  <option value="" className="bg-white dark:bg-zinc-950 text-on-surface dark:text-zinc-200">Choose Table...</option>
                   {tables.map(t => {
                     const now = new Date();
                     const selectedTime = new Date(form.scheduledAt || now);
@@ -488,7 +488,7 @@ export default function ReservationCalendar() {
                         key={t._id} 
                         value={t._id}
                         disabled={isUnavailable}
-                        className={isUnavailable ? 'text-zinc-400 dark:text-zinc-600 bg-surface-container-low font-semibold' : ''}
+                        className={`bg-white dark:bg-zinc-950 text-on-surface dark:text-zinc-200 ${isUnavailable ? 'text-zinc-400 dark:text-zinc-600 font-semibold' : ''}`}
                       >
                         Table {t.tableNumber} (Cap: {t.seatCount}){statusLabel ? ` - [${statusLabel}${isWithinTwoHours ? '' : ' - Current Status'}]` : ''}
                       </option>

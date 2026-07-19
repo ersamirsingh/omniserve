@@ -13,10 +13,12 @@ export default function Input({ label, error, type = 'text', id, className = '',
       )}
       <div className="relative w-full">
         {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="material-symbols-outlined text-on-surface-variant/50 dark:text-zinc-500 text-[20px]">
-              {icon}
-            </span>
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-on-surface-variant/50 dark:text-zinc-500 text-[20px]">
+            {typeof icon === 'string' ? (
+              <span className="material-symbols-outlined text-[20px]">{icon}</span>
+            ) : (
+              icon
+            )}
           </div>
         )}
         <input

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { HiBars3, HiBell, HiArrowRightOnRectangle, HiUser } from 'react-icons/hi2';
+import { HiBars3, HiBell, HiArrowRightOnRectangle, HiUser, HiSun, HiMoon, HiComputerDesktop } from 'react-icons/hi2';
 import useAuth from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { ROLE_LABELS } from '../utils/constants';
@@ -54,9 +54,7 @@ export default function Topbar({ onMenuClick, title }) {
             className="flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant dark:text-zinc-400 text-xl hover:bg-surface-container-low dark:hover:bg-zinc-900/80 hover:text-primary dark:hover:text-primary-fixed-dim transition-all cursor-pointer bg-transparent border-none"
             aria-label="Toggle Theme"
           >
-            <span className="material-symbols-outlined text-[20px]">
-              {theme === 'light' ? 'light_mode' : theme === 'dark' ? 'dark_mode' : 'desktop_windows'}
-            </span>
+            {theme === 'light' ? <HiSun className="text-amber-500" /> : theme === 'dark' ? <HiMoon className="text-indigo-400" /> : <HiComputerDesktop />}
           </button>
           {showThemeMenu && (
             <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-zinc-950 border border-border-base dark:border-zinc-850 rounded-lg shadow-xl p-1 z-[200] animate-scale-in">
@@ -73,9 +71,7 @@ export default function Topbar({ onMenuClick, title }) {
                       : 'text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container-low dark:hover:bg-zinc-900/40 hover:text-on-surface dark:hover:text-zinc-200'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">
-                    {mode === 'light' ? 'light_mode' : mode === 'dark' ? 'dark_mode' : 'desktop_windows'}
-                  </span>
+                  {mode === 'light' ? <HiSun className="text-amber-500 text-sm" /> : mode === 'dark' ? <HiMoon className="text-indigo-400 text-sm" /> : <HiComputerDesktop className="text-sm" />}
                   <span>{mode}</span>
                 </button>
               ))}

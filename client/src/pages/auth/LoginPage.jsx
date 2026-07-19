@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash, HiOutlineExclamationTriangle } from 'react-icons/hi2';
 
 export default function LoginPage() {
   const { login, loading, error, clearErr } = useAuth();
@@ -59,28 +60,24 @@ export default function LoginPage() {
   const passwordLabel = (
     <div className="flex items-center justify-between w-full">
       <span>Password</span>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          alert("Please contact your system administrator to request a password reset.");
-        }}
-        className="font-label-sm text-label-sm text-primary dark:text-primary-fixed-dim hover:text-primary-container transition-colors font-semibold"
+      <Link
+        to="/forgot-password"
+        className="font-label-sm text-label-sm text-primary dark:text-primary-fixed-dim hover:underline text-[12px] font-medium"
       >
-        Forgot password?
-      </button>
+        Forgot?
+      </Link>
     </div>
   );
 
   const togglePasswordButton = (
     <button
       type="button"
+      className="text-on-surface-variant/50 hover:text-on-surface dark:text-zinc-500 dark:hover:text-zinc-300 focus:outline-none cursor-pointer transition-colors p-1"
       onClick={() => setShowPassword(!showPassword)}
-      className="text-on-surface-variant/50 hover:text-on-surface dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors flex items-center justify-center p-1 cursor-pointer"
+      tabIndex={-1}
+      aria-label={showPassword ? 'Hide password' : 'Show password'}
     >
-      <span className="material-symbols-outlined text-[20px]">
-        {showPassword ? 'visibility_off' : 'visibility'}
-      </span>
+      {showPassword ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
     </button>
   );
 
@@ -95,7 +92,7 @@ export default function LoginPage() {
 
       {error && (
         <div className="mb-4 p-3 bg-error-container/40 border border-error/20 rounded-lg text-error text-[12px] font-medium flex items-center gap-2 animate-fade-in">
-          <span className="material-symbols-outlined text-[16px]">error</span>
+          <HiOutlineExclamationTriangle size={16} />
           <span>{error}</span>
         </div>
       )}
@@ -110,7 +107,7 @@ export default function LoginPage() {
           value={form.email}
           onChange={handleChange}
           required
-          icon="mail"
+          icon={<HiOutlineEnvelope size={18} />}
           autoComplete="email"
         />
 
@@ -123,7 +120,7 @@ export default function LoginPage() {
           value={form.password}
           onChange={handleChange}
           required
-          icon="lock"
+          icon={<HiOutlineLockClosed size={18} />}
           rightElement={togglePasswordButton}
           autoComplete="current-password"
         />
