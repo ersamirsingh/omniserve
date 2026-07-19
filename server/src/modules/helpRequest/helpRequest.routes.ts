@@ -6,6 +6,7 @@ import { UserRole } from '../../models/enums.js';
 const router: Router = express.Router();
 
 router.post('/', verifyToken, HelpRequestController.createHelpRequest);
+router.get('/track/:code', verifyToken, HelpRequestController.trackHelpRequest);
 router.get('/', verifyToken, authorizeRole(UserRole.SYSTEM_ADMIN), HelpRequestController.listHelpRequests);
 router.patch('/:id', verifyToken, authorizeRole(UserRole.SYSTEM_ADMIN), HelpRequestController.resolveHelpRequest);
 

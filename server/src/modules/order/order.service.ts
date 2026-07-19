@@ -365,7 +365,7 @@ export class OrderService {
     const currentStatus = order.orderStatus;
 
     // Source-aware Workflow transition rules
-    const isDineIn = ["DINE_IN", "QR_DINE_IN", "WAITER", "POS"].includes(order.source);
+    const isDineIn = ["DINE_IN", "QR_DINE_IN", "WAITER", "POS", "WEBSITE"].includes(order.source) || !!order.diningContext?.tableId;
 
     let validTransitions: Record<string, string>;
     if (isDineIn) {

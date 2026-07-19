@@ -5,6 +5,7 @@ import User from '../../models/user.model.js';
 import { NotificationService } from '../notification/notification.service.js';
 import { NotificationType } from '../../models/enums.js';
 import { ApiResponseHandler } from '../../utils/apiResponse.js';
+import cloudinary from '../../config/cloudinary.js';
 
 /** Generate a unique 12-character alphanumeric tracking code (e.g. A3F9KX21M7QP) */
 function generateTrackingCode(): string {
@@ -75,6 +76,25 @@ export class HelpRequestController {
         console.error('Failed to resolve outlet details for support ticket:', err);
       }
 
+      // Upload screenshot to Cloudinary if provided as base64 or file data
+      let screenshotUrl: string | null = null;
+      if (screenshot && typeof screenshot === 'string') {
+        if (screenshot.startsWith('data:image/')) {
+          try {
+            const uploadRes = await cloudinary.uploader.upload(screenshot, {
+              folder: 'omniserve/help_requests',
+              resource_type: 'auto',
+            });
+            screenshotUrl = uploadRes.secure_url;
+          } catch (cloudErr: any) {
+            console.error('Cloudinary upload failed for help request screenshot:', cloudErr.message || cloudErr);
+            screenshotUrl = screenshot; // fallback to original data URL if Cloudinary error
+          }
+        } else {
+          screenshotUrl = screenshot;
+        }
+      }
+
       const trackingCode = generateTrackingCode();
 
       const helpRequest = new HelpRequest({
@@ -83,7 +103,7 @@ export class HelpRequestController {
         userRole: req.user.role,
         trackingCode,
         description: description.trim(),
-        screenshot: screenshot || null,
+        screenshot: screenshotUrl,
         restaurantId,
         restaurantName,
         outletId,
@@ -112,6 +132,8 @@ export class HelpRequestController {
           reporterId: new Types.ObjectId(req.user.userId),
           reporterName: `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.email,
           reporterEmail: sender.email,
+          trackingCode,
+          screenshot: screenshotUrl,
           status: 'OPEN',
           comments: [],
         });
@@ -229,6 +251,48 @@ export class HelpRequestController {
       ApiResponseHandler.success(res, 200, 'Help request updated successfully', { helpRequest });
     } catch (error: any) {
       ApiResponseHandler.internalError(res, error.message || 'Failed to update help request');
+    }
+  }
+
+  /**
+   * Track support ticket status by 12-character tracking code
+   * GET /help-requests/track/:code
+   */
+  static async trackHelpRequest(req: Request, res: Response): Promise<void> {
+    try {
+      const { code } = req.params;
+      if (!code || code.trim().length < 6) {
+        ApiResponseHandler.badRequest(res, 'A valid tracking code is required');
+        return;
+      }
+
+      const trackingCodeClean = code.trim().toUpperCase();
+      const helpRequest = await HelpRequest.findOne({ trackingCode: trackingCodeClean })
+        .populate('userId', 'firstName lastName email')
+        .populate('resolvedBy', 'firstName lastName');
+
+      if (!helpRequest) {
+        ApiResponseHandler.notFound(res, 'No support ticket found matching this tracking code');
+        return;
+      }
+
+      let issueComments: any[] = [];
+      try {
+        const Issue = mongoose.model('Issue');
+        const issue = await Issue.findOne({ trackingCode: trackingCodeClean });
+        if (issue && issue.comments) {
+          issueComments = issue.comments;
+        }
+      } catch (err) {
+        console.error('Failed to fetch linked issue comments:', err);
+      }
+
+      ApiResponseHandler.success(res, 200, 'Support ticket retrieved successfully', {
+        helpRequest,
+        issueComments,
+      });
+    } catch (error: any) {
+      ApiResponseHandler.internalError(res, error.message || 'Failed to track support ticket');
     }
   }
 }
