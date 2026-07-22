@@ -5,10 +5,7 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class CategoryController {
-  /**
-   * Create a new Category
-   * POST /categories
-   */
+
   static async createCategory(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -18,13 +15,11 @@ export class CategoryController {
 
       const { outletId, name, displayOrder } = req.body;
 
-      // Validate required fields
       if (!outletId || !name) {
         ApiResponseHandler.badRequest(res, 'outletId and name are required');
         return;
       }
 
-      // Validate outletId format
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
         return;
@@ -35,7 +30,6 @@ export class CategoryController {
         return;
       }
 
-      // Validate name constraints
       if (typeof name !== 'string' || name.trim().length === 0) {
         ApiResponseHandler.badRequest(res, 'name must be a non-empty string');
         return;
@@ -46,7 +40,6 @@ export class CategoryController {
         return;
       }
 
-      // Validate displayOrder if provided
       let parsedDisplayOrder = 0;
       if (displayOrder !== undefined) {
         parsedDisplayOrder = Number(displayOrder);
@@ -79,10 +72,6 @@ export class CategoryController {
     }
   }
 
-  /**
-   * List Categories for a tenant/outlet
-   * GET /categories
-   */
   static async listCategories(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -95,7 +84,6 @@ export class CategoryController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
 
-      // Validate outletId format if filtered
       if (outletId && !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId query parameter format');
         return;
@@ -149,10 +137,6 @@ export class CategoryController {
     }
   }
 
-  /**
-   * Get Category by ID
-   * GET /categories/:id
-   */
   static async getCategoryById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -191,10 +175,6 @@ export class CategoryController {
     }
   }
 
-  /**
-   * Replace/Update Category details (PUT)
-   * PUT /categories/:id
-   */
   static async updateCategory(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -210,7 +190,6 @@ export class CategoryController {
 
       const { name, displayOrder, isActive } = req.body;
 
-      // Validate required fields for PUT details replacement
       if (!name || displayOrder === undefined || isActive === undefined) {
         ApiResponseHandler.badRequest(res, 'name, displayOrder, and isActive are required');
         return;
@@ -275,10 +254,6 @@ export class CategoryController {
     }
   }
 
-  /**
-   * Update category display order
-   * PATCH /categories/:id/order
-   */
   static async updateCategoryOrder(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -336,10 +311,6 @@ export class CategoryController {
     }
   }
 
-  /**
-   * Soft-delete a Category
-   * DELETE /categories/:id
-   */
   static async deleteCategory(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

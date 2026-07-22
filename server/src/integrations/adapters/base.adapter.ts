@@ -14,7 +14,7 @@ export abstract class BaseAdapter implements IntegrationAdapter {
   abstract provider: IntegrationProvider | string;
 
   async verifySignature(args: AdapterVerifySignatureArgs): Promise<boolean> {
-    if (!args.secret) return true; // Bypass signature if no secret configured (local testing)
+    if (!args.secret) return true;
     const signature = args.headers["x-signature"] || args.headers["X-Signature"];
     if (!signature) return false;
 

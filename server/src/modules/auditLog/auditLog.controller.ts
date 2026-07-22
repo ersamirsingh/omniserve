@@ -4,10 +4,7 @@ import { AuditLogService } from "./auditLog.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 
 export class AuditLogController {
-  /**
-   * Retrieve paginated list of audit logs for the tenant
-   * GET /audit-logs
-   */
+
   static async listAuditLogs(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -26,7 +23,6 @@ export class AuditLogController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
 
-      // Construct filter object dynamically to support exactOptionalPropertyTypes: true
       const filters: {
         userId?: string;
         action?: string;
@@ -73,10 +69,6 @@ export class AuditLogController {
     }
   }
 
-  /**
-   * Retrieve a specific audit log details
-   * GET /audit-logs/:id
-   */
   static async getAuditLogById(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;

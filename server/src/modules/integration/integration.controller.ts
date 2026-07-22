@@ -27,10 +27,7 @@ import { EventBusService } from "../../events/eventBus.js";
 import { SubscriptionRepository } from "../subscription/subscription.repository.js";
 
 export class IntegrationController {
-  /**
-   * Receive Mock Swiggy Order Callback
-   * POST /api/v1/integrations/mock/swiggy/orders
-   */
+
   static async receiveMockSwiggyOrder(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = (req.query.tenantId as string) || (req.headers["x-tenant-id"] as string);
@@ -39,7 +36,6 @@ export class IntegrationController {
         return;
       }
 
-      // Check subscription apiAccess
       const subscription = await SubscriptionRepository.findSubscriptionByTenant(tenantId);
       if (!subscription) {
         ApiResponseHandler.forbidden(res, "No active subscription found. Please onboard.");
@@ -58,7 +54,6 @@ export class IntegrationController {
         return;
       }
 
-      // 1. Ingest order
       const { externalOrder } = await OrderGatewayService.ingestExternalOrder({
         tenantId,
         provider: IntegrationProvider.MOCK_SWIGGY,
@@ -67,7 +62,6 @@ export class IntegrationController {
         outletId: payload.outlet_id && Types.ObjectId.isValid(payload.outlet_id) ? payload.outlet_id : undefined,
       });
 
-      // 2. Process/normalize order synchronously for immediate test feedback
       const processedOrder = await OrderGatewayService.processExternalOrder({
         externalOrderId: externalOrder._id.toString(),
         tenantId,
@@ -97,10 +91,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Receive Mock Zomato Order Callback
-   * POST /api/v1/integrations/mock/zomato/orders
-   */
   static async receiveMockZomatoOrder(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = (req.query.tenantId as string) || (req.headers["x-tenant-id"] as string);
@@ -109,7 +99,6 @@ export class IntegrationController {
         return;
       }
 
-      // Check subscription apiAccess
       const subscription = await SubscriptionRepository.findSubscriptionByTenant(tenantId);
       if (!subscription) {
         ApiResponseHandler.forbidden(res, "No active subscription found. Please onboard.");
@@ -128,7 +117,6 @@ export class IntegrationController {
         return;
       }
 
-      // 1. Ingest order
       const { externalOrder } = await OrderGatewayService.ingestExternalOrder({
         tenantId,
         provider: IntegrationProvider.MOCK_ZOMATO,
@@ -137,7 +125,6 @@ export class IntegrationController {
         outletId: payload.outletCode && Types.ObjectId.isValid(payload.outletCode) ? payload.outletCode : undefined,
       });
 
-      // 2. Process/normalize order synchronously for immediate test feedback
       const processedOrder = await OrderGatewayService.processExternalOrder({
         externalOrderId: externalOrder._id.toString(),
         tenantId,
@@ -167,10 +154,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Replay/reprocess an existing external order
-   * POST /api/v1/integrations/external-orders/:id/replay
-   */
   static async replayOrder(req: Request, res: Response): Promise<void> {
     try {
       const tenantIdRaw = req.query.tenantId || req.headers["x-tenant-id"] || req.user?.tenantId;
@@ -203,10 +186,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Mappings Health metrics
-   * GET /api/v1/integrations/mappings/health
-   */
   static async getMappingsHealth(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = (req.query.tenantId as string) || (req.headers["x-tenant-id"] as string) || req.user?.tenantId;
@@ -217,7 +196,6 @@ export class IntegrationController {
 
       const tenantObjectId = new Types.ObjectId(tenantId);
 
-      // 1. Menu Items Health
       const totalMenuItems = await MenuItem.countDocuments({ tenantId: tenantObjectId, isDeleted: false });
       const mappedMenuItems = await ChannelMenuItemMapping.distinct("menuItemId", {
         tenantId: tenantObjectId,
@@ -225,7 +203,6 @@ export class IntegrationController {
         isDeleted: false,
       });
 
-      // 2. Outlets Health
       const totalOutlets = await Outlet.countDocuments({ tenantId: tenantObjectId, isDeleted: false });
       const mappedOutlets = await ChannelOutletMapping.distinct("outletId", {
         tenantId: tenantObjectId,
@@ -252,10 +229,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Get unmapped menu items list
-   * GET /api/v1/integrations/mappings/unmapped
-   */
   static async getUnmappedItems(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = (req.query.tenantId as string) || (req.headers["x-tenant-id"] as string) || req.user?.tenantId;
@@ -268,10 +241,8 @@ export class IntegrationController {
 
       const tenantObjectId = new Types.ObjectId(tenantId);
 
-      // Fetch all menu items
       const allMenuItems = await MenuItem.find({ tenantId: tenantObjectId, isDeleted: false }).select("name sku price");
 
-      // Fetch all mapped menuItemIds for this provider
       const mappedItemIds = await ChannelMenuItemMapping.distinct("menuItemId", {
         tenantId: tenantObjectId,
         provider,
@@ -281,7 +252,6 @@ export class IntegrationController {
 
       const mappedIdsSet = new Set(mappedItemIds.map(id => id.toString()));
 
-      // Filter unmapped
       const unmappedItems = allMenuItems.filter(item => !mappedIdsSet.has((item._id as Types.ObjectId).toString()));
 
       ApiResponseHandler.success(res, 200, `Unmapped items for provider ${provider} retrieved successfully`, {
@@ -294,10 +264,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * List external orders for a tenant
-   * GET /api/v1/integrations/external-orders
-   */
   static async getExternalOrders(req: Request, res: Response): Promise<void> {
     try {
       const tenantIdRaw = req.query.tenantId || req.headers["x-tenant-id"] || req.user?.tenantId;
@@ -334,10 +300,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Get outbox event queue stats/metrics
-   * GET /api/v1/integrations/stats
-   */
   static async getIntegrationStats(req: Request, res: Response): Promise<void> {
     try {
       const tenantIdRaw = req.query.tenantId || req.headers["x-tenant-id"] || req.user?.tenantId;
@@ -349,7 +311,6 @@ export class IntegrationController {
 
       const tenantObjectId = new Types.ObjectId(tenantId);
 
-      // Aggregate counts by status and average processing times
       const queueStats = await IntegrationEventQueue.aggregate([
         { $match: { tenantId: tenantObjectId } },
         {
@@ -385,7 +346,7 @@ export class IntegrationController {
         FAILED: 0,
         DLQ: 0,
       };
-      
+
       let totalProcessingTime = 0;
       let totalQueueTime = 0;
       let successCount = 0;
@@ -405,7 +366,6 @@ export class IntegrationController {
         }
       });
 
-      // Get last processed timestamp
       const lastProcessed = await IntegrationEventQueue.findOne({
         tenantId: tenantObjectId,
         status: "SUCCESS"
@@ -413,7 +373,6 @@ export class IntegrationController {
         .sort({ processedAt: -1 })
         .select("processedAt");
 
-      // Get provider health/states
       const providerStates = await ProviderSyncState.find({ tenantId: tenantObjectId });
 
       ApiResponseHandler.success(res, 200, "Integration stats retrieved successfully", {
@@ -428,10 +387,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Get operational events outbox queue logs
-   * GET /api/v1/integrations/events
-   */
   static async getIntegrationEvents(req: Request, res: Response): Promise<void> {
     try {
       const tenantIdRaw = req.query.tenantId || req.headers["x-tenant-id"] || req.user?.tenantId;
@@ -451,7 +406,7 @@ export class IntegrationController {
 
       if (status) query.status = status;
       if (eventType) query.eventType = eventType;
-      if (provider) query.sourceSystem = provider; // Map provider filter to sourceSystem
+      if (provider) query.sourceSystem = provider;
       if (correlationId) query.correlationId = correlationId;
 
       if (from || to) {
@@ -479,10 +434,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Get outbound sync jobs trace
-   * GET /api/v1/integrations/sync-jobs
-   */
   static async getSyncJobs(req: Request, res: Response): Promise<void> {
     try {
       const tenantIdRaw = req.query.tenantId || req.headers["x-tenant-id"] || req.user?.tenantId;
@@ -530,10 +481,6 @@ export class IntegrationController {
     }
   }
 
-  /**
-   * Replay an integration event: reset state and trigger manual poller processing
-   * POST /api/v1/integrations/events/:id/replay
-   */
   static async replayEvent(req: Request, res: Response): Promise<void> {
     try {
       const tenantIdRaw = req.query.tenantId || req.headers["x-tenant-id"] || req.user?.tenantId;
@@ -560,7 +507,6 @@ export class IntegrationController {
         return;
       }
 
-      // Reset outbox event queue state to trigger recovery/poller
       event.status = "PENDING";
       event.retryCount = 0;
       event.nextRetryAt = null;
@@ -572,7 +518,6 @@ export class IntegrationController {
 
       const updatedEvent = await event.save();
 
-      // Trigger the poller run synchronously so the user/UI gets immediate feedback
       await OutboxPollerService.triggerManualRun();
 
       ApiResponseHandler.success(res, 200, "Integration event replayed and processing triggered", updatedEvent);

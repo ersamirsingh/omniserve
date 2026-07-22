@@ -16,7 +16,7 @@ export async function resolveDiningContext(
     req.headers["x-tenant-id"] ||
     ""
   );
-  
+
   const outletIdStr = String(
     req.user?.outletId ||
     req.query.outletId ||
@@ -44,12 +44,12 @@ export async function resolveDiningContext(
   if (outletIdStr && Types.ObjectId.isValid(outletIdStr)) {
     outletId = new Types.ObjectId(outletIdStr);
   } else {
-    // Fallback: Query the first outlet for this tenant in the database
+
     const Outlet = mongoose.model("Outlet");
     const firstOutlet = await Outlet.findOne({ tenantId, isDeleted: false })
       .select("_id")
       .lean();
-      
+
     if (!firstOutlet) {
       throw new Error(`No active outlets found for tenant ${tenantIdStr}`);
     }

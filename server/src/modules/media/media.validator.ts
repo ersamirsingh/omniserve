@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { MEDIA_FOLDERS, MAX_IMAGE_SIZE } from "./media.constants.js";
 
-// Helper for MongoDB ObjectId validation
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid MongoDB ObjectId");
 
 const folderValues = Object.values(MEDIA_FOLDERS) as string[];

@@ -6,26 +6,15 @@ import { requireSystemAdmin } from "../../middlewares/rbac.middleware.js";
 
 const router: Router = express.Router();
 
-// ==========================================
-// Super Admin Routes (Plan and SaaS management)
-// ==========================================
-
-// Plans configuration
 router.get("/plans", verifyToken, isRestaurantOwner, AdminSubscriptionController.listPlans);
 router.post("/plans", verifyToken, requireSystemAdmin, AdminSubscriptionController.createPlan);
 router.put("/plans/:id", verifyToken, requireSystemAdmin, AdminSubscriptionController.updatePlan);
 router.delete("/plans/:id", verifyToken, requireSystemAdmin, AdminSubscriptionController.deletePlan);
 
-// Global Subscriptions lists
 router.get("/admin/list", verifyToken, requireSystemAdmin, AdminSubscriptionController.listSubscriptions);
 router.get("/admin/invoices", verifyToken, requireSystemAdmin, AdminSubscriptionController.listInvoices);
 router.get("/admin/analytics", verifyToken, requireSystemAdmin, AdminSubscriptionController.getAnalytics);
 router.get("/admin/:id", verifyToken, requireSystemAdmin, AdminSubscriptionController.getSubscriptionById);
-
-
-// ==========================================
-// Restaurant Tenant Owner Routes (Self-Service)
-// ==========================================
 
 router.get("/my-subscription", verifyToken, isRestaurantOwner, RestaurantSubscriptionController.getMySubscription);
 router.get("/usage", verifyToken, isRestaurantOwner, RestaurantSubscriptionController.getUsage);

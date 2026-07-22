@@ -9,9 +9,7 @@ export interface ILlmContentResponse {
 }
 
 export class LlmService {
-  /**
-   * Returns the GoogleGenerativeAI instance.
-   */
+
   static getGenAI(): GoogleGenerativeAI | null {
     if (genAIInstance) return genAIInstance;
 
@@ -27,11 +25,6 @@ export class LlmService {
     return genAIInstance;
   }
 
-  /**
-   * Generates a 768-dimension vector embedding for the given text using text-embedding-004.
-   * If API key is missing or call fails, returns a mock random 768-dimension vector.
-   * @param {string} text - Text to embed
-   */
   static async getEmbedding(text: string): Promise<number[]> {
     const ai = this.getGenAI();
     if (!ai) {
@@ -51,9 +44,6 @@ export class LlmService {
     }
   }
 
-  /**
-   * Helper to generate a dummy 768-dimension vector for local development/testing offline.
-   */
   private static generateMockVector(): number[] {
     const vec: number[] = [];
     for (let i = 0; i < 768; i++) {
@@ -62,13 +52,6 @@ export class LlmService {
     return vec;
   }
 
-  /**
-   * Generates content using a Gemini model.
-   * Supports systemInstruction, tools (function calling), and parameters.
-   * @param {string} systemInstruction - The system context/rules
-   * @param {string} prompt - User request
-   * @param {object[]} [tools] - List of executable tools
-   */
   static async generateContent(
     systemInstruction: string,
     prompt: string,
@@ -91,7 +74,6 @@ export class LlmService {
         systemInstruction: systemInstruction,
       };
 
-      // Format tools if provided
       if (tools && tools.length > 0) {
         modelOptions.tools = [{ functionDeclarations: tools }];
       }

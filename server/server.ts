@@ -23,7 +23,7 @@ const PORT = process.env.PORT || 5000;
 
 const bootstrap = async () => {
    try {
-      // Connect MongoDB and Redis in parallel; Redis failure is non-fatal
+
       await Promise.all([
          connectToMongoDB(),
          connectRedis().catch((err: Error) => {
@@ -31,33 +31,25 @@ const bootstrap = async () => {
          }),
       ]);
 
-      // Start outbox poller
       OutboxPollerService.start();
 
-      // Start SLA Escalation Checker background worker
       startWaiterTaskEscalationWorker();
 
-      // Start Reservation Hold Window worker
       startReservationHoldWorker();
 
-      // Start SaaS Subscription Billing checks worker
       startSubscriptionBillingWorkers();
 
-      // Wrap Express app in standard Node HTTP Server for Socket.IO support
       const server = http.createServer(app);
 
-      // Initialize Socket.IO server and middlewares
       RealtimeService.initialize(server);
 
       server.listen(PORT, () => {
          console.log(`app listening on port ${PORT} with WebSockets enabled`);
       });
 
-      // Graceful shutdown sequence
       const gracefulShutdown = async (signal: string) => {
          console.log(`\n[Server] Received ${signal}. Starting graceful shutdown...`);
-         
-         // 1. Stop background workers
+
          console.log('[Server] Stopping background daemon workers...');
          OutboxPollerService.stop();
          try {
@@ -66,16 +58,14 @@ const bootstrap = async () => {
             console.error('[Server] Error stopping waiter task worker:', e.message);
          }
 
-         // 2. Stop accepting new HTTP/Socket connections
          server.close(async () => {
             console.log('[Server] HTTP and Socket.IO server stopped accepting connections.');
             try {
-               // 3. Close Mongoose/MongoDB connections
+
                const mongoose = (await import('mongoose')).default;
                await mongoose.connection.close();
                console.log('[Server] MongoDB connection closed.');
 
-               // 4. Close Redis connection if it is open
                const rc = getRedisClient();
                if (rc && rc.isOpen) {
                   await rc.quit();
@@ -88,7 +78,6 @@ const bootstrap = async () => {
             process.exit(0);
          });
 
-         // Force exit if shutdown hangs longer than 10 seconds
          setTimeout(() => {
             console.error('[Server] Forcefully shutting down because graceful shutdown timed out.');
             process.exit(1);
@@ -104,4 +93,4 @@ const bootstrap = async () => {
    }
 };
 
-await bootstrap();  
+await bootstrap();

@@ -7,7 +7,6 @@ export async function operationsWorkflowWorker(event: IIntegrationEventQueue): P
   const { eventType, tenantId, outletId, payload } = event;
   if (!outletId) return;
 
-
   try {
     switch (eventType) {
       case RealtimeEvent.QR_ASSISTANCE_REQUESTED: {
@@ -27,7 +26,7 @@ export async function operationsWorkflowWorker(event: IIntegrationEventQueue): P
 
       case RealtimeEvent.ORDER_STATUS_CHANGED: {
         const order = payload as any;
-        // Verify if it is a Dine-in/QR session order
+
         const sessionId = order.sessionId || order.diningContext?.sessionId;
         const tableId = order.diningContext?.tableId;
         const seatNumber = order.diningContext?.seatNumber;
@@ -48,7 +47,7 @@ export async function operationsWorkflowWorker(event: IIntegrationEventQueue): P
       case RealtimeEvent.TABLE_CLEANING_STARTED: {
         const { tableId } = payload as any;
         if (tableId) {
-          // Resolve latest active or closed session to associate cleaning task
+
           const session = await QRSession.findOne({ tableId, tenantId, outletId }).sort({ createdAt: -1 });
           if (session) {
             await RestaurantOperationsService.handleTableCleaningStarted(

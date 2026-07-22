@@ -4,9 +4,7 @@ import User from "../../models/user.model.js";
 import { NotificationType, UserStatus } from "../../models/enums.js";
 
 export class NotificationService {
-  /**
-   * Create a single notification
-   */
+
   static async createNotification(
     tenantId: string,
     userId: string,
@@ -35,9 +33,6 @@ export class NotificationService {
     return await notification.save();
   }
 
-  /**
-   * Create multiple notifications in bulk
-   */
   static async createBulkNotifications(
     tenantId: string,
     userIds: string[],
@@ -72,9 +67,6 @@ export class NotificationService {
     return await Notification.insertMany(docs);
   }
 
-  /**
-   * Notify all active users under a tenant
-   */
   static async notifyTenantUsers(
     tenantId: string,
     title: string,
@@ -85,8 +77,7 @@ export class NotificationService {
     createdByUserId?: string
   ): Promise<INotification[]> {
     try {
-      // Guard: if the DB connection is closed (e.g. during test teardown), skip silently.
-      // readyState: 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+
       if (mongoose.connection.readyState !== 1) {
         return [];
       }
@@ -114,9 +105,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Get notifications for a user (tenant and user isolated)
-   */
   static async getNotificationsForUser(
     userId: string,
     tenantId: string | undefined | null,
@@ -150,9 +138,6 @@ export class NotificationService {
     return { notifications, total };
   }
 
-  /**
-   * Mark a specific notification as read (with strict ownership check)
-   */
   static async markAsRead(
     id: string,
     userId: string,
@@ -182,9 +167,6 @@ export class NotificationService {
     );
   }
 
-  /**
-   * Mark all unread notifications of a user as read (with tenant/user checks)
-   */
   static async markAllAsRead(
     userId: string,
     tenantId: string | undefined | null,
@@ -212,9 +194,6 @@ export class NotificationService {
     );
   }
 
-  /**
-   * Soft-delete a notification (with strict ownership check)
-   */
   static async deleteNotification(
     id: string,
     userId: string,
@@ -243,9 +222,6 @@ export class NotificationService {
     );
   }
 
-  /**
-   * Notify staff, managers, and admins of an operational alert for an outlet
-   */
   static async notifyOutletOperationalAlert(
     tenantId: string,
     outletId: string,

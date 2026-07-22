@@ -3,7 +3,7 @@ import mongoose, { Document, Model, Schema, Types } from "mongoose";
 export interface ISystemAdminInvite extends Document {
   email: string;
   invitedBy: Types.ObjectId;
-  token: string; // Hashed sha256 raw token
+  token: string;
   status: "PENDING" | "ACCEPTED" | "REVOKED";
   expiresAt: Date;
   createdAt: Date;

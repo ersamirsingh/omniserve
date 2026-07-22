@@ -45,10 +45,7 @@ export interface ISettleBillResult {
 }
 
 export class BillingService {
-  /**
-   * Create or fetch a BillSession for a QRSession, compute totals from all linked orders.
-   * Transitions QRSession to PAYMENT_PENDING and Table to BILL_REQUESTED.
-   */
+
   static async requestBill(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -67,7 +64,6 @@ export class BillingService {
     });
     if (!session) throw new Error(`QR Session ${sessionId} not found`);
 
-    // Fetch all active orders for this session
     const orders = await Order.find({
       "diningContext.sessionId": session._id,
       tenantId,
@@ -80,7 +76,6 @@ export class BillingService {
 
     const orderIds = orders.map(o => o._id as Types.ObjectId);
 
-    // Compute totals from order items
     const items = await OrderItem.find({
       orderId: { $in: orderIds },
       tenantId,
@@ -94,7 +89,6 @@ export class BillingService {
     const totalAmount = subtotal + tax - discount + tip;
     const outstandingBalance = totalAmount;
 
-    // Upsert BillSession
     let billSession = await BillSession.findOne({
       sessionId: session._id,
       tenantId,
@@ -136,17 +130,14 @@ export class BillingService {
       await billSession.save();
     }
 
-    // Update Table to BILL_REQUESTED
     await Table.findByIdAndUpdate(session.tableId, {
       operationalStatus: "BILL_REQUESTED"
     });
 
-    // Update QRSession to PAYMENT_PENDING
     await QRSession.findByIdAndUpdate(session._id, {
       status: "PAYMENT_PENDING"
     });
 
-    // Write timeline entry
     await OrderTimeline.create({
       tenantId,
       qrsessionId: session._id,
@@ -160,7 +151,6 @@ export class BillingService {
       }
     });
 
-    // Publish event
     await EventBusService.publishBillRequested(
       tenantId,
       outletId,
@@ -193,9 +183,6 @@ export class BillingService {
     };
   }
 
-  /**
-   * Split the bill by a given strategy: EQUAL (per guest), BY_SEAT, or CUSTOM.
-   */
   static async splitBill(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -229,7 +216,7 @@ export class BillingService {
     } else if (splitType === "EQUAL") {
       const seatCount = session.seats.length || 1;
       const perSeat = parseFloat((billSession.totalAmount / seatCount).toFixed(2));
-      // Adjust last split for rounding
+
       const splitList = session.seats.map((seat, idx) => ({
         seatNumber: seat.seatNumber,
         customerId: seat.customerId ?? null,
@@ -240,7 +227,7 @@ export class BillingService {
       }));
       splits = splitList;
     } else if (splitType === "BY_SEAT") {
-      // Group order items by seatNumber
+
       const orders = await Order.find({
         "diningContext.sessionId": billSession.sessionId,
         tenantId,
@@ -252,7 +239,7 @@ export class BillingService {
       const seatTotals = new Map<string, number>();
       for (const order of orders) {
         const seatNum = order.diningContext?.seatNumber ?? "SHARED";
-        // Ignore cancelled items when computing splits
+
         const orderItems = items.filter(i => i.orderId.toString() === order._id.toString() && i.status !== "CANCELLED");
         const orderTotal = orderItems.reduce((sum, i) => sum + i.totalPrice, 0);
         seatTotals.set(seatNum, (seatTotals.get(seatNum) ?? 0) + orderTotal);
@@ -273,7 +260,6 @@ export class BillingService {
         };
       });
 
-      // Adjust last item for rounding to match totalAmount exactly
       if (tempSplits.length > 0) {
         const sumOfOthers = tempSplits.slice(0, -1).reduce((sum, s) => sum + s.amount, 0);
         const lastSplit = tempSplits[tempSplits.length - 1];
@@ -333,16 +319,12 @@ export class BillingService {
     };
   }
 
-  /**
-   * Mark the bill (or a split portion) as paid.
-   * When all splits are paid (or no splits), mark billSession as SETTLED.
-   */
   static async settleBill(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
     billSessionId: string,
     options: {
-      seatNumber?: string;  // if settling a specific seat
+      seatNumber?: string;
       paymentId?: string;
       paymentMethod?: PaymentMethod;
       settledBy?: Types.ObjectId;
@@ -367,15 +349,15 @@ export class BillingService {
     const settledAt = new Date();
 
     if (options.seatNumber && billSession.splits.length > 0) {
-      // Settle a specific seat's portion
+
       const split = billSession.splits.find(s => s.seatNumber === options.seatNumber);
       if (!split) throw new Error(`No split found for seat ${options.seatNumber}`);
       split.isPaid = true;
-      
+
       const txnId = options.paymentId || `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
       const payment = await Payment.create({
         tenantId,
-        orderId: billSession.orderIds[0], // fallback to first order
+        orderId: billSession.orderIds[0],
         transactionId: txnId,
         paymentMethod: options.paymentMethod || PaymentMethod.CASH,
         amount: split.amount,
@@ -391,13 +373,12 @@ export class BillingService {
       billSession.status = allPaid ? "SETTLED" : "PARTIAL_PAYMENT";
       if (allPaid) billSession.settledAt = settledAt;
     } else {
-      // Full settlement
+
       billSession.outstandingBalance = 0;
       billSession.status = "SETTLED";
       billSession.settledAt = settledAt;
       billSession.splits.forEach(s => { s.isPaid = true; });
 
-      // Create a Payment record for each order in the session if not already paid
       for (const orderId of billSession.orderIds) {
         const order = await Order.findById(orderId);
         if (order && order.paymentStatus !== PaymentStatus.SUCCESS) {
@@ -419,7 +400,6 @@ export class BillingService {
 
     await billSession.save();
 
-    // If fully settled, update table to CLEANING, session to CLOSED
     if (billSession.status === "SETTLED") {
       await QRSession.findByIdAndUpdate(billSession.sessionId, { status: "PAID" });
       await Table.findByIdAndUpdate(billSession.tableId, {
@@ -467,9 +447,6 @@ export class BillingService {
     };
   }
 
-  /**
-   * Fetch the full bill for a QR session including splits and order breakdown.
-   */
   static async getSessionBill(
     tenantId: Types.ObjectId,
     sessionId: string
@@ -485,7 +462,7 @@ export class BillingService {
     }).lean();
 
     if (!billSession) {
-      // Lazily create BillSession
+
       const session = await QRSession.findOne({
         _id: new Types.ObjectId(sessionId),
         tenantId,
@@ -495,7 +472,6 @@ export class BillingService {
         throw new Error(`QR Session ${sessionId} not found`);
       }
 
-      // Fetch all active orders for this session
       const orders = await Order.find({
         "diningContext.sessionId": session._id,
         tenantId,
@@ -504,7 +480,6 @@ export class BillingService {
 
       const orderIds = orders.map(o => o._id as Types.ObjectId);
 
-      // Compute totals from order items
       const items = await OrderItem.find({
         orderId: { $in: orderIds },
         tenantId,
@@ -552,10 +527,6 @@ export class BillingService {
     return { billSession, orders, items };
   }
 
-  /**
-   * Recalculates the active BillSession totals, subtotals, taxes, and splits,
-   * then broadcasts updates via WebSockets to all connected panels.
-   */
   static async recalculateBillSession(
     tenantId: Types.ObjectId | string,
     sessionId: Types.ObjectId | string
@@ -563,7 +534,6 @@ export class BillingService {
     const tenantObjId = new Types.ObjectId(tenantId);
     const sessionObjId = new Types.ObjectId(sessionId);
 
-    // 1. Fetch active orders
     const orders = await Order.find({
       "diningContext.sessionId": sessionObjId,
       tenantId: tenantObjId,
@@ -573,7 +543,6 @@ export class BillingService {
 
     const orderIds = orders.map(o => o._id);
 
-    // 2. Fetch active order items
     const items = await OrderItem.find({
       orderId: { $in: orderIds as any },
       tenantId: tenantObjId,
@@ -582,7 +551,7 @@ export class BillingService {
     });
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0);
-    // Recalculate tax as 5% of subtotal (or aggregate from active orders)
+
     const tax = orders.reduce((sum, o) => {
       const activeOrderItems = items.filter(item => item.orderId.toString() === o._id.toString());
       const orderSubtotal = activeOrderItems.reduce((s, item) => s + item.totalPrice, 0);
@@ -600,20 +569,18 @@ export class BillingService {
 
     const tip = billSession.tip || 0;
     const discount = billSession.discount || 0;
-    // Add service/packing fee of 15 (if applicable, matching checkout page)
+
     const totalAmount = subtotal + tax + tip - discount + (subtotal > 0 ? 15 : 0);
 
     billSession.subtotal = parseFloat(subtotal.toFixed(2));
     billSession.tax = parseFloat(tax.toFixed(2));
     billSession.totalAmount = parseFloat(totalAmount.toFixed(2));
-    
-    // outstanding balance = totalAmount - paid splits
+
     const paidAmount = (billSession.splits || [])
       .filter(s => s.isPaid)
       .reduce((sum, s) => sum + s.amount, 0);
     billSession.outstandingBalance = parseFloat(Math.max(0, totalAmount - paidAmount).toFixed(2));
 
-    // If splits exist, re-apply the split strategy to update split amounts!
     if (billSession.splits && billSession.splits.length > 0 && billSession.splitType !== "NONE") {
       const qrsession = await QRSession.findById(sessionObjId);
       if (qrsession) {
@@ -664,7 +631,6 @@ export class BillingService {
 
     await billSession.save();
 
-    // Broadcast updates via Socket.IO to Guest UI and Operations Cockpit
     const socketPayload = {
       billSessionId: billSession._id.toString(),
       sessionId: sessionObjId.toString(),

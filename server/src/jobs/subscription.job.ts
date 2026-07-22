@@ -1,7 +1,7 @@
 import { SubscriptionService } from "../modules/subscription/subscription.service.js";
 
 export function startSubscriptionBillingWorkers() {
-  // Run an immediate check on startup
+
   (async () => {
     try {
       console.log("[SubscriptionJob] Initializing startup subscription checks...");
@@ -11,7 +11,6 @@ export function startSubscriptionBillingWorkers() {
     }
   })();
 
-  // Daily Expiration check - runs every 12 hours
   setInterval(async () => {
     try {
       await SubscriptionService.processDailyExpirationChecks();
@@ -20,7 +19,6 @@ export function startSubscriptionBillingWorkers() {
     }
   }, 12 * 60 * 60 * 1000);
 
-  // Monthly Usage Reset check - runs once a day. If today is the 1st, resets.
   setInterval(async () => {
     try {
       const today = new Date();

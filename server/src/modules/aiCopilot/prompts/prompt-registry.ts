@@ -49,10 +49,6 @@ SECURITY & BOUNDARIES:
 
 export type CopilotRole = 'SYSTEM_ADMIN' | 'SUPER_ADMIN' | 'RESTAURANT_OWNER' | 'OUTLET_MANAGER' | 'CUSTOMER';
 
-/**
- * Resolves the personalized system prompt for a specific role and session context.
- * Enforces parameter insertion to ensure the LLM is aware of its scope.
- */
 export function getSystemPrompt(role: CopilotRole, context: { tenantId?: string; outletId?: string }): string {
   const basePrompt = PROMPT_REGISTRY[role];
   if (!basePrompt || role === 'CUSTOMER') {

@@ -6,10 +6,7 @@ import { AccessScope } from "../../utils/accessScope.utils.js";
 import { signatureRequestSchema, registerAssetSchema } from "./media.validator.js";
 
 export class MediaController {
-  /**
-   * Generate secure signed upload signature
-   * POST /media/signature
-   */
+
   static async generateUploadSignature(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -19,7 +16,6 @@ export class MediaController {
 
       const validated = signatureRequestSchema.parse(req.body);
 
-      // Validate outlet access if outletId is provided
       if (validated.outletId) {
         if (!(await AccessScope.canAccessOutlet(req.user, validated.outletId))) {
           ApiResponseHandler.forbidden(res, "You cannot access this outlet");
@@ -40,10 +36,6 @@ export class MediaController {
     }
   }
 
-  /**
-   * Register uploaded asset metadata
-   * POST /media/register
-   */
   static async registerMediaAsset(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -53,7 +45,6 @@ export class MediaController {
 
       const validated = registerAssetSchema.parse(req.body);
 
-      // Validate outlet access if outletId is provided
       if (validated.outletId) {
         if (!(await AccessScope.canAccessOutlet(req.user, validated.outletId))) {
           ApiResponseHandler.forbidden(res, "You cannot access this outlet");
@@ -83,10 +74,6 @@ export class MediaController {
     }
   }
 
-  /**
-   * Delete a media asset (soft-delete in DB, call Cloudinary destroy)
-   * DELETE /media/:id
-   */
   static async deleteMediaAsset(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -109,10 +96,6 @@ export class MediaController {
     }
   }
 
-  /**
-   * Replace an existing media asset
-   * PUT /media/:id
-   */
   static async replaceMediaAsset(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -129,7 +112,6 @@ export class MediaController {
 
       const validated = registerAssetSchema.parse(req.body);
 
-      // Validate outlet access if outletId is provided
       if (validated.outletId) {
         if (!(await AccessScope.canAccessOutlet(req.user, validated.outletId))) {
           ApiResponseHandler.forbidden(res, "You cannot access this outlet");

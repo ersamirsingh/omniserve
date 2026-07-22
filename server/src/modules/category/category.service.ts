@@ -4,9 +4,7 @@ import { OutletService } from "../outlet/outlet.service.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class CategoryService {
-  /**
-   * Validate that the outlet exists, belongs to the tenant, and is active (not soft-deleted)
-   */
+
   static async validateOutletOwnership(outletId: string, tenantId: string): Promise<boolean> {
     try {
       const outlet = await OutletService.getOutletById(outletId, tenantId);
@@ -16,9 +14,6 @@ export class CategoryService {
     }
   }
 
-  /**
-   * Create a new category under an outlet
-   */
   static async createCategory(
     tenantId: string,
     data: any,
@@ -53,9 +48,6 @@ export class CategoryService {
     return saved;
   }
 
-  /**
-   * List categories for a tenant/outlet with pagination and sorted by displayOrder
-   */
   static async getCategories(
     tenantId: string,
     filters: { outletId?: string; limit: number; skip: number }
@@ -79,9 +71,6 @@ export class CategoryService {
     return { categories, total };
   }
 
-  /**
-   * Get a category by ID and Tenant ID
-   */
   static async getCategoryById(id: string, tenantId: string): Promise<ICategory | null> {
     return await Category.findOne({
       _id: new Types.ObjectId(id),
@@ -90,16 +79,13 @@ export class CategoryService {
     });
   }
 
-  /**
-   * Update category details (PUT replacement)
-   */
   static async updateCategoryDetails(
     id: string,
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<ICategory | null> {
-    // If outletId is changing, validate it first
+
     if (data.outletId) {
       const isOwner = await this.validateOutletOwnership(data.outletId, tenantId);
       if (!isOwner) {
@@ -142,9 +128,6 @@ export class CategoryService {
     return updated;
   }
 
-  /**
-   * Update category display order
-   */
   static async updateCategoryOrder(
     id: string,
     tenantId: string,
@@ -178,9 +161,6 @@ export class CategoryService {
     return updated;
   }
 
-  /**
-   * Soft-delete a category
-   */
   static async deleteCategory(
     id: string,
     tenantId: string,

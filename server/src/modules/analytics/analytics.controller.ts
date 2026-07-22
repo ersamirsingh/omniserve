@@ -7,9 +7,7 @@ import Outlet from "../../models/outlet.model.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class AnalyticsController {
-  /**
-   * Helper to validate that an outlet exists, belongs to the tenant, and is not deleted
-   */
+
   private static async validateOutletOwnership(outletId: string, tenantId: string): Promise<boolean> {
     if (!Types.ObjectId.isValid(outletId)) {
       return false;
@@ -22,10 +20,6 @@ export class AnalyticsController {
     return !!outlet;
   }
 
-  /**
-   * Manually upsert daily metrics
-   * POST /analytics/daily
-   */
   static async upsertDailyMetrics(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -50,7 +44,6 @@ export class AnalyticsController {
         return;
       }
 
-      // Validate outlet ownership
       const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
       if (!isOwner) {
         ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
@@ -89,9 +82,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Helper to validate tiered report scope (TENANT / RESTAURANT / OUTLET) per user role
-   */
   private static async validateReportScope(
     req: Request,
     res: Response
@@ -106,7 +96,6 @@ export class AnalyticsController {
       return null;
     }
 
-    // 1. TENANT scope — SUPER_ADMIN or SYSTEM_ADMIN only
     if (scope === 'TENANT') {
       if (!AccessScope.isTenantWide(user.role)) {
         ApiResponseHandler.forbidden(res, 'Tenant-level aggregate reports are restricted to Tenant Super Admins');
@@ -115,7 +104,6 @@ export class AnalyticsController {
       return { scopedOutletIds: null };
     }
 
-    // 2. RESTAURANT scope — RESTAURANT_OWNER (their own restaurant) or SUPER_ADMIN
     if (scope === 'RESTAURANT' || restaurantId) {
       if (restaurantId) {
         if (!(await AccessScope.canAccessRestaurant(user, restaurantId))) {
@@ -135,7 +123,6 @@ export class AnalyticsController {
       }
     }
 
-    // 3. OUTLET scope — specific outlet access check
     if (outletId) {
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
@@ -148,15 +135,10 @@ export class AnalyticsController {
       return { scopedOutletIds: [outletId] };
     }
 
-    // Default fallback: return outletIdsForUser
     const allowedOutletIds = await AccessScope.outletIdsForUser(user);
     return { scopedOutletIds: allowedOutletIds };
   }
 
-  /**
-   * Retrieve daily stats list
-   * GET /analytics/daily
-   */
   static async getDailyStats(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -190,10 +172,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Retrieve aggregated summary of tenant statistics
-   * GET /analytics/summary
-   */
   static async getSummaryStats(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -213,10 +191,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Retrieve extended analytical statistics
-   * GET /analytics/extended
-   */
   static async getExtendedStats(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -236,10 +210,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Submit review
-   * POST /analytics/reviews
-   */
   static async createReview(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -255,13 +225,11 @@ export class AnalyticsController {
         return;
       }
 
-      // Validate rating bounds if present
       if (rating !== undefined && (Number(rating) < 1 || Number(rating) > 5)) {
         ApiResponseHandler.badRequest(res, 'Rating must be between 1 and 5');
         return;
       }
 
-      // Validate outlet ownership
       const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
       if (!isOwner) {
         ApiResponseHandler.badRequest(res, 'Outlet not found or access denied');
@@ -280,10 +248,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Retrieve list of reviews
-   * GET /analytics/reviews
-   */
   static async getReviews(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -301,7 +265,6 @@ export class AnalyticsController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
 
-      // Validate outlet ownership if filtering by outlet
       if (outletId) {
         const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
         if (!isOwner) {
@@ -349,10 +312,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Retrieve sentiment aggregations and percentages
-   * GET /analytics/reviews/sentiment
-   */
   static async getSentimentSummary(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -363,7 +322,6 @@ export class AnalyticsController {
 
       const outletId = req.query.outletId as string | undefined;
 
-      // Validate outlet ownership if filtering by outlet
       if (outletId) {
         const isOwner = await AnalyticsController.validateOutletOwnership(outletId, tenantId);
         if (!isOwner) {
@@ -385,10 +343,6 @@ export class AnalyticsController {
     }
   }
 
-  /**
-   * Delete a review
-   * DELETE /analytics/reviews/:id
-   */
   static async deleteReview(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;

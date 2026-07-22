@@ -51,7 +51,6 @@ export class DiningAnalyticsService {
     const tenantOId = new Types.ObjectId(tenantId);
     const outletOId = new Types.ObjectId(outletId);
 
-    // ─── Revenue from dine-in orders ────────────────────────────────────────
     const [revenueAgg] = await Order.aggregate([
       {
         $match: {
@@ -74,7 +73,6 @@ export class DiningAnalyticsService {
 
     const dineInRevenue = revenueAgg?.totalRevenue ?? 0;
 
-    // ─── Table turn statistics from sessions ────────────────────────────────
     const sessionStats = await QRSession.aggregate([
       {
         $match: {
@@ -98,7 +96,7 @@ export class DiningAnalyticsService {
           turnCount: { $sum: 1 },
           avgTurnMs: { $avg: "$durationMs" },
           totalCovers: { $sum: "$guestCount" },
-          // Collect per-table breakdown
+
           tableTurns: { $push: { tableId: "$tableId", durationMs: "$durationMs" } }
         }
       }
@@ -108,7 +106,6 @@ export class DiningAnalyticsService {
     const avgTurnMs = Math.round(sessionStats[0]?.avgTurnMs ?? 0);
     const totalCovers = sessionStats[0]?.totalCovers ?? 0;
 
-    // ─── Per-table revenue breakdown ────────────────────────────────────────
     const tableRevenue = await BillSession.aggregate([
       {
         $match: {
@@ -130,7 +127,6 @@ export class DiningAnalyticsService {
       { $limit: 10 }
     ]);
 
-    // Resolve table numbers for top tables
     const tableIds = tableRevenue.map((r: any) => r._id);
     const tables = await Table.find({ _id: { $in: tableIds }, tenantId: tenantOId }).lean();
     const tableMap = new Map(tables.map(t => [t._id.toString(), t.tableNumber]));
@@ -142,7 +138,6 @@ export class DiningAnalyticsService {
       turnCount: r.turnCount
     }));
 
-    // ─── Waiter task SLA stats ───────────────────────────────────────────────
     const [taskStats] = await WaiterTask.aggregate([
       {
         $match: {
@@ -180,7 +175,6 @@ export class DiningAnalyticsService {
       ? parseFloat(((1 - escalatedTasks / totalTasks) * 100).toFixed(1))
       : 100;
 
-    // ─── Days in period for per-day metrics ─────────────────────────────────
     const daysDiff = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)));
     const avgTableCount = Math.max(1, tables.length);
     const averagePartySize = turnCount > 0 ? parseFloat((totalCovers / turnCount).toFixed(1)) : 0;
@@ -208,7 +202,7 @@ export class DiningAnalyticsService {
         averageTurnTimeMinutes: parseFloat((avgTurnMs / 60000).toFixed(1))
       },
       kds: {
-        averageFireDelayMs: 0  // extensible — requires firedAt tracking per item
+        averageFireDelayMs: 0
       },
       tasks: {
         total: totalTasks,

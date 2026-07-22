@@ -37,7 +37,7 @@ export class WebsiteAdapter extends BaseAdapter {
       },
       fulfillment: {
         type: payload.fulfillment?.type || "DELIVERY",
-        ...(payload.fulfillment?.scheduledFor ? { 
+        ...(payload.fulfillment?.scheduledFor ? {
           expectedPickupAt: new Date(payload.fulfillment.scheduledFor).toISOString(),
           scheduledFor: new Date(payload.fulfillment.scheduledFor)
         } : {}),

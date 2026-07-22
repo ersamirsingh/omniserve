@@ -19,10 +19,7 @@ export interface IQdrantPoint {
 let clientInstance: any = null;
 
 export class QdrantService {
-  /**
-   * Returns the Qdrant client instance, initializing it if necessary.
-   * Falls back to a mock client if QDRANT_URL is not set or connection fails.
-   */
+
   static getClient(): any {
     if (clientInstance) return clientInstance;
 
@@ -45,9 +42,6 @@ export class QdrantService {
     return clientInstance;
   }
 
-  /**
-   * Creates a mock client for environment flexibility when Qdrant is not active.
-   */
   private static createMockClient(): any {
     const mockStore = new Map<string, IQdrantPoint[]>();
     return {
@@ -86,9 +80,6 @@ export class QdrantService {
     };
   }
 
-  /**
-   * Ensures that the RAG vector collection exists with the correct vector size.
-   */
   static async ensureCollection(): Promise<void> {
     const client = this.getClient();
     const collectionName = COPILOT_CONFIG.qdrant.collectionName;
@@ -112,9 +103,6 @@ export class QdrantService {
     }
   }
 
-  /**
-   * Syncs a batch of documents into the vector database.
-   */
   static async upsertDocuments(points: IQdrantPoint[]): Promise<void> {
     const client = this.getClient();
     const collectionName = COPILOT_CONFIG.qdrant.collectionName;
@@ -129,9 +117,6 @@ export class QdrantService {
     }
   }
 
-  /**
-   * Performs a vector similarity search with security scoping.
-   */
   static async searchVectors(
     vector: number[],
     scopeFilter: { tenantId?: string; outletId?: string },
@@ -143,7 +128,6 @@ export class QdrantService {
 
     const mustFilters: any[] = [];
 
-    // ENFORCE SECURITY SCOPE IN QUERY LAYER
     if (scopeFilter.tenantId) {
       mustFilters.push({
         key: 'tenantId',

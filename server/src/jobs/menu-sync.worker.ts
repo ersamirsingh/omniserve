@@ -14,7 +14,7 @@ const connectors: Record<string, any> = {
 
 export async function menuSyncWorker(event: IIntegrationEventQueue): Promise<void> {
   let connections: any[] = [];
-  
+
   if (event.outletId) {
     const mappings = await ChannelOutletMapping.find({
       tenantId: event.tenantId,
@@ -43,12 +43,11 @@ export async function menuSyncWorker(event: IIntegrationEventQueue): Promise<voi
   }
 
   for (const connection of connections) {
-    // Capability Guard
+
     if (connection.capabilities && connection.capabilities.menuSync === false) {
       continue;
     }
 
-    // Circuit Breaker check
     const isCircuitOpen = await SyncEngineService.isCircuitOpen(
       event.tenantId,
       event.outletId,
@@ -78,4 +77,3 @@ export async function menuSyncWorker(event: IIntegrationEventQueue): Promise<voi
     }
   }
 }
-

@@ -4,10 +4,7 @@ import { NotificationService } from "./notification.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 
 export class NotificationController {
-  /**
-   * List notifications for the logged-in user
-   * GET /notifications
-   */
+
   static async listNotifications(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.userId) {
@@ -67,10 +64,6 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Mark a specific notification as read
-   * PATCH /notifications/:id/read
-   */
   static async markAsRead(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.userId) {
@@ -110,10 +103,6 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Mark all unread notifications of the user as read
-   * PATCH /notifications/read-all
-   */
   static async markAllAsRead(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.userId) {
@@ -133,10 +122,6 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Soft-delete a notification
-   * DELETE /notifications/:id
-   */
   static async deleteNotification(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.userId) {

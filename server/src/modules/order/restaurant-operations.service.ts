@@ -15,7 +15,6 @@ import { BillingService } from "./billing.service.js";
 import { OrderStatus } from "../../models/enums.js";
 import { EventBusService } from "../../events/eventBus.js";
 
-// Helper to map assistance action strings to typed WaiterTaskType
 function mapAssistanceTypeToTaskType(assistanceType: string): WaiterTaskType {
   const type = String(assistanceType).toUpperCase();
   if (type === "WATER") return "WATER";
@@ -23,7 +22,7 @@ function mapAssistanceTypeToTaskType(assistanceType: string): WaiterTaskType {
   if (type === "TISSUE") return "TISSUE";
   if (type === "SPOON") return "SPOON";
   if (type === "CLEANING") return "CLEANING";
-  return "CUSTOM"; // Default to CUSTOM/General Assistance
+  return "CUSTOM";
 }
 
 export interface IOperationResult {
@@ -106,7 +105,6 @@ export class RestaurantOperationsService {
           if (!fromTable) throw new Error(`Origin Table ${fromTableId} not found`);
           if (!toTable) throw new Error(`Destination Table ${toTableId} not found`);
 
-          // Optimistic Locking Check
           if (expectedVersionFrom && fromTable.updatedAt.toISOString() !== new Date(expectedVersionFrom).toISOString()) {
             throw new Error("Concurrency Conflict: Origin table has been modified concurrently.");
           }
@@ -114,7 +112,6 @@ export class RestaurantOperationsService {
             throw new Error("Concurrency Conflict: Destination table has been modified concurrently.");
           }
 
-          // Validation
           if (!fromTable.activeSessionId) {
             throw new Error("Origin table does not have an active session");
           }
@@ -125,13 +122,11 @@ export class RestaurantOperationsService {
           const activeSessionId = fromTable.activeSessionId;
           affectedSessions.add(activeSessionId.toString());
 
-          // Update QRSession table pointer
           const sessionDoc = await QRSession.findById(activeSessionId).session(dbSession || null);
           if (!sessionDoc) throw new Error("Active QR session not found");
           sessionDoc.tableId = toTable._id;
           await sessionDoc.save(dbSession ? { session: dbSession } : undefined);
 
-          // Update Orders diningContext
           const orders = await Order.find({ "diningContext.sessionId": activeSessionId, isDeleted: false }).session(dbSession || null);
           for (const order of orders) {
             if (order.diningContext) {
@@ -142,18 +137,16 @@ export class RestaurantOperationsService {
             }
           }
 
-          // Handle Merged Tables transfer
           if (fromTable.isMerged) {
             toTable.isMerged = true;
             toTable.mergedWithTableIds = fromTable.mergedWithTableIds || [];
 
-            // If we are transferring the primary table in a merge
             const secondaryIds = fromTable.mergedWithTableIds || [];
             for (const secId of secondaryIds) {
               const secTable = await Table.findById(secId).session(dbSession || null);
               if (secTable && secTable.isMerged && secTable.mergedWithTableIds) {
-                // Replace fromTable._id with toTable._id in secondary table's merged list
-                secTable.mergedWithTableIds = secTable.mergedWithTableIds.map(id => 
+
+                secTable.mergedWithTableIds = secTable.mergedWithTableIds.map(id =>
                   id.toString() === fromTable._id.toString() ? toTable._id : id
                 );
                 await secTable.save(dbSession ? { session: dbSession } : undefined);
@@ -162,7 +155,6 @@ export class RestaurantOperationsService {
             }
           }
 
-          // Transfer session pointers
           toTable.activeSessionId = activeSessionId;
           toTable.operationalStatus = fromTable.operationalStatus;
 
@@ -177,7 +169,6 @@ export class RestaurantOperationsService {
           affectedTables.add(fromTable._id.toString());
           affectedTables.add(toTable._id.toString());
 
-          // Log timeline
           await OrderTimeline.create([{
             tenantId,
             qrsessionId: activeSessionId,
@@ -191,7 +182,6 @@ export class RestaurantOperationsService {
             }
           }], dbSession ? { session: dbSession } : undefined);
 
-          // Outbox event
           await EventBusService.publishTableTransferred(
             tenantId,
             outletId,
@@ -252,7 +242,6 @@ export class RestaurantOperationsService {
           ].map(id => new Types.ObjectId(id));
           await primaryTable.save(dbSession ? { session: dbSession } : undefined);
 
-          // Log timeline
           await OrderTimeline.create([{
             tenantId,
             qrsessionId: activeSessionId,
@@ -736,7 +725,6 @@ export class RestaurantOperationsService {
 
           await TableService.updateTableOperationalStatus(tenantId, outletId, tableDoc._id, 'AVAILABLE', updateOptions);
 
-          // Also complete any outstanding waiter tasks of type 'CLEANING' for this table
           const WaiterTaskModel = (await import("../../models/waitertask.model.js")).default;
           const openTask = await WaiterTaskModel.findOne({
             tenantId,
@@ -785,10 +773,9 @@ export class RestaurantOperationsService {
             affectedSessions.add(task.sessionId.toString());
             waiterTasksList.push(task._id.toString());
 
-            // If the waiter task was a cleaning task, update the table back to AVAILABLE
             if (task.taskType === 'CLEANING') {
               affectedTables.add(task.tableId.toString());
-              
+
               const updateOptions: { correlationId?: string; triggeredById?: string } = {};
               if (command.triggeredById) updateOptions.triggeredById = command.triggeredById.toString();
 
@@ -832,7 +819,6 @@ export class RestaurantOperationsService {
             });
           }
 
-          // If a specific itemId is set in metadata (partial cancellation)
           const cancelItemId = task.metadata?.itemId;
           if (cancelItemId) {
             const itemObjId = new Types.ObjectId(cancelItemId);
@@ -851,7 +837,7 @@ export class RestaurantOperationsService {
                 parentOrder.subtotal = newSubtotal;
                 parentOrder.tax = newTax;
                 parentOrder.totalAmount = newTotal;
-                
+
                 if (siblingItems.length === 0) {
                   parentOrder.orderStatus = OrderStatus.CANCELLED;
                   parentOrder.cancelledAt = new Date();
@@ -953,10 +939,6 @@ export class RestaurantOperationsService {
     };
   }
 
-
-  /**
-   * Handle QR assistance requests by spawning a waiter task and sending notifications
-   */
   static async handleQRAssistanceRequested(
     tenantId: any,
     outletId: any,
@@ -967,7 +949,6 @@ export class RestaurantOperationsService {
   ): Promise<any> {
     const taskType = mapAssistanceTypeToTaskType(assistanceType);
 
-    // Prevent duplicate pending tasks of same type for the active QR Session
     const existingTask = await WaiterTask.findOne({
       sessionId: new Types.ObjectId(sessionId),
       taskType,
@@ -982,7 +963,7 @@ export class RestaurantOperationsService {
     let priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = "MEDIUM";
     if (taskType === "BILL") {
       priority = "HIGH";
-      // Transition session to PAYMENT_PENDING which auto-sets table status to BILL_REQUESTED
+
       const session = await QRSession.findById(sessionId);
       if (session && session.status !== "PAYMENT_PENDING" && session.status !== "CLOSED") {
         await QRSessionService.updateSessionStatus(sessionId, "PAYMENT_PENDING");
@@ -1010,7 +991,6 @@ export class RestaurantOperationsService {
       }
     );
 
-    // Dispatch operational notification
     const table = await TableService.getTableById(tableId);
     const tableNum = table ? table.tableNumber : "Unknown";
     const alertTitle = `${taskType.replace('_', ' ')} Requested`;
@@ -1028,9 +1008,6 @@ export class RestaurantOperationsService {
     return task;
   }
 
-  /**
-   * Handle food ready order status events by spawning a food runner task
-   */
   static async handleOrderReady(
     tenantId: any,
     outletId: any,
@@ -1071,7 +1048,6 @@ export class RestaurantOperationsService {
       }
     );
 
-    // Dispatch alert
     const table = await TableService.getTableById(tableId);
     const tableNum = table ? table.tableNumber : "Unknown";
     const alertTitle = `Food Ready - Table ${tableNum}`;
@@ -1089,9 +1065,6 @@ export class RestaurantOperationsService {
     return task;
   }
 
-  /**
-   * Handle table cleaning start events by spawning a cleaning task
-   */
   static async handleTableCleaningStarted(
     tenantId: any,
     outletId: any,
@@ -1121,7 +1094,6 @@ export class RestaurantOperationsService {
       }
     );
 
-    // Dispatch alert
     const table = await TableService.getTableById(tableId);
     const tableNum = table ? table.tableNumber : "Unknown";
     const alertTitle = `Table Cleaning Required`;
@@ -1139,9 +1111,6 @@ export class RestaurantOperationsService {
     return task;
   }
 
-  /**
-   * Handle bill request table events by spawning a bill delivery task
-   */
   static async handleBillRequested(
     tenantId: any,
     outletId: any,
@@ -1171,7 +1140,6 @@ export class RestaurantOperationsService {
       }
     );
 
-    // Dispatch alert
     const table = await TableService.getTableById(tableId);
     const tableNum = table ? table.tableNumber : "Unknown";
     const alertTitle = `Bill Requested`;

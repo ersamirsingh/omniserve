@@ -200,7 +200,6 @@ orderSchema.index({ tenantId: 1, createdAt: -1 });
 orderSchema.index({ orderNumber: 1 }, { sparse: true });
 orderSchema.index({ isDeleted: 1 });
 
-// Auto-generate order number before save
 orderSchema.pre('save', async function (this: IOrder) {
   if (!this.orderNumber) {
     const timestamp = Date.now().toString(36).toUpperCase();

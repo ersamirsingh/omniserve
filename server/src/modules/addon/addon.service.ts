@@ -4,9 +4,7 @@ import MenuItem from "../../models/menuItem.model.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class AddonService {
-  /**
-   * Validate that the parent menu item exists, belongs to the tenant, and is active (not soft-deleted)
-   */
+
   static async validateMenuItemOwnership(menuItemId: string, tenantId: string): Promise<boolean> {
     try {
       const menuItem = await MenuItem.findOne({
@@ -20,9 +18,6 @@ export class AddonService {
     }
   }
 
-  /**
-   * Create a new addon under a menu item
-   */
   static async createAddon(
     tenantId: string,
     data: any,
@@ -44,8 +39,7 @@ export class AddonService {
     });
 
     const saved = await addon.save();
-    
-    // Fetch parent menu item to get outletId
+
     const menuItem = await MenuItem.findById(saved.menuItemId);
     if (menuItem) {
       EventBusService.publishMenuChanged(
@@ -61,9 +55,6 @@ export class AddonService {
     return saved;
   }
 
-  /**
-   * Retrieve list of addons for a parent menu item
-   */
   static async getAddons(tenantId: string, menuItemId: string): Promise<IAddon[]> {
     return await Addon.find({
       menuItemId: new Types.ObjectId(menuItemId),
@@ -72,9 +63,6 @@ export class AddonService {
     }).sort({ createdAt: 1 });
   }
 
-  /**
-   * Retrieve addon by ID and tenant ID
-   */
   static async getAddonById(id: string, tenantId: string): Promise<IAddon | null> {
     return await Addon.findOne({
       _id: new Types.ObjectId(id),
@@ -83,16 +71,13 @@ export class AddonService {
     });
   }
 
-  /**
-   * Replace/Update addon details (PUT replacement)
-   */
   static async updateAddon(
     id: string,
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<IAddon | null> {
-    // Validate parent menu item ownership if it's changing or provided
+
     if (data.menuItemId) {
       const isOwner = await this.validateMenuItemOwnership(data.menuItemId, tenantId);
       if (!isOwner) {
@@ -138,9 +123,6 @@ export class AddonService {
     return updated;
   }
 
-  /**
-   * Soft-delete an addon
-   */
   static async deleteAddon(
     id: string,
     tenantId: string,

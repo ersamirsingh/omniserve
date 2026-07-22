@@ -6,9 +6,7 @@ import User from "../models/user.model.js";
 import { NotificationType } from "../models/enums.js";
 
 export class SubscriptionEventPublisher {
-  /**
-   * Helper to resolve restaurant owner user for a tenant
-   */
+
   private static async getOwnerUser(tenantId: string | Types.ObjectId) {
     return await User.findOne({
       tenantId: new Types.ObjectId(tenantId),
@@ -17,9 +15,6 @@ export class SubscriptionEventPublisher {
     });
   }
 
-  /**
-   * Publishes subscription expiration alerts (T-7, T-3, T-1 warnings)
-   */
   static async publishExpirationWarning(
     tenantId: string | Types.ObjectId,
     daysRemaining: number
@@ -30,7 +25,6 @@ export class SubscriptionEventPublisher {
     const title = `Subscription Expiring in ${daysRemaining} Days`;
     const message = `Your OmniServe SaaS subscription plan will expire in ${daysRemaining} days. Please upgrade or renew to keep your features active.`;
 
-    // 1. Create In-App Notification
     await Notification.create({
       tenantId: new Types.ObjectId(tenantId),
       userId: owner._id,
@@ -39,7 +33,6 @@ export class SubscriptionEventPublisher {
       type: NotificationType.OPERATIONAL_ALERT,
     });
 
-    // 2. Dispatch Email
     try {
       await EmailService.sendMail({
         to: owner.email,
@@ -51,10 +44,8 @@ export class SubscriptionEventPublisher {
       console.error("[SubscriptionEvent] Failed to send email alert:", err);
     }
 
-    // 3. WhatsApp Integration (Simulated Stub)
     console.info(`[WhatsApp Notify] Sent alert to owner phone ${owner.phone || "N/A"}: ${title}`);
 
-    // 4. Real-time WebSocket sync
     if ((RealtimeService as any).io) {
       (RealtimeService as any).io.emit("SUBSCRIPTION_ALERT", {
         type: "EXPIRY_WARNING",
@@ -66,9 +57,6 @@ export class SubscriptionEventPublisher {
     }
   }
 
-  /**
-   * Publishes when subscription expired (and transitions to grace period or locked)
-   */
   static async publishExpired(
     tenantId: string | Types.ObjectId,
     locked = false
@@ -112,9 +100,6 @@ export class SubscriptionEventPublisher {
     }
   }
 
-  /**
-   * Publishes payment outcomes (SUCCESS / FAILED)
-   */
   static async publishPaymentOutcome(
     tenantId: string | Types.ObjectId,
     invoiceNumber: string,
@@ -162,9 +147,6 @@ export class SubscriptionEventPublisher {
     }
   }
 
-  /**
-   * Publishes auto-renewals or plan upgrades
-   */
   static async publishRenewedOrUpgraded(
     tenantId: string | Types.ObjectId,
     planName: string,

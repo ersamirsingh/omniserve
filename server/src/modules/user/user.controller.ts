@@ -11,10 +11,6 @@ export class UserController {
   private static PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   private static PHONE_REGEX = /^\+?[\d\s\-().]{7,20}$/;
 
-  /**
-   * Accept the logged-in user's pending invitation
-   * PATCH /users/me/accept-invitation
-   */
   static async acceptMyInvitation(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId || !req.user?.userId) {
@@ -46,10 +42,6 @@ export class UserController {
     }
   }
 
-  /**
-   * Get authenticated user's profile context hierarchy
-   * GET /users/me/profile-context
-   */
   static async getMyProfileContext(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.userId) {
@@ -72,10 +64,6 @@ export class UserController {
     }
   }
 
-  /**
-   * Create a new User
-   * POST /users
-   */
   static async createUser(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -85,7 +73,6 @@ export class UserController {
 
       const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId, outletIds } = req.body;
 
-      // Validate required fields
       if (!firstName || !lastName || !email || !password || !role) {
         ApiResponseHandler.badRequest(res, 'firstName, lastName, email, password, and role are required');
         return;
@@ -213,10 +200,6 @@ export class UserController {
     }
   }
 
-  /**
-   * List Users for a tenant
-   * GET /users
-   */
   static async listUsers(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -291,10 +274,6 @@ export class UserController {
     }
   }
 
-  /**
-   * Get User details by ID
-   * GET /users/:id
-   */
   static async getUserById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -352,10 +331,6 @@ export class UserController {
     }
   }
 
-  /**
-   * Update User details
-   * PUT /users/:id
-   */
   static async updateUser(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -415,7 +390,6 @@ export class UserController {
 
       const { firstName, lastName, email, phone, password, role, status, restaurantId, outletId, outletIds, profileImage, address, idProof, idProofStatus } = req.body;
 
-      // Validate inputs if provided
       if (firstName !== undefined && (typeof firstName !== 'string' || firstName.trim().length === 0 || firstName.length > 50)) {
         ApiResponseHandler.badRequest(res, 'firstName must be a non-empty string and under 50 characters');
         return;
@@ -536,10 +510,6 @@ export class UserController {
     }
   }
 
-  /**
-   * Soft-delete User
-   * DELETE /users/:id
-   */
   static async deleteUser(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

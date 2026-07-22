@@ -218,5 +218,3 @@ export interface IntegrationAdapter {
   buildMenuPayload(args: AdapterBuildMenuPayloadArgs): Promise<unknown>;
   buildInventoryPayload(args: AdapterBuildInventoryPayloadArgs): Promise<unknown>;
 }
-
-

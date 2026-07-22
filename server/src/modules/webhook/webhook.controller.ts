@@ -6,10 +6,7 @@ import { WebhookProvider, WebhookStatus } from "../../models/enums.js";
 import WebhookLog from "../../models/webhooklog.model.js";
 
 export class WebhookController {
-  /**
-   * Public Webhook Receiver Endpoint
-   * POST /webhooks/:provider
-   */
+
   static async receiveWebhook(req: Request, res: Response): Promise<void> {
     try {
       const providerStr = (req.params.provider as string) || '';
@@ -20,10 +17,8 @@ export class WebhookController {
         return;
       }
 
-      // Extract raw body or stringified fallback
       const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
-      // Extract signature
       const signature = (
         req.headers['x-signature'] ||
         req.headers['x-razorpay-signature'] ||
@@ -31,7 +26,6 @@ export class WebhookController {
         ''
       ) as string;
 
-      // Resolve tenant and secret
       let tenantId: string;
       let secret: string;
       try {
@@ -48,7 +42,6 @@ export class WebhookController {
         return;
       }
 
-      // Extract event type and external event ID
       let eventType = req.body.event || req.body.type || req.body.eventType || 'unknown';
       let externalEventId = req.body.id || req.body.eventId || req.body.payment_id || null;
 
@@ -60,11 +53,10 @@ export class WebhookController {
         externalEventId = req.body.id || externalEventId;
       }
 
-      // Validate signature
       const isValid = WebhookService.validateSignature(providerUpper, rawBody, signature, secret);
 
       if (!isValid) {
-        // ALWAYS log failed webhooks, even signature errors
+
         await WebhookService.logWebhook(
           tenantId,
           providerUpper,
@@ -81,7 +73,6 @@ export class WebhookController {
         return;
       }
 
-      // Check for duplicate webhook events (idempotency check)
       if (externalEventId) {
         const existingLog = await WebhookLog.findOne({
           tenantId: new Types.ObjectId(tenantId),
@@ -91,7 +82,7 @@ export class WebhookController {
         });
 
         if (existingLog) {
-          // If already successfully processed or currently processing, skip and respond 200
+
           if (existingLog.status === WebhookStatus.SUCCESS || existingLog.status === WebhookStatus.PROCESSING) {
             ApiResponseHandler.success(res, 200, 'Webhook event already processed (idempotent)');
             return;
@@ -99,7 +90,6 @@ export class WebhookController {
         }
       }
 
-      // Log webhook as PENDING
       const log = await WebhookService.logWebhook(
         tenantId,
         providerUpper,
@@ -110,10 +100,8 @@ export class WebhookController {
         WebhookStatus.PENDING
       );
 
-      // Respond quickly to the provider
       ApiResponseHandler.success(res, 200, 'Webhook received and queued for processing');
 
-      // Process event asynchronously in the background
       setImmediate(() => {
         WebhookService.processWebhook(log._id).catch(err =>
           console.error('Failed to process background webhook:', err)
@@ -124,10 +112,6 @@ export class WebhookController {
     }
   }
 
-  /**
-   * Retrieve list of webhook logs for the authenticated tenant
-   * GET /webhooks/logs
-   */
   static async listLogs(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -176,10 +160,6 @@ export class WebhookController {
     }
   }
 
-  /**
-   * Retrieve a specific webhook log details
-   * GET /webhooks/logs/:id
-   */
   static async getLogById(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -211,10 +191,6 @@ export class WebhookController {
     }
   }
 
-  /**
-   * Manual retry trigger for a FAILED webhook log
-   * POST /webhooks/logs/:id/retry
-   */
   static async retryLog(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;

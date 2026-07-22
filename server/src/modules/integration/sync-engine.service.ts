@@ -17,9 +17,7 @@ export class WorkerRegistry {
 export const workerRegistry = new WorkerRegistry();
 
 export class SyncEngineService {
-  /**
-   * Check if circuit breaker is open for a specific provider at an outlet
-   */
+
   static async isCircuitOpen(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId | null,
@@ -33,9 +31,6 @@ export class SyncEngineService {
     return false;
   }
 
-  /**
-   * Handle successful synchronization execution
-   */
   static async handleSuccess(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId | null,
@@ -56,9 +51,6 @@ export class SyncEngineService {
     );
   }
 
-  /**
-   * Handle failed synchronization execution and potentially trip the circuit breaker
-   */
   static async handleFailure(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId | null,
@@ -67,7 +59,7 @@ export class SyncEngineService {
     if (!outletId) return;
     const state = await ProviderSyncState.findOne({ tenantId, outletId, provider });
     const consecutive = (state?.consecutiveFailures || 0) + 1;
-    const openUntil = consecutive >= 5 ? new Date(Date.now() + 10 * 60 * 1000) : null; // 10 minutes
+    const openUntil = consecutive >= 5 ? new Date(Date.now() + 10 * 60 * 1000) : null;
     const health = consecutive >= 5 ? "FAILED" : "DEGRADED";
 
     await ProviderSyncState.findOneAndUpdate(
@@ -88,9 +80,6 @@ export class SyncEngineService {
     }
   }
 
-  /**
-   * Main entry point to process a single event outbox document
-   */
   static async processEvent(event: IIntegrationEventQueue, nodeId = "node-default"): Promise<void> {
 
     const startedAt = new Date();
@@ -112,10 +101,9 @@ export class SyncEngineService {
     }
 
     try {
-      // Execute the registered worker
+
       await worker(event);
 
-      // Processing succeeded
       const processedAt = new Date();
       event.status = "SUCCESS";
       event.processedAt = processedAt;
@@ -127,8 +115,6 @@ export class SyncEngineService {
       const processingTime = processedAt.getTime() - startedAt.getTime();
       const e2eTime = processedAt.getTime() - event.queuedAt.getTime();
 
-//         `[SyncEngineService] Event ${event._id} processed successfully. Latencies: QueueWait=${queueWaitTime}ms, Processing=${processingTime}ms, E2E=${e2eTime}ms`
-//       );
     } catch (error: any) {
       console.error(`[SyncEngineService] Error processing event ${event._id}: ${error.message}`);
 
@@ -144,7 +130,7 @@ export class SyncEngineService {
         console.warn(`[SyncEngineService] Event ${event._id} moved to DLQ (max retries reached)`);
       } else {
         event.status = "FAILED";
-        // Exponential backoff: 2^retryCount * 2 seconds (e.g. 4s, 8s, 16s)
+
         const backoffMs = Math.pow(2, nextRetryCount) * 2000;
         event.nextRetryAt = new Date(Date.now() + backoffMs);
       }

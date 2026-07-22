@@ -102,7 +102,7 @@ export enum OrderSource {
   QR_DINE_IN = "QR_DINE_IN",
   SWIGGY = "SWIGGY",
   ZOMATO = "ZOMATO",
-  POS = "POS", // DEPRECATED: Retained for historical schema compatibility. New orders use DINE_IN.
+  POS = "POS",
   WEBSITE = "WEBSITE",
   ONDC = "ONDC",
   WHATSAPP = "WHATSAPP",

@@ -5,11 +5,7 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { resolveDiningContext } from "../order/order.utils.js";
 
 export class DiningAnalyticsController {
-  /**
-   * GET /api/v1/dining-analytics/summary
-   * Returns a rich dining operations analytics summary for a date range.
-   * Query: outletId, from (ISO date), to (ISO date)
-   */
+
   static async getSummary(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);

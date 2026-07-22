@@ -32,7 +32,7 @@ export interface IUser extends Document {
   idProofStatus?: string | null;
   twoFactorEnabled?: boolean;
   twoFactorSecret?: string | null;
-  // virtuals
+
   fullName: string;
 }
 

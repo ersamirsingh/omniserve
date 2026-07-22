@@ -113,7 +113,7 @@ webhookLogSchema.index({ provider: 1, eventType: 1 });
 webhookLogSchema.index({ processed: 1 });
 webhookLogSchema.index({ tenantId: 1, processed: 1 });
 webhookLogSchema.index({ createdAt: -1 });
-// TTL: auto-delete webhook logs after 90 days
+
 webhookLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7_776_000 });
 webhookLogSchema.index({ tenantId: 1, provider: 1, externalEventId: 1 }, { unique: true, sparse: true });
 webhookLogSchema.index({ isDeleted: 1 });

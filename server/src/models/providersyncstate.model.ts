@@ -81,7 +81,6 @@ const providerSyncStateSchema = new Schema<IProviderSyncState>(
   }
 );
 
-// Indexes
 providerSyncStateSchema.index({ tenantId: 1, outletId: 1, provider: 1 }, { unique: true });
 
 const ProviderSyncState: Model<IProviderSyncState> =

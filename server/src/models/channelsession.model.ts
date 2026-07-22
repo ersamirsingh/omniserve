@@ -69,12 +69,10 @@ const channelSessionSchema = new Schema<IChannelSession>(
   }
 );
 
-// Indexes
 channelSessionSchema.index({ tenantId: 1 });
 channelSessionSchema.index({ outletId: 1 });
 channelSessionSchema.index({ isDeleted: 1 });
 
-// Generate unique sessionToken pre-save if not provided
 channelSessionSchema.pre("save", function (this: IChannelSession, next) {
   if (!this.sessionToken) {
     this.sessionToken = "CH-SESS-" + crypto.randomBytes(16).toString("hex").toUpperCase();

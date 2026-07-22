@@ -5,7 +5,6 @@ import { RealtimeEvent } from "../types/socket-events.js";
 export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise<void> {
   const { eventType, tenantId, outletId, payload, correlationId } = event;
 
-  // Base socket message payload envelope
   const messagePayload = {
     event: eventType,
     meta: {
@@ -17,7 +16,6 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
     data: payload
   };
 
-  // Broadcast logic based on event types and room assignments using typed contracts
   switch (eventType) {
     case RealtimeEvent.TABLE_OCCUPIED:
     case RealtimeEvent.TABLE_AVAILABLE:
@@ -64,7 +62,7 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
       if (outletId) {
         RealtimeService.sendToOutlet(tenantId, outletId, eventType as RealtimeEvent, messagePayload);
       }
-      // Also send to session room if sessionId is present in payload
+
       const sessId = (payload as any)?.sessionId;
       if (sessId) {
         RealtimeService.sendToSession(sessId, eventType as RealtimeEvent, messagePayload);
@@ -84,7 +82,7 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
     case RealtimeEvent.ITEM_FIRED:
     case RealtimeEvent.ITEM_HELD:
     case RealtimeEvent.COURSE_FIRED:
-      // KDS events: broadcast to kitchen display and optionally to customer session
+
       if (outletId) {
         RealtimeService.sendToKitchen(outletId, eventType as RealtimeEvent, messagePayload);
         RealtimeService.sendToOutlet(tenantId, outletId, eventType as RealtimeEvent, messagePayload);
@@ -98,7 +96,7 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
     case RealtimeEvent.BILL_REQUESTED:
     case RealtimeEvent.BILL_SPLIT_CREATED:
     case RealtimeEvent.BILL_SETTLED:
-      // Billing events: broadcast to outlet managers and the specific dining session
+
       if (outletId) {
         RealtimeService.sendToOutlet(tenantId, outletId, eventType as RealtimeEvent, messagePayload);
       }
@@ -110,10 +108,10 @@ export async function realtimeSyncWorker(event: IIntegrationEventQueue): Promise
 
     case RealtimeEvent.ORDER_CREATED:
       if (outletId) {
-        // Send to KDS
+
         RealtimeService.sendToKitchen(outletId, eventType as RealtimeEvent, messagePayload);
       }
-      // If order is linked to a QRSession, broadcast to session room
+
       const qrSessId = (payload as any)?.sessionId || (payload as any)?.diningContext?.sessionId;
       if (qrSessId) {
         RealtimeService.sendToSession(qrSessId, eventType as RealtimeEvent, messagePayload);

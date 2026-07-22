@@ -84,7 +84,6 @@ const analyticsDailySchema = new Schema<IAnalyticsDaily>(
   }
 );
 
-// Unique report per outlet per day
 analyticsDailySchema.index(
   { tenantId: 1, outletId: 1, reportDate: 1 },
   { unique: true }

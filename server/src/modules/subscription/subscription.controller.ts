@@ -13,11 +13,7 @@ declare global {
 }
 
 export class SubscriptionController {
-  /**
-   * Create a new subscription
-   * POST /subscriptions
-   * Resolves tenantId from req.user.tenantId
-   */
+
   static async createSubscription(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -28,13 +24,11 @@ export class SubscriptionController {
 
       const { plan, amount, startDate, endDate } = req.body;
 
-      // Validate required fields
       if (!plan || amount === undefined || !startDate || !endDate) {
         ApiResponseHandler.badRequest(res, 'plan, amount, startDate, and endDate are required');
         return;
       }
 
-      // Validate plan is valid
       if (!Object.values(SubscriptionPlan).includes(plan)) {
         ApiResponseHandler.badRequest(
           res,
@@ -43,10 +37,9 @@ export class SubscriptionController {
         return;
       }
 
-      // Validate dates
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (start >= end) {
         ApiResponseHandler.badRequest(res, 'startDate must be before endDate');
         return;
@@ -72,10 +65,6 @@ export class SubscriptionController {
     }
   }
 
-  /**
-   * Get current active subscription for current tenant
-   * GET /subscriptions/current
-   */
   static async getCurrentSubscription(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -97,10 +86,6 @@ export class SubscriptionController {
     }
   }
 
-  /**
-   * Cancel subscription (updates status to CANCELLED, does not soft delete)
-   * PATCH /subscriptions/:id/cancel
-   */
   static async cancelSubscription(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -132,12 +117,6 @@ export class SubscriptionController {
     }
   }
 
-
-
-  /**
-   * Retrieve list of subscriptions for current tenant
-   * GET /subscriptions
-   */
   static async getSubscriptionsByTenantId(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -169,10 +148,6 @@ export class SubscriptionController {
     }
   }
 
-  /**
-   * Retrieve details of a single subscription
-   * GET /subscriptions/:id
-   */
   static async getSubscriptionById(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;

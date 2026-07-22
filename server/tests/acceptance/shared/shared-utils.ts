@@ -5,7 +5,6 @@ process.env.NODE_ENV = "test";
 
 import mongoose from "mongoose";
 
-// Setup mongoose mock transactions for standalone MongoDB
 const originalStartSession = mongoose.startSession;
 (mongoose as any).startSession = async function(options?: any) {
   const session = await originalStartSession.call(mongoose, options);
@@ -22,7 +21,7 @@ const MONGO_URIS = [
 
 export async function connectTestDB() {
   if (mongoose.connection.readyState !== 0) return;
-  
+
   let connected = false;
   for (const uri of MONGO_URIS) {
     try {

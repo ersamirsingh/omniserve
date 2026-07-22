@@ -99,7 +99,7 @@ const waiterTaskSchema = new Schema<IWaiterTask>(
     },
     slaLimitMs: {
       type: Number,
-      default: 300000, // 5 minutes default
+      default: 300000,
     },
     assignedAt: {
       type: Date,

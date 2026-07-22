@@ -127,7 +127,6 @@ const cartSchema = new Schema<ICart>(
   }
 );
 
-// Indexes
 cartSchema.index({ tenantId: 1 });
 cartSchema.index({ sessionToken: 1 });
 cartSchema.index({ customerId: 1 });

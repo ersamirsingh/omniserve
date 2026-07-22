@@ -30,7 +30,6 @@ async function runPhase9Tests() {
   const oid = new mongoose.Types.ObjectId();
   const tableId = new mongoose.Types.ObjectId();
 
-  // Cleanup
   await Table.deleteMany({ qrToken: "qr_token_phase9_test" });
   await Tenant.deleteMany({ name: tenantName });
   await Outlet.deleteMany({ name: "Phase 9 Outlet" });
@@ -45,7 +44,6 @@ async function runPhase9Tests() {
     await mongoose.connection.collection("idempotencykeys").dropIndexes();
   } catch (err) {}
 
-  // 1. Seed base data
   await Tenant.create({
     _id: tid,
     name: tenantName,
@@ -97,7 +95,6 @@ async function runPhase9Tests() {
     operationalStatus: "AVAILABLE"
   });
 
-  // Seed inventory
   const inventory = await Inventory.create({
     tenantId: tid,
     outletId: oid,
@@ -110,7 +107,6 @@ async function runPhase9Tests() {
 
   console.log("[Phase9Test] Base records and inventory seeded.");
 
-  // Test 1: Reserved/Cleaning Table Scan Block
   console.log("[Phase9Test] Testing Table operationalStatus Blocks...");
   table.operationalStatus = "RESERVED";
   await table.save();
@@ -139,11 +135,9 @@ async function runPhase9Tests() {
   }
   console.log("-> CLEANING table blocked successfully.");
 
-  // Restore table status
   table.operationalStatus = "AVAILABLE";
   await table.save();
 
-  // 2. Scan and Join
   let resolvedData: any = null;
   const mockResResolve = {
     status: (code: number) => ({
@@ -154,7 +148,6 @@ async function runPhase9Tests() {
   } as any;
   await PublicController.resolveQrCode({ params: { tableToken: table.qrToken }, query: {}, headers: {} } as any, mockResResolve);
 
-  // Set up guest session profile
   let guestProfile: any = null;
   await PublicController.updateGuestSession({
     headers: { "x-guest-session-token": resolvedData.guestSessionToken },
@@ -167,7 +160,6 @@ async function runPhase9Tests() {
     })
   } as any);
 
-  // Test 2: Waiter Assistance Duplicate Prevention
   console.log("[Phase9Test] Testing Waiter Assistance Spam Prevention...");
   let assistData1: any = null;
   await PublicController.requestQrAssistance({
@@ -196,10 +188,8 @@ async function runPhase9Tests() {
   }
   console.log("-> Waiter assistance spam protection verified.");
 
-  // Test 3: Price and Stock validation
   console.log("[Phase9Test] Testing Stock & Price Checkout validation...");
-  
-  // 3a. Price tamper check
+
   let orderResult: any = null;
   await PublicController.placeQrOrder({
     headers: {},
@@ -207,7 +197,7 @@ async function runPhase9Tests() {
       tableToken: table.qrToken,
       seatNumber: "1",
       customer: { name: "Aman", phone: "9876543210" },
-      items: [{ menuItemId: menuItem._id.toString(), name: "Burger", price: 80, quantity: 1 }] // original ₹100
+      items: [{ menuItemId: menuItem._id.toString(), name: "Burger", price: 80, quantity: 1 }]
     }
   } as any, {
     status: (code: number) => ({
@@ -221,7 +211,6 @@ async function runPhase9Tests() {
   }
   console.log("-> Price tampering protection verified.");
 
-  // 3b. Stock checkout check
   let orderResultStock: any = null;
   await PublicController.placeQrOrder({
     headers: {},
@@ -229,7 +218,7 @@ async function runPhase9Tests() {
       tableToken: table.qrToken,
       seatNumber: "1",
       customer: { name: "Aman", phone: "9876543210" },
-      items: [{ menuItemId: menuItem._id.toString(), name: "Burger", price: 100, quantity: 10 }] // stock is 5
+      items: [{ menuItemId: menuItem._id.toString(), name: "Burger", price: 100, quantity: 10 }]
     }
   } as any, {
     status: (code: number) => ({
@@ -242,7 +231,6 @@ async function runPhase9Tests() {
   }
   console.log("-> Stock inventory checkout check verified.");
 
-  // Test 4: Stripe-style Idempotency Keys
   console.log("[Phase9Test] Testing Stripe-style Idempotency keys...");
   const idempotencyKey = "key-test-123456";
 
@@ -288,7 +276,6 @@ async function runPhase9Tests() {
 
   const orderId = firstOrderRes.data.internalOrderId;
 
-  // Test 5: Safe Leave - Case 2 (Cancel pending orders on leave)
   console.log("[Phase9Test] Testing Safe Leave Case 2 (Auto cancel pending orders)...");
   let leaveRes: any = null;
   await PublicController.leaveGuestSession({
@@ -310,7 +297,6 @@ async function runPhase9Tests() {
   }
   console.log("-> Safe Leave Case 2 (Cancel pending) verified.");
 
-  // Re-join and place preparation order for Case 3
   resolvedData = null;
   await PublicController.resolveQrCode({ params: { tableToken: table.qrToken }, query: {}, headers: {} } as any, mockResResolve);
 
@@ -324,7 +310,6 @@ async function runPhase9Tests() {
     })
   } as any);
 
-  // Place order
   let order2Res: any = null;
   await PublicController.placeQrOrder({
     headers: {},
@@ -342,10 +327,8 @@ async function runPhase9Tests() {
 
   const order2Id = order2Res.data.internalOrderId;
 
-  // Move order to PREPARING
   await Order.updateOne({ _id: order2Id }, { orderStatus: OrderStatus.PREPARING });
 
-  // Test 6: Safe Leave - Case 3 (Prepare order triggers waiter cancel request)
   console.log("[Phase9Test] Testing Safe Leave Case 3 (PREPARING order blocks direct leave, raises request)...");
   let leaveRes3: any = null;
   await PublicController.leaveGuestSession({
@@ -370,11 +353,9 @@ async function runPhase9Tests() {
   }
   console.log("-> Safe Leave Case 3 (Requires approval WaiterTask) verified.");
 
-  // Test 7: Safe Leave - Case 4 (Served order blocks direct leave)
   console.log("[Phase9Test] Testing Safe Leave Case 4 (SERVED order blocks leave)...");
   await Order.updateOne({ _id: order2Id }, { orderStatus: OrderStatus.SERVED });
 
-  // Recalculate bill session
   await BillingService.recalculateBillSession(tid, qrSess._id);
 
   let leaveRes4: any = null;
@@ -392,14 +373,13 @@ async function runPhase9Tests() {
   }
   console.log("-> Safe Leave Case 4 (Outstanding bill block) verified.");
 
-  // Test 8: Bill Split Strategies (CUSTOM Split validations)
   console.log("[Phase9Test] Testing Custom Split validation...");
   const billSess = await BillSession.findOne({ sessionId: qrSess._id, tenantId: tid });
   if (!billSess) throw new Error("BillSession not found");
 
   let splitResult: any = null;
   try {
-    // Total is ₹100. Attempt split of ₹40 + ₹40 = ₹80
+
     await BillingService.splitBill(tid, oid, billSess._id.toString(), "CUSTOM", [
       { seatNumber: "1", amount: 40 },
       { seatNumber: "2", amount: 40 }
@@ -413,7 +393,6 @@ async function runPhase9Tests() {
   }
   console.log("-> Custom split verification verified successfully.");
 
-  // 9. Coupon Scoping & Session join code tests
   console.log("-> Testing QR Session join code PIN protection...");
   let qrResData: any = null;
   const mockRes1: any = {
@@ -430,13 +409,11 @@ async function runPhase9Tests() {
     mockRes1 as any
   );
 
-  // Since active guest exists, resolveQrCode returns promptRequired: true. Let's load the active session from database to inspect the joinCode
   const activeSess = await QRSession.findOne({ tableId: table._id, status: { $nin: ["CLOSED", "EXPIRED"] } });
   if (!activeSess || !activeSess.joinCode || activeSess.joinCode.length !== 4) {
     throw new Error("Failed to generate 4-digit joinCode on session resolution");
   }
 
-  // Attempt to join active session with no code
   let joinErrData: any = null;
   const mockRes2: any = {
     status(code: number) { return this; },
@@ -456,7 +433,6 @@ async function runPhase9Tests() {
     throw new Error("Failed to enforce PIN requirement when joining group session");
   }
 
-  // Attempt to join active session with incorrect code
   let invalidPinErrData: any = null;
   const mockRes3: any = {
     status(code: number) { return this; },
@@ -476,7 +452,6 @@ async function runPhase9Tests() {
     throw new Error("Failed to block join attempt with incorrect PIN");
   }
 
-  // Join active session with correct code
   let joinSuccessData: any = null;
   const mockRes4: any = {
     status(code: number) { return this; },

@@ -75,7 +75,6 @@ const refreshTokenSchema = new Schema<IRefreshToken>(
   }
 );
 
-// TTL index: MongoDB auto-removes expired tokens
 refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 refreshTokenSchema.index({ userId: 1 });
 refreshTokenSchema.index({ token: 1 });

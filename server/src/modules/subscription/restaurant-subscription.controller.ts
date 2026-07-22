@@ -9,10 +9,7 @@ import { AccessScope } from "../../utils/accessScope.utils.js";
 import RestaurantSubscriptionModel from "../../models/subscription.model.js";
 
 export class RestaurantSubscriptionController {
-  /**
-   * GET /my-subscription
-   * Retrieves the active plan configuration and limits for the tenant / outlet context.
-   */
+
   static async getMySubscription(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -55,10 +52,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * GET /usage
-   * Retrieves usage metrics for the current month and year.
-   */
   static async getUsage(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -72,7 +65,7 @@ export class RestaurantSubscriptionController {
 
       let usage = await SubscriptionRepository.findUsage(tenantId, month, year);
       if (!usage) {
-        // Initialize empty usage record for the month
+
         usage = await SubscriptionRepository.incrementUsage(tenantId, month, year, {});
       }
 
@@ -83,10 +76,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * GET /invoice-history
-   * Retrieves invoice receipts list.
-   */
   static async getInvoiceHistory(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -106,10 +95,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * POST /upgrade
-   * Upgrades subscription to a new plan tier.
-   */
   static async upgrade(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -150,10 +135,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * POST /downgrade
-   * Downgrades subscription.
-   */
   static async downgrade(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -181,10 +162,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * POST /cancel
-   * Disables auto-renew.
-   */
   static async cancel(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -201,10 +178,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * POST /resume
-   * Enables auto-renew.
-   */
   static async resume(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -221,10 +194,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * POST /renew
-   * Manually triggers manual renewal invoice processing.
-   */
   static async renew(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.user?.tenantId;
@@ -242,10 +211,6 @@ export class RestaurantSubscriptionController {
     }
   }
 
-  /**
-   * POST /validate-coupon
-   * Validates a promotional subscription coupon code
-   */
   static async validateSubscriptionCoupon(req: Request, res: Response): Promise<void> {
     try {
       const { code, subtotal } = req.body;

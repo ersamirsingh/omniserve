@@ -13,8 +13,7 @@ const connectToMongoDB = async (): Promise<void> => {
       heartbeatFrequencyMS: 10000,
    });
    console.log('MongoDB connected');
-   
-   // Explicitly opt in to destructive index repair instead of doing DDL on every boot.
+
    if (process.env.AUTO_FIX_MONGO_INDEXES === 'true') {
       try {
          const usersCollection = mongoose.connection.collection('users');

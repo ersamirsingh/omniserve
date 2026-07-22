@@ -14,9 +14,6 @@ export class RazorpayGateway implements PaymentGateway {
     });
   }
 
-  /**
-   * Create a customer in Razorpay
-   */
   async createCustomer(tenantId: string, email: string, name: string): Promise<string> {
     const rzp = this.getRazorpayInstance();
     const customer = await rzp.customers.create({
@@ -27,9 +24,6 @@ export class RazorpayGateway implements PaymentGateway {
     return customer.id;
   }
 
-  /**
-   * Create a Plan dynamically and start a subscription in Razorpay
-   */
   async createSubscription(
     tenantId: string,
     customerId: string,
@@ -39,24 +33,22 @@ export class RazorpayGateway implements PaymentGateway {
   ): Promise<{ paymentSubscriptionId: string; invoiceUrl?: string }> {
     const rzp = this.getRazorpayInstance();
 
-    // 1. Create a Plan object dynamically in Razorpay
     const plan = await rzp.plans.create({
       period: billingCycle === "MONTHLY" ? "monthly" : "yearly",
       interval: 1,
       item: {
         name: planId,
-        amount: Math.round(price * 100), // convert price to paise
+        amount: Math.round(price * 100),
         currency: "INR",
         description: `Subscription fee for ${planId}`
       },
       notes: { tenantId }
     });
 
-    // 2. Create the subscription linked to the customer and plan
     const subscription = await rzp.subscriptions.create({
       plan_id: plan.id,
       customer_id: customerId,
-      total_count: billingCycle === "MONTHLY" ? 12 : 1, // bill 12 times for monthly, 1 time for yearly
+      total_count: billingCycle === "MONTHLY" ? 12 : 1,
       quantity: 1,
       notes: { tenantId }
     });
@@ -68,18 +60,12 @@ export class RazorpayGateway implements PaymentGateway {
     };
   }
 
-  /**
-   * Cancel an active Razorpay subscription
-   */
   async cancelSubscription(paymentSubscriptionId: string): Promise<void> {
     const rzp = this.getRazorpayInstance();
-    // Second parameter signifies whether to cancel immediately (true) or at end of cycle (false)
+
     await rzp.subscriptions.cancel(paymentSubscriptionId, false);
   }
 
-  /**
-   * Create a one-off invoice with a payment link in Razorpay
-   */
   async createInvoice(
     tenantId: string,
     customerId: string,
@@ -94,7 +80,7 @@ export class RazorpayGateway implements PaymentGateway {
       description,
       line_items: [{
         name: description,
-        amount: Math.round(amount * 100), // convert to paise
+        amount: Math.round(amount * 100),
         currency: "INR",
         quantity: 1
       }],
@@ -108,15 +94,12 @@ export class RazorpayGateway implements PaymentGateway {
     };
   }
 
-  /**
-   * Reconstruct and verify a Razorpay webhook signature
-   */
   async verifyWebhook(signature: string, rawBody: string): Promise<any> {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
     if (!webhookSecret) {
       throw new Error('RAZORPAY_WEBHOOK_SECRET is missing in environment variables');
     }
-    
+
     const crypto = await import('crypto');
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
@@ -130,13 +113,10 @@ export class RazorpayGateway implements PaymentGateway {
     return JSON.parse(rawBody);
   }
 
-  /**
-   * Issue a refund for a transaction in Razorpay
-   */
   async refund(paymentReference: string, amount: number): Promise<string> {
     const rzp = this.getRazorpayInstance();
     const refundObj = await rzp.payments.refund(paymentReference, {
-      amount: Math.round(amount * 100), // convert to paise
+      amount: Math.round(amount * 100),
     });
     return refundObj.id;
   }

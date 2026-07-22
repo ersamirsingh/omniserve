@@ -55,7 +55,6 @@ const checkoutSessionSchema = new Schema<ICheckoutSession>(
   }
 );
 
-// Indexes
 checkoutSessionSchema.index({ tenantId: 1 });
 checkoutSessionSchema.index({ cartId: 1 });
 checkoutSessionSchema.index({ orderId: 1 });

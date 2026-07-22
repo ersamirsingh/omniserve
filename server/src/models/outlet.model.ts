@@ -21,7 +21,7 @@ export interface IOutlet extends Document {
   pincode: string;
   location: {
     type: 'Point';
-    coordinates: [number, number]; // [longitude, latitude]
+    coordinates: [number, number];
   };
   operatingHours: IOperatingHours[];
   waiterTaskSlas?: Map<string, number>;
@@ -211,7 +211,7 @@ outletSchema.pre('save', async function (this: IOutlet) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
-    
+
     const OutletModel = this.constructor as Model<IOutlet>;
     let slug = baseSlug;
     let counter = 1;

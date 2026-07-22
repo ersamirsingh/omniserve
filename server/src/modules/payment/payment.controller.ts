@@ -5,10 +5,7 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { PaymentMethod, PaymentStatus } from "../../models/enums.js";
 
 export class PaymentController {
-  /**
-   * Process/Create a payment
-   * POST /payments
-   */
+
   static async createPayment(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -18,37 +15,31 @@ export class PaymentController {
 
       const { orderId, transactionId, paymentMethod, amount, currency, status, gatewayResponse } = req.body;
 
-      // Validate required fields
       if (!orderId || !transactionId || !paymentMethod || amount === undefined) {
         ApiResponseHandler.badRequest(res, 'orderId, transactionId, paymentMethod, and amount are required');
         return;
       }
 
-      // Validate ObjectId
       if (!Types.ObjectId.isValid(orderId)) {
         ApiResponseHandler.badRequest(res, 'Invalid orderId format');
         return;
       }
 
-      // Validate transactionId
       if (typeof transactionId !== 'string' || transactionId.trim().length === 0) {
         ApiResponseHandler.badRequest(res, 'transactionId must be a non-empty string');
         return;
       }
 
-      // Validate paymentMethod enum
       if (!Object.values(PaymentMethod).includes(paymentMethod)) {
         ApiResponseHandler.badRequest(res, `Invalid payment method. Must be one of: ${Object.values(PaymentMethod).join(', ')}`);
         return;
       }
 
-      // Validate status enum if provided
       if (status && !Object.values(PaymentStatus).includes(status)) {
         ApiResponseHandler.badRequest(res, `Invalid payment status. Must be one of: ${Object.values(PaymentStatus).join(', ')}`);
         return;
       }
 
-      // Validate amount
       const numAmount = Number(amount);
       if (isNaN(numAmount) || numAmount <= 0) {
         ApiResponseHandler.badRequest(res, 'Amount must be a positive number');
@@ -86,10 +77,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * Refund a payment
-   * PATCH /payments/:id/refund
-   */
   static async refundPayment(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -134,10 +121,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * Get payment by ID
-   * GET /payments/:id
-   */
   static async getPaymentById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -174,10 +157,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * Get payment by Order ID
-   * GET /payments/order/:orderId
-   */
   static async getPaymentByOrderId(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -214,10 +193,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * List Payments
-   * GET /payments
-   */
   static async listPayments(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

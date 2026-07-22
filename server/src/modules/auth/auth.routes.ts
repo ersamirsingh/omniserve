@@ -11,17 +11,14 @@ const authRateLimiter = rateLimiter({
   message: 'Too many authentication attempts, please try again after 15 minutes'
 });
 
-/**  Public routes */
 router.post('/register', authRateLimiter, AuthController.register);
 router.post('/login', authRateLimiter, AuthController.login);
 router.post('/refresh', AuthController.refreshToken);
 router.post('/verify', AuthController.verifyToken);
 
-/**  Protected routes */
 router.post('/logout', verifyToken, AuthController.logout);
 router.get('/me', verifyToken, AuthController.getCurrentUser);
 router.post('/change-password', verifyToken, AuthController.changePassword);
 router.post('/revoke-all', verifyToken, AuthController.revokeAllTokens);
-
 
 export default router;

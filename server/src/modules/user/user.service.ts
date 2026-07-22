@@ -24,9 +24,6 @@ export class UserService {
     return expiresAt;
   }
 
-  /**
-   * Check if an email is already in use by an active (non-deleted) user
-   */
   private static async checkEmailConflict(email: string, excludeUserId?: string): Promise<void> {
     const query: any = {
       email: email.trim().toLowerCase(),
@@ -207,9 +204,6 @@ export class UserService {
     );
   }
 
-  /**
-   * Create a new User under a specific tenant
-   */
   static async createUser(
     tenantId: string,
     data: any,
@@ -329,9 +323,6 @@ export class UserService {
     return user.save();
   }
 
-  /**
-   * List users with pagination, search, and filters (scoped to tenantId)
-   */
   static async getUsers(
     tenantId: string,
     filters: { limit: number; skip: number; search?: string; role?: string; status?: string; restaurantId?: string; outletId?: string }
@@ -402,9 +393,6 @@ export class UserService {
     return { users, total };
   }
 
-  /**
-   * Retrieve a user by ID (scoped to tenantId)
-   */
   static async getUserById(id: string, tenantId?: string): Promise<IUser | null> {
     const query: any = {
       _id: new Types.ObjectId(id),
@@ -418,9 +406,6 @@ export class UserService {
     return await User.findOne(query);
   }
 
-  /**
-   * Update a user's details (scoped to tenantId)
-   */
   static async updateUser(
     id: string,
     tenantId: string,
@@ -541,9 +526,6 @@ export class UserService {
     return await user.save();
   }
 
-  /**
-   * Soft-delete a user (scoped to tenantId) and prevent self-deletion
-   */
   static async deleteUser(
     id: string,
     tenantId: string,

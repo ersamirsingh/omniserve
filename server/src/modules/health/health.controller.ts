@@ -2,15 +2,11 @@ import { Request, Response } from 'express';
 import { HealthService } from './health.service.js';
 
 export class HealthController {
-  /**
-   * Public health check (No auth)
-   * Returns only overall status, timestamp, and uptime.
-   * HTTP 200 for OK/Degraded, HTTP 503 for Down.
-   */
+
   static async getPublicHealth(req: Request, res: Response): Promise<void> {
     try {
-      const result = await HealthService.runChecks(false); // Always shallow for public
-      
+      const result = await HealthService.runChecks(false);
+
       const responseBody = {
         status: result.status,
         timestamp: result.timestamp,
@@ -28,11 +24,6 @@ export class HealthController {
     }
   }
 
-  /**
-   * Detailed health check (System Admin only)
-   * Supports ?deep=true to run write/delete tests.
-   * HTTP 200 for OK/Degraded, HTTP 503 for Down.
-   */
   static async getDetailedHealth(req: Request, res: Response): Promise<void> {
     try {
       const deep = req.query.deep === 'true';

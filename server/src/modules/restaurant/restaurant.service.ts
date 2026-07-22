@@ -3,23 +3,20 @@ import { UserStatus } from "../../models/enums.js";
 
 export class RestaurantService {
 
-
-
    static async createRestaurant(tenantId: string, name: string, description: string, brandName: string, gstNumber: string, logoUrl: string) : Promise<IRestaurant> {
-         
-      const restaurant = await Restaurant.create({ 
-         tenantId, 
-         name, 
-         description, 
-         brandName, 
-         gstNumber, 
-         logoUrl, 
-         status: UserStatus.ACTIVE, 
+
+      const restaurant = await Restaurant.create({
+         tenantId,
+         name,
+         description,
+         brandName,
+         gstNumber,
+         logoUrl,
+         status: UserStatus.ACTIVE,
          createdBy: tenantId
       });
       return restaurant;
    }
-
 
    static async getRestaurants(tenantId: string) : Promise<IRestaurant[] | null> {
       const restaurants = await Restaurant.find({ tenantId });
@@ -34,7 +31,7 @@ export class RestaurantService {
    }
 
    static async updateRestaurant(tenantId: string, restaurantId: string, data: any) : Promise<IRestaurant | null> {
-      // Explicit allowlist — prevents mass assignment of tenantId, isDeleted, createdBy, etc.
+
       const allowedFields: Record<string, any> = {};
       if (data.name !== undefined) allowedFields.name = data.name;
       if (data.description !== undefined) allowedFields.description = data.description;
@@ -44,7 +41,7 @@ export class RestaurantService {
 
       const restaurant = await Restaurant.findOneAndUpdate(
          { tenantId, _id: restaurantId, isDeleted: false },
-         allowedFields, 
+         allowedFields,
          { new: true }
       );
       if(!restaurant) return null;

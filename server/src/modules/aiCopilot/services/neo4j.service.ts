@@ -9,10 +9,7 @@ export interface INeo4jWriteQuery {
 }
 
 export class Neo4jService {
-  /**
-   * Returns the Neo4j driver instance, initializing it if necessary.
-   * Falls back to a mock driver if connection details are missing or fail.
-   */
+
   static getDriver(): any {
     if (driverInstance) return driverInstance;
 
@@ -34,9 +31,6 @@ export class Neo4jService {
     return driverInstance;
   }
 
-  /**
-   * Creates a mock driver for environment flexibility.
-   */
   private static createMockDriver(): any {
     return {
       isMock: true,
@@ -52,9 +46,6 @@ export class Neo4jService {
     };
   }
 
-  /**
-   * Runs a Cypher query inside a Neo4j session.
-   */
   static async runQuery(query: string, params: Record<string, any> = {}): Promise<any[]> {
     const driver = this.getDriver();
     const session = driver.session();
@@ -69,9 +60,6 @@ export class Neo4jService {
     }
   }
 
-  /**
-   * Runs write queries in a transaction block.
-   */
   static async runWriteTransaction(queriesWithParams: INeo4jWriteQuery[]): Promise<any[]> {
     const driver = this.getDriver();
     const session = driver.session();
@@ -93,9 +81,6 @@ export class Neo4jService {
     }
   }
 
-  /**
-   * Helper to format Neo4j record structures into plain JS objects.
-   */
   static formatRecord(record: any): Record<string, any> | null {
     if (!record) return null;
     const obj: Record<string, any> = {};
@@ -106,9 +91,6 @@ export class Neo4jService {
     return obj;
   }
 
-  /**
-   * Recursively converts Neo4j Integers and types into JavaScript equivalents.
-   */
   static toJS(val: any): any {
     if (val === null || val === undefined) return null;
     if (neo4j.isInt(val)) return val.toNumber();

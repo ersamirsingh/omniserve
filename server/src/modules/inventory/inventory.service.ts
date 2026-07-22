@@ -7,11 +7,7 @@ import { NotificationService } from "../notification/notification.service.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class InventoryService {
-  /**
-   * Validate that the outlet exists, belongs to the tenant, and is active (not soft-deleted)
-   * Validate that the menuItem exists, belongs to the tenant, and is active (not soft-deleted)
-   * Validate that the menuItem is assigned to the specified outlet
-   */
+
   static async validateOwnership(
     menuItemId: string,
     outletId: string,
@@ -35,16 +31,12 @@ export class InventoryService {
         return false;
       }
 
-      // Verify that the menu item belongs to the outlet
       return menuItem.outletId.toString() === outletId;
     } catch {
       return false;
     }
   }
 
-  /**
-   * Create inventory record
-   */
   static async createInventory(
     tenantId: string,
     data: any,
@@ -68,7 +60,6 @@ export class InventoryService {
 
       const savedInventory = await inventory.save();
 
-      // Trigger LOW_INVENTORY notification if created under threshold
       if (savedInventory.isLowStock) {
         NotificationService.notifyTenantUsers(
           tenantId,
@@ -101,9 +92,6 @@ export class InventoryService {
     }
   }
 
-  /**
-   * Retrieve list of inventory records with filters (tenant isolated)
-   */
   static async getInventory(
     tenantId: string,
     filters: { outletId?: string; menuItemId?: string; limit: number; skip: number }
@@ -134,9 +122,6 @@ export class InventoryService {
     return { inventory, total };
   }
 
-  /**
-   * Retrieve inventory record by ID and Tenant ID
-   */
   static async getInventoryById(id: string, tenantId: string): Promise<IInventory | null> {
     return await Inventory.findOne({
       _id: new Types.ObjectId(id),
@@ -147,17 +132,13 @@ export class InventoryService {
       .populate('outletId', 'name status');
   }
 
-  /**
-   * Update inventory stock quantity (respects tenant isolation)
-   * Manually recomputes isLowStock and provides a documented integration point for LOW_INVENTORY alert.
-   */
   static async updateQuantity(
     id: string,
     tenantId: string,
     quantity: number,
     userId?: string
   ): Promise<IInventory | null> {
-    // 1. Fetch current inventory to calculate low stock status
+
     const inventory = await Inventory.findOne({
       _id: new Types.ObjectId(id),
       tenantId: new Types.ObjectId(tenantId),
@@ -168,11 +149,10 @@ export class InventoryService {
       return null;
     }
 
-    // 2. Recompute low stock flag manually (bypass pre-save hook for findOneAndUpdate)
     const isLowStockNow = quantity <= inventory.threshold;
 
     if (isLowStockNow) {
-      // Dispatch LOW_INVENTORY notification to all active tenant users
+
       NotificationService.notifyTenantUsers(
         tenantId,
         'Low Stock Warning',
@@ -184,7 +164,6 @@ export class InventoryService {
       ).catch(err => console.error('Failed to dispatch LOW_INVENTORY notification:', err));
     }
 
-    // 4. Update quantity, isLowStock and updatedBy fields
     const updatedInventory = await Inventory.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
@@ -217,9 +196,6 @@ export class InventoryService {
     return updatedInventory;
   }
 
-  /**
-   * Retrieve low stock inventory records
-   */
   static async getLowStockInventory(
     tenantId: string,
     filters: { outletId?: string; limit: number; skip: number }

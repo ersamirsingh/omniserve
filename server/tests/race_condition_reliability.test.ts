@@ -35,9 +35,7 @@ async function runRaceConditionTests() {
   const userId = new Types.ObjectId();
 
   try {
-    // ----------------------------------------------------
-    // TEST 1: Coupon Double Redemption Race Condition
-    // ----------------------------------------------------
+
     console.log("\n[TEST 1] Testing Coupon Double Redemption...");
     const testCode = `TESTCOUPON_${Date.now()}`;
     const testCoupon = await Coupon.create({
@@ -72,9 +70,6 @@ async function runRaceConditionTests() {
       process.exit(1);
     }
 
-    // ----------------------------------------------------
-    // TEST 2: Concurrent Reservation Status Transitions
-    // ----------------------------------------------------
     console.log("\n[TEST 2] Testing Concurrent Reservation Status Transitions...");
     const resDoc = await Reservation.create({
       tenantId,
@@ -109,9 +104,6 @@ async function runRaceConditionTests() {
       process.exit(1);
     }
 
-    // ----------------------------------------------------
-    // TEST 3: Duplicate Active Booking Guard
-    // ----------------------------------------------------
     console.log("\n[TEST 3] Testing Duplicate Active Booking Guard...");
     const OutletMod = await import("../src/models/outlet.model.js").then(m => m.default);
     const testOutlet = await OutletMod.create({
@@ -168,9 +160,6 @@ async function runRaceConditionTests() {
       process.exit(1);
     }
 
-    // ----------------------------------------------------
-    // TEST 4: Table Operational Status Transition Validation
-    // ----------------------------------------------------
     console.log("\n[TEST 4] Testing Table Operational Status Transitions...");
     const tableDoc = await Table.create({
       tenantId,
@@ -205,11 +194,8 @@ async function runRaceConditionTests() {
       console.log("ℹ️ Transition outcome validated:", updatedTable?.operationalStatus);
     }
 
-    // ----------------------------------------------------
-    // TEST 5: N+1 Query Optimization in Lock Worker
-    // ----------------------------------------------------
     console.log("\n[TEST 5] Testing N+1 Query Elimination in Table Lock Worker...");
-    // Seed 10 occupied tables
+
     const sampleTables = [];
     for (let i = 0; i < 10; i++) {
       sampleTables.push({
@@ -226,7 +212,6 @@ async function runRaceConditionTests() {
     }
     const createdTables = await Table.insertMany(sampleTables);
 
-    // Measure query count for batch fetching active locks
     let queryCount = 0;
     const mongooseQueryExec = mongoose.Query.prototype.exec;
     mongoose.Query.prototype.exec = function (...args: any[]) {
@@ -237,10 +222,9 @@ async function runRaceConditionTests() {
     const tableIds = createdTables.map((t) => t._id);
     queryCount = 0;
 
-    // Single batch query vs N+1
     const activeLocks = await TableLock.find({ tableId: { $in: tableIds } }, "tableId").lean();
     const batchQueryCount = queryCount;
-    mongoose.Query.prototype.exec = mongooseQueryExec; // restore
+    mongoose.Query.prototype.exec = mongooseQueryExec;
 
     console.log(`-> Executed batch lock check for 10 tables in ${batchQueryCount} query (instead of 10 individual queries)`);
     if (batchQueryCount === 1) {
@@ -249,7 +233,6 @@ async function runRaceConditionTests() {
       console.error(`❌ FAILED: Query count = ${batchQueryCount}`);
     }
 
-    // Cleanup sample tables
     await Table.deleteMany({ _id: { $in: tableIds } });
 
     console.log("\n=================================================");

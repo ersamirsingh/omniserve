@@ -4,9 +4,7 @@ import Table, { ITable, TableOperationalStatus } from "../../models/table.model.
 import { EventBusService } from "../../events/eventBus.js";
 
 export class TableService {
-  /**
-   * Create a new Table
-   */
+
   static async createTable(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -21,7 +19,6 @@ export class TableService {
     if (!payload.tableNumber) throw new Error("Table number is required");
     if (payload.seatCount < 1) throw new Error("Seat count must be at least 1");
 
-    // Enforce unique table number within outlet
     const existingTable = await Table.findOne({
       tenantId: new Types.ObjectId(tenantId),
       outletId: new Types.ObjectId(outletId),
@@ -44,7 +41,6 @@ export class TableService {
 
     await table.save();
 
-    // Broadcast table creation so live floor updates
     await EventBusService.publishTableStatusChanged(
       tenantId,
       outletId,
@@ -61,9 +57,6 @@ export class TableService {
     return table;
   }
 
-  /**
-   * Update an existing Table
-   */
   static async updateTable(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -115,9 +108,6 @@ export class TableService {
     return table;
   }
 
-  /**
-   * Archive (soft-delete) a Table
-   */
   static async archiveTable(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -135,7 +125,6 @@ export class TableService {
       throw new Error(`Table not found: ${tableId}`);
     }
 
-    // Cannot delete active occupied or reserved tables
     if (table.operationalStatus !== "AVAILABLE") {
       throw new Error(`Cannot archive table because it is currently ${table.operationalStatus}`);
     }
@@ -147,7 +136,6 @@ export class TableService {
     table.status = "INACTIVE";
     await table.save();
 
-    // Publish event so it drops from live floor
     await EventBusService.publishTableStatusChanged(
       tenantId,
       outletId,
@@ -164,16 +152,11 @@ export class TableService {
 
     return table;
   }
-  /**
-   * Retrieve table by ID
-   */
+
   static async getTableById(tableId: string | Types.ObjectId): Promise<ITable | null> {
     return await Table.findOne({ _id: new Types.ObjectId(tableId), isDeleted: false });
   }
 
-  /**
-   * Update table operational status and publish status events
-   */
   static async updateTableOperationalStatus(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -217,7 +200,6 @@ export class TableService {
       throw new Error(`Invalid status transition from ${existing.operationalStatus} to ${status}`);
     }
 
-    // Publish event depending on the status transition
     const payload = {
       tableId: table._id.toString(),
       tableNumber: table.tableNumber,
@@ -246,9 +228,6 @@ export class TableService {
     return table;
   }
 
-  /**
-   * List tables by physical outlet
-   */
   static async listTablesByOutlet(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId
@@ -260,10 +239,6 @@ export class TableService {
     }).sort({ tableNumber: 1 });
   }
 
-  /**
-   * Rotate the table's QR Token for security (e.g. guest left without closing session).
-   * This detaches any active session, forcing it to be orphaned (preventing further scanning of the old code).
-   */
   static async rotateQrToken(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -276,19 +251,15 @@ export class TableService {
       outletId: new Types.ObjectId(outletId),
       isDeleted: false
     });
-    
+
     if (!table) throw new Error(`Table not found: ${tableId}`);
 
-    // Safer Policy: Do not allow rotating QR if there is an active dining session
     if (table.activeSessionId) {
       throw new Error("Cannot rotate QR token while there is an active dining session on this table.");
     }
 
-    // Rotate token
     table.qrToken = crypto.randomBytes(16).toString('hex');
-    
-    // table.operationalStatus remains unchanged (likely AVAILABLE if no session exists)
-    
+
     await table.save();
 
     await EventBusService.publishTableStatusChanged(
@@ -303,13 +274,10 @@ export class TableService {
       },
       { createdBy: triggeredById, sourceSystem: "QR" }
     );
-    
+
     return table;
   }
 
-  /**
-   * Handle RESERVATION_CONFIRMED Event
-   */
   static async handleReservationConfirmed(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -340,9 +308,6 @@ export class TableService {
     );
   }
 
-  /**
-   * Handle RESERVATION_SEATED Event
-   */
   static async handleReservationSeated(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -377,9 +342,6 @@ export class TableService {
     );
   }
 
-  /**
-   * Handle RESERVATION_CANCELLED Event
-   */
   static async handleReservationCancelled(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -393,7 +355,6 @@ export class TableService {
     });
     if (!table) return;
 
-    // Only set back to AVAILABLE if it was RESERVED
     if (table.operationalStatus === "RESERVED") {
       table.operationalStatus = "AVAILABLE";
     }

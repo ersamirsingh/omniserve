@@ -4,9 +4,7 @@ import Outlet from "../../models/outlet.model.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class WaiterTaskService {
-  /**
-   * Helper to retrieve SLA limit for a specific task type at an outlet, with safe system fallbacks
-   */
+
   static async getSlaLimitForTask(outletId: string | Types.ObjectId, taskType: WaiterTaskType): Promise<number> {
     try {
       const outlet = await Outlet.findById(outletId);
@@ -21,25 +19,21 @@ export class WaiterTaskService {
       console.warn(`[WaiterTaskService] Failed to fetch custom SLA settings for outlet ${outletId}:`, err);
     }
 
-    // Centralized fallback defaults (in milliseconds)
     const defaults: Record<WaiterTaskType, number> = {
-      SERVE_FOOD: 180000,   // 3 minutes
-      WATER: 300000,        // 5 minutes
-      TISSUE: 300000,       // 5 minutes
-      SPOON: 300000,        // 5 minutes
-      BILL: 180000,         // 3 minutes
-      CLEANING: 600000,     // 10 minutes
-      CUSTOM: 300000,       // 5 minutes
-      ORDER_CANCEL_REQUEST: 120000, // 2 minutes
-      TABLE_LEAVE_REQUEST: 180000,  // 3 minutes
-      PAYMENT_ASSISTANCE: 180000    // 3 minutes
+      SERVE_FOOD: 180000,
+      WATER: 300000,
+      TISSUE: 300000,
+      SPOON: 300000,
+      BILL: 180000,
+      CLEANING: 600000,
+      CUSTOM: 300000,
+      ORDER_CANCEL_REQUEST: 120000,
+      TABLE_LEAVE_REQUEST: 180000,
+      PAYMENT_ASSISTANCE: 180000
     };
     return defaults[taskType] || 300000;
   }
 
-  /**
-   * Create a new generalized waiter task in CREATED status
-   */
   static async createTask(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -55,8 +49,7 @@ export class WaiterTaskService {
     } = {}
   ): Promise<IWaiterTask> {
     const slaLimitMs = await this.getSlaLimitForTask(outletId, taskType);
-    
-    // Fetch session to inherit waiter assignment if exists
+
     const QRSessionModel = mongoose.model('QRSession');
     const session = await QRSessionModel.findById(sessionId);
     let assignedTo = null;
@@ -82,7 +75,6 @@ export class WaiterTaskService {
 
     await task.save();
 
-    // Publish WAITER_TASK_CREATED event
     await EventBusService.publishWaiterTaskCreated(
       tenantId,
       outletId,
@@ -103,9 +95,6 @@ export class WaiterTaskService {
     return task;
   }
 
-  /**
-   * Assign a task to a specific waiter
-   */
   static async assignTask(
     taskId: string | Types.ObjectId,
     waiterId: string | Types.ObjectId
@@ -126,7 +115,6 @@ export class WaiterTaskService {
       throw new Error(`Task not found or ineligible for assignment: ${taskId}`);
     }
 
-    // Publish event
     await EventBusService.publishWaiterTaskAssigned(
       task.tenantId,
       task.outletId,
@@ -142,9 +130,6 @@ export class WaiterTaskService {
     return task;
   }
 
-  /**
-   * Acknowledge/claim a task by a waiter (supports transitions from CREATED or ASSIGNED)
-   */
   static async acknowledgeTask(
     taskId: string | Types.ObjectId,
     waiterId: string | Types.ObjectId
@@ -165,7 +150,6 @@ export class WaiterTaskService {
       throw new Error(`Task not found or ineligible for acknowledgment: ${taskId}`);
     }
 
-    // Publish event
     await EventBusService.publishWaiterTaskAcknowledged(
       task.tenantId,
       task.outletId,
@@ -181,9 +165,6 @@ export class WaiterTaskService {
     return task;
   }
 
-  /**
-   * Transition waiter task to IN_PROGRESS status
-   */
   static async startTaskProgress(taskId: string | Types.ObjectId): Promise<IWaiterTask> {
     const task = await WaiterTask.findOneAndUpdate(
       { _id: new Types.ObjectId(taskId), status: "ACKNOWLEDGED", isDeleted: false },
@@ -200,7 +181,6 @@ export class WaiterTaskService {
       throw new Error(`Task not found or not acknowledged: ${taskId}`);
     }
 
-    // Publish event
     await EventBusService.publishWaiterTaskInProgress(
       task.tenantId,
       task.outletId,
@@ -215,9 +195,6 @@ export class WaiterTaskService {
     return task;
   }
 
-  /**
-   * Complete a waiter task
-   */
   static async completeTask(taskId: string | Types.ObjectId): Promise<IWaiterTask> {
     const task = await WaiterTask.findOneAndUpdate(
       { _id: new Types.ObjectId(taskId), status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS", "ESCALATED"] }, isDeleted: false },
@@ -237,7 +214,6 @@ export class WaiterTaskService {
     const start = task.inProgressAt || task.acknowledgedAt || task.assignedAt || task.createdAt;
     const durationMs = task.completedAt ? (task.completedAt.getTime() - start.getTime()) : 0;
 
-    // Publish event
     await EventBusService.publishWaiterTaskCompleted(
       task.tenantId,
       task.outletId,
@@ -253,9 +229,6 @@ export class WaiterTaskService {
     return task;
   }
 
-  /**
-   * Cancel a waiter task
-   */
   static async cancelTask(taskId: string | Types.ObjectId, reason?: string): Promise<IWaiterTask> {
     const task = await WaiterTask.findOne({ _id: new Types.ObjectId(taskId), isDeleted: false });
     if (!task) {
@@ -283,7 +256,6 @@ export class WaiterTaskService {
       throw new Error(`Task already completed or cancelled: ${taskId}`);
     }
 
-    // Publish event
     await EventBusService.publishWaiterTaskCancelled(
       updatedTask.tenantId,
       updatedTask.outletId,
@@ -299,9 +271,6 @@ export class WaiterTaskService {
     return updatedTask;
   }
 
-  /**
-   * Escalate a waiter task manually or automatically
-   */
   static async escalateTask(taskId: string | Types.ObjectId): Promise<IWaiterTask> {
     const now = new Date();
     const task = await WaiterTask.findOneAndUpdate(
@@ -319,7 +288,6 @@ export class WaiterTaskService {
       throw new Error(`Task not found or already completed/cancelled/escalated: ${taskId}`);
     }
 
-    // Publish event
     await EventBusService.publishWaiterTaskEscalated(
       task.tenantId,
       task.outletId,
@@ -340,9 +308,6 @@ export class WaiterTaskService {
     return task;
   }
 
-  /**
-   * Retrieve active tasks for the floor queues
-   */
   static async getPendingTasksByOutlet(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId

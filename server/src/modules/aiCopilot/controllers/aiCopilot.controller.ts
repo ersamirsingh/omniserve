@@ -10,10 +10,7 @@ import { getSystemPrompt, CopilotRole } from '../prompts/prompt-registry.js';
 import { IngestionService } from '../ingestion/ingestion.service.js';
 
 export class AICopilotController {
-  /**
-   * List all non-deleted sessions for the authenticated user.
-   * GET /api/ai-copilot/chats
-   */
+
   static async listSessions(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -31,10 +28,6 @@ export class AICopilotController {
     }
   }
 
-  /**
-   * Retrieve a specific session's history.
-   * GET /api/ai-copilot/chats/:id
-   */
   static async getSession(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -59,10 +52,6 @@ export class AICopilotController {
     }
   }
 
-  /**
-   * Create a new blank chat session.
-   * POST /api/ai-copilot/chats
-   */
   static async createSession(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -84,10 +73,6 @@ export class AICopilotController {
     }
   }
 
-  /**
-   * Soft delete (isDeleted: true) a chat session.
-   * DELETE /api/ai-copilot/chats/:id
-   */
   static async deleteSession(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -116,10 +101,6 @@ export class AICopilotController {
     }
   }
 
-  /**
-   * Handles multi-backend secure AI Copilot queries.
-   * POST /api/ai-copilot/chat
-   */
   static async handleChat(req: Request, res: Response): Promise<void> {
     try {
       const { message, sessionId } = req.body;
@@ -135,10 +116,8 @@ export class AICopilotController {
 
       const role = req.user.role as CopilotRole;
 
-      // 1. Classify the user query
       const decision: IRouteDecision = await QueryRouter.classifyQuery(message, role);
 
-      // 2. Enforce tenancy security boundary at data access layer
       const security = QueryRouter.enforceSecurityScope(req.user, decision.toolParams || {});
       if (!security.isAllowed) {
         res.status(403).json({
@@ -152,11 +131,10 @@ export class AICopilotController {
       const scope = security.scope;
       let retrievedContext = '';
 
-      // 3. Execute appropriate database retrieval
       if (decision.backend === 'structured-aggregation' && decision.toolName) {
         const result = await ToolExecutor.execute(decision.toolName, decision.toolParams || {}, scope);
         retrievedContext = `Structured Aggregation Result [Tool: ${decision.toolName}]: ${JSON.stringify(result)}`;
-      } 
+      }
       else if (decision.backend === 'graph') {
         const tenantId = scope.tenantId;
         if (!tenantId) {
@@ -175,24 +153,22 @@ export class AICopilotController {
           const formatted = records.map(rec => Neo4jService.formatRecord(rec));
           retrievedContext = `Graph database connections: ${JSON.stringify(formatted)}`;
         }
-      } 
+      }
       else {
         const vector = await LlmService.getEmbedding(message);
         const entityType = decision.intent === 'semantic-lookup' ? 'MenuItem' : null;
         const hits = await QdrantService.searchVectors(vector, scope as any, entityType, 5);
-        
-        retrievedContext = hits.length > 0 
+
+        retrievedContext = hits.length > 0
           ? hits.map(h => `[Source: ${h.payload.entityType} ID: ${h.payload.entityId}] ${h.payload.text}`).join('\n')
           : 'No relevant logs or unstructured context found in vector storage.';
       }
 
-      // 4. Resolve system prompt
       const promptCtx: { tenantId?: string; outletId?: string } = {};
       if (req.user.tenantId) promptCtx.tenantId = req.user.tenantId as string;
       if (req.user.outletId) promptCtx.outletId = req.user.outletId as string;
       const systemPrompt = getSystemPrompt(role, promptCtx);
 
-      // 5. Synthesize final answer via Gemini
       const userPrompt = `
 You have been provided with context retrieved from the database backends. Use this context to answer the user's question accurately. Do not fabricate numerical data. If the answer is not present, state that you do not have enough data.
 
@@ -207,7 +183,6 @@ Answer:
 
       const response = await LlmService.generateContent(systemPrompt, userPrompt);
 
-      // 6. Persist conversation inside MongoDB ChatSession
       let activeSession;
       const userMsg: IMessage = {
         role: 'user',
@@ -233,13 +208,13 @@ Answer:
 
       if (activeSession) {
         activeSession.messages.push(userMsg, assistantMsg);
-        // If session title is still default "New Chat", name it after the first user query
+
         if (activeSession.title === 'New Chat') {
           activeSession.title = message.substring(0, 35) + (message.length > 35 ? '...' : '');
         }
         await activeSession.save();
       } else {
-        // Create new session automatically if not provided or missing
+
         activeSession = await ChatSession.create({
           userId: new mongoose.Types.ObjectId(req.user.userId as string),
           tenantId: req.user.tenantId ? new mongoose.Types.ObjectId(req.user.tenantId as string) : null,
@@ -264,10 +239,6 @@ Answer:
     }
   }
 
-  /**
-   * Triggers ingestion sync job.
-   * POST /api/ai-copilot/sync
-   */
   static async handleSync(req: Request, res: Response): Promise<void> {
     try {
       const forceReindex = req.query.force === 'true';

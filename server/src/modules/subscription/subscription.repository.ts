@@ -5,7 +5,7 @@ import InvoiceModel, { IInvoiceDocument } from "../../models/invoice.model.js";
 import SubscriptionUsageModel, { ISubscriptionUsageDocument } from "../../models/subscriptionUsage.model.js";
 
 export class SubscriptionRepository {
-  // --- Plan Repositories ---
+
   static async findPlanById(planId: string | Types.ObjectId): Promise<ISubscriptionPlanDocument | null> {
     return await SubscriptionPlanModel.findOne({ _id: new Types.ObjectId(planId), isDeleted: false });
   }
@@ -46,7 +46,6 @@ export class SubscriptionRepository {
     );
   }
 
-  // --- Subscription Repositories ---
   static async findSubscriptionByTenant(
     tenantId: string | Types.ObjectId
   ): Promise<IRestaurantSubscriptionDocument | null> {
@@ -83,7 +82,6 @@ export class SubscriptionRepository {
     ).populate("planId");
   }
 
-  // --- Invoice Repositories ---
   static async findInvoiceById(invoiceId: string | Types.ObjectId): Promise<IInvoiceDocument | null> {
     return await InvoiceModel.findOne({ _id: new Types.ObjectId(invoiceId), isDeleted: false });
   }
@@ -131,7 +129,6 @@ export class SubscriptionRepository {
     );
   }
 
-  // --- Usage Repositories ---
   static async findUsage(
     tenantId: string | Types.ObjectId,
     month: number,

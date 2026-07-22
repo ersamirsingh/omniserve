@@ -78,15 +78,13 @@ const inventorySchema = new Schema<IInventory>(
   }
 );
 
-// One inventory record per menu item per outlet
 inventorySchema.index({ menuItemId: 1, outletId: 1 }, { unique: true });
 inventorySchema.index({ menuItemId: 1 });
 inventorySchema.index({ outletId: 1 });
 inventorySchema.index({ tenantId: 1 });
-inventorySchema.index({ quantity: 1, threshold: 1 }); // for low-stock queries
+inventorySchema.index({ quantity: 1, threshold: 1 });
 inventorySchema.index({ isDeleted: 1 });
 
-// Auto-flag low stock before save
 inventorySchema.pre("save", async function (this: IInventory) {
   this.isLowStock = this.quantity <= this.threshold;
 });

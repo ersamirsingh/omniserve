@@ -59,23 +59,18 @@ class Idempotency {
 }
 
 export class PublicController {
-  /**
-   * GET /api/public/o/:outletSlug/menu
-   * Retrieves categories, items, variants, and addons for a slug
-   */
+
   static async getPublicMenu(req: Request, res: Response): Promise<void> {
     try {
       const { outletSlug } = req.params;
       const trackInventory = req.query.trackInventory !== "false";
 
-      // 1. Find Outlet
       const outlet = await Outlet.findOne({ slug: outletSlug, isDeleted: false });
       if (!outlet) {
         ApiResponseHandler.notFound(res, "Outlet not found");
         return;
       }
 
-      // 2. Fetch active Categories
       const categories = await Category.find({
         outletId: outlet._id,
         isActive: true,
@@ -84,7 +79,6 @@ export class PublicController {
 
       const categoryIds = categories.map((c) => c._id);
 
-      // 3. Fetch active Menu Items
       const rawMenuItems = await MenuItem.find({
         outletId: outlet._id,
         categoryId: { $in: categoryIds },
@@ -92,7 +86,6 @@ export class PublicController {
         isDeleted: false,
       }).sort({ displayOrder: 1 });
 
-      // 4. Filter by Inventory if enabled
       let menuItems = rawMenuItems;
       if (trackInventory) {
         const inventories = await Inventory.find({
@@ -105,7 +98,6 @@ export class PublicController {
           inventoryMap.set(inv.menuItemId.toString(), inv.quantity);
         });
 
-        // Keep items if they either have no inventory record, or have quantity > 0
         menuItems = rawMenuItems.filter((item) => {
           const qty = inventoryMap.get((item._id as Types.ObjectId).toString());
           return qty === undefined || qty > 0;
@@ -114,7 +106,6 @@ export class PublicController {
 
       const menuItemIds = menuItems.map((item) => item._id);
 
-      // 5. Fetch active Variants and Addons
       const [variants, addons] = await Promise.all([
         Variant.find({
           menuItemId: { $in: menuItemIds },
@@ -162,15 +153,10 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/o/:outletSlug/t/:tableToken/menu
-   * Retrieves public menu alongside table info, dining area details, and manages QRSession funnel
-   */
   static async getTableSpecificMenu(req: Request, res: Response): Promise<void> {
     try {
       const { outletSlug, tableToken } = req.params;
 
-      // 1. Find Table by token
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       if (!table || table.status !== "ACTIVE") {
         ApiResponseHandler.notFound(res, "Table not found or is currently inactive");
@@ -187,20 +173,17 @@ export class PublicController {
         return;
       }
 
-      // 2. Find Outlet
       const outlet = await Outlet.findOne({ slug: outletSlug, _id: table.outletId, isDeleted: false });
       if (!outlet) {
         ApiResponseHandler.notFound(res, "Outlet not found");
         return;
       }
 
-      // 3. Find Dining Area
       let diningArea = null;
       if (table.diningAreaId) {
         diningArea = await DiningArea.findOne({ _id: table.diningAreaId, isDeleted: false });
       }
 
-      // 4. Resolve or initialize QRSession for scan analytics funnel
       let session = null;
       if (table.activeSessionId) {
         session = await QRSession.findById(table.activeSessionId);
@@ -222,7 +205,6 @@ export class PublicController {
         await session.save();
       }
 
-      // 5. Fetch Menu Items using existing getPublicMenu logic
       const categories = await Category.find({
         outletId: outlet._id,
         isActive: true,
@@ -238,7 +220,6 @@ export class PublicController {
         isDeleted: false,
       }).sort({ displayOrder: 1 });
 
-      // Check stock
       const inventories = await Inventory.find({
         outletId: outlet._id,
         isDeleted: false,
@@ -314,10 +295,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/orders
-   * Places an order for a scanned table session
-   */
   static async placeQrOrder(req: Request, res: Response): Promise<void> {
     try {
       const { tableToken, seatNumber, customer, items, notes } = req.body;
@@ -332,14 +309,12 @@ export class PublicController {
         return;
       }
 
-      // 1. Find Table
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       if (!table || table.status !== "ACTIVE") {
         ApiResponseHandler.badRequest(res, "Invalid or inactive Table Token");
         return;
       }
 
-      // Idempotency Key check
       const idempotencyKey = req.headers["idempotency-key"] as string;
       if (idempotencyKey) {
         const cached = await Idempotency.check(idempotencyKey, table.tenantId);
@@ -349,7 +324,6 @@ export class PublicController {
         }
       }
 
-      // Price Validation
       const priceChanges = [];
       const acceptPriceChanges = !!req.body.acceptPriceChanges;
       for (const item of items) {
@@ -392,7 +366,6 @@ export class PublicController {
         return;
       }
 
-      // Inventory Stock Validation
       const unavailableItems = [];
       for (const item of items) {
         const menuItemId = item.menuItemId || item.itemId;
@@ -431,7 +404,6 @@ export class PublicController {
         return;
       }
 
-      // 2. Resolve or create active OPEN QRSession
       let session = null;
       if (table.activeSessionId) {
         session = await QRSession.findById(table.activeSessionId);
@@ -457,7 +429,6 @@ export class PublicController {
         await session.save();
       }
 
-      // 3. Compute totals from items payload
       let subtotal = 0;
       const formattedItems = items.map((item: any) => {
         const itemPrice = Number(item.price || 0);
@@ -488,7 +459,6 @@ export class PublicController {
 
       const totalAmount = subtotal;
 
-      // 4. Construct raw canonical payload matching QrAdapter expectation
       const rawPayload = {
         orderId: `QR-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
         outletId: table.outletId.toString(),
@@ -512,7 +482,6 @@ export class PublicController {
         notes: notes || undefined,
       };
 
-      // 5. Ingest and process order through canonical pipeline
       const { externalOrder } = await OrderGatewayService.ingestExternalOrder({
         tenantId: table.tenantId.toString(),
         provider: IntegrationProvider.QR,
@@ -531,7 +500,6 @@ export class PublicController {
         return;
       }
 
-      // 6. Resolve Customer and update Session / Order Group / Bill Session hierarchy
       const orderId = processedOrder.internalOrderId;
       const internalCustomerId = (processedOrder.canonicalPayload as any)?.customer ? await QRSession.db.model("Customer").findOne({
         tenantId: table.tenantId,
@@ -541,13 +509,11 @@ export class PublicController {
 
       const customerObjectId = internalCustomerId ? internalCustomerId._id : null;
 
-      // Update Session
       session.status = "ORDERED";
       if (customerObjectId) session.customerId = customerObjectId;
       if (seatNumber) session.seatNumber = seatNumber;
       await session.save();
 
-      // Link Internal Order to Session and Waiter
       const internalOrder = await QRSession.db.model("Order").findById(orderId);
       if (internalOrder) {
         internalOrder.sessionId = session._id;
@@ -555,7 +521,6 @@ export class PublicController {
         await internalOrder.save();
       }
 
-      // Resolve or create OrderGroup
       let group = await OrderGroup.findOne({
         sessionId: session._id,
         isDeleted: false,
@@ -580,7 +545,6 @@ export class PublicController {
       }
       await group.save();
 
-      // Resolve or create BillSession
       let bill = await BillSession.findOne({
         sessionId: session._id,
         status: "OPEN",
@@ -605,7 +569,6 @@ export class PublicController {
       }
       await bill.save();
 
-      // Recalculate bill session automatically on order placement
       await BillingService.recalculateBillSession(table.tenantId, session._id);
 
       const responseBody = {
@@ -625,10 +588,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/assist
-   * Dispatches operational notification alerts for a table via outbox events
-   */
   static async requestQrAssistance(req: Request, res: Response): Promise<void> {
     try {
       const { tableToken, action, seatNumber, notes } = req.body;
@@ -638,14 +597,12 @@ export class PublicController {
         return;
       }
 
-      // 1. Find Table
       const table = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       if (!table || table.status !== "ACTIVE") {
         ApiResponseHandler.badRequest(res, "Invalid or inactive Table Token");
         return;
       }
 
-      // 2. Resolve active session
       let session = await QRSession.findOne({
         tableId: table._id,
         status: { $in: ["OPEN", "ACTIVE", "ORDERING", "DINING", "PAYMENT_PENDING", "ORDERED"] },
@@ -673,7 +630,6 @@ export class PublicController {
         );
       }
 
-      // 3. Map guest action string to WaiterTaskType
       const ACTION_MAP: Record<string, import("../../models/waitertask.model.js").WaiterTaskType> = {
         NEED_WATER:   "WATER",
         WATER:        "WATER",
@@ -690,12 +646,11 @@ export class PublicController {
       };
       const taskType = ACTION_MAP[String(action).toUpperCase()] || "CUSTOM";
 
-      // Waiter Task Duplicate Prevention (with status/age check)
       const existingTask = await WaiterTask.findOne({
         sessionId: session._id,
         taskType,
         status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS", "ESCALATED"] },
-        createdAt: { $gt: new Date(Date.now() - 15 * 60 * 1000) }, // created within the last 15 minutes
+        createdAt: { $gt: new Date(Date.now() - 15 * 60 * 1000) },
         isDeleted: false
       });
 
@@ -704,7 +659,6 @@ export class PublicController {
         return;
       }
 
-      // 4. Create WaiterTask document via WaiterTaskService
       const waiterTask = await WaiterTaskService.createTask(
         table.tenantId,
         table.outletId,
@@ -719,7 +673,6 @@ export class PublicController {
         }
       );
 
-      // 5. Emit socket event to outlet room so Waiter Console updates immediately
       RealtimeService.sendToOutlet(
         table.tenantId.toString(),
         table.outletId.toString(),
@@ -750,10 +703,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/o/:outletSlug/categories
-   * Retrieves active categories for an outlet
-   */
   static async getPublicCategories(req: Request, res: Response): Promise<void> {
     try {
       const { outletSlug } = req.params;
@@ -774,10 +723,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/o/:outletSlug/menu/:itemId
-   * Retrieves a menu item, its active variants, and active addons
-   */
   static async getPublicMenuItem(req: Request, res: Response): Promise<void> {
     try {
       const { outletSlug, itemId } = req.params;
@@ -813,10 +758,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/cart
-   * Retrieves the active cart associated with the guest session token or table session token
-   */
   static async getCart(req: Request, res: Response): Promise<void> {
     try {
       const sessionToken = req.headers["x-guest-session-token"] || req.headers["x-session-token"];
@@ -844,10 +785,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/cart
-   * Creates or updates a cart, enforcing single-outlet cart rules and updating ChannelSession funnel metrics
-   */
   static async createOrUpdateCart(req: Request, res: Response): Promise<void> {
     try {
       const { sessionToken, outletId, item } = req.body;
@@ -857,7 +794,6 @@ export class PublicController {
         return;
       }
 
-      // Find target MenuItem to check availability and outlet ownership
       const menuItem = await MenuItem.findOne({
         _id: new Types.ObjectId(item.menuItemId),
         isAvailable: true,
@@ -869,7 +805,6 @@ export class PublicController {
         return;
       }
 
-      // Enforce single-outlet cart rules: check if menuItem belongs to outletId
       const belongsToOutlet = menuItem.outletId.toString() === outletId.toString();
 
       if (!belongsToOutlet) {
@@ -877,14 +812,13 @@ export class PublicController {
         return;
       }
 
-      // Resolve or initialize ChannelSession for funnel tracking
       let session = await ChannelSession.findOne({
         sessionToken,
         isDeleted: false,
       });
 
       if (!session) {
-        // Parse IP, userAgent, and attribution details from headers/query
+
         const ipAddress = req.ip || String(req.headers["x-forwarded-for"] || "");
         const userAgent = String(req.headers["user-agent"] || "");
         const referrer = String(req.headers["referer"] || req.headers["referrer"] || "");
@@ -914,7 +848,6 @@ export class PublicController {
         }
       }
 
-      // Resolve or create Cart
       let cart = await Cart.findOne({
         sessionToken,
         status: "ACTIVE",
@@ -933,7 +866,7 @@ export class PublicController {
           lastActivityAt: new Date(),
         });
       } else {
-        // Enforce single-outlet cart rules on existing cart
+
         if (cart.outletId.toString() !== outletId.toString()) {
           ApiResponseHandler.badRequest(res, "Cart already contains items from another outlet. Cross-outlet ordering is rejected.");
           return;
@@ -942,7 +875,6 @@ export class PublicController {
 
       const activeCart = cart!;
 
-      // Parse item properties
       const menuItemId = new Types.ObjectId(item.menuItemId);
       const variantId = item.variantId ? new Types.ObjectId(item.variantId) : null;
       const addons = (item.addons || []).map((a: any) => ({
@@ -952,15 +884,14 @@ export class PublicController {
       const quantity = Number(item.quantity);
       const notes = item.notes || null;
 
-      // Check if item already exists in cart with same variant/addons
       const existingItemIndex = activeCart.items.findIndex((cartItem) => {
         const matchMenuItem = cartItem.menuItemId.toString() === menuItemId.toString();
-        const matchVariant = (!cartItem.variantId && !variantId) || 
+        const matchVariant = (!cartItem.variantId && !variantId) ||
           (cartItem.variantId?.toString() === variantId?.toString());
-        
+
         if (!matchMenuItem || !matchVariant) return false;
         if (cartItem.addons.length !== addons.length) return false;
-        
+
         return addons.every((newAddon: any) =>
           cartItem.addons.some(
             (existingAddon) =>
@@ -994,7 +925,6 @@ export class PublicController {
         { path: "items.addons.addonId" }
       ]);
 
-      // Publish event
       if (isNewCart) {
         await EventBusService.publishCartCreated(activeCart.tenantId, activeCart.outletId, activeCart._id, activeCart, {
           correlationId: session.sessionToken,
@@ -1013,10 +943,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * PATCH /api/public/cart/:id
-   * Updates quantities or notes of cart items
-   */
   static async updateCart(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -1042,7 +968,6 @@ export class PublicController {
       const variantId = item.variantId || null;
       const quantity = Number(item.quantity);
 
-      // Find item index
       const itemIndex = cart.items.findIndex(
         (cartItem) =>
           cartItem.menuItemId.toString() === menuItemId.toString() &&
@@ -1083,10 +1008,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * DELETE /api/public/cart/:id/items/:itemId
-   * Removes item from cart
-   */
   static async removeFromCart(req: Request, res: Response): Promise<void> {
     try {
       const { id, itemId } = req.params;
@@ -1134,10 +1055,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/customer/address
-   * Creates a customer address standalone record
-   */
   static async createCustomerAddress(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, customerId, label, line1, line2, city, state, pincode, location, isDefault } = req.body;
@@ -1167,10 +1084,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/o/:outletSlug/coupons/validate
-   * Validates a coupon code and calculates discount for an outlet
-   */
   static async validateCoupon(req: Request, res: Response): Promise<void> {
     try {
       const { outletSlug } = req.params;
@@ -1181,7 +1094,6 @@ export class PublicController {
         return;
       }
 
-      // Check if outlet exists
       const outlet = await Outlet.findOne({ slug: outletSlug, isDeleted: false });
       if (!outlet) {
         ApiResponseHandler.notFound(res, "Outlet not found");
@@ -1211,10 +1123,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/checkout
-   * Checkout endpoint converting cart to CanonicalOrder, executing ingestion, and creating timeline/checkout session
-   */
   static async checkoutCart(req: any, res: any): Promise<void> {
     try {
       const { cartId, customer, fulfillment, payment, couponCode, customerLocation } = req.body;
@@ -1224,7 +1132,6 @@ export class PublicController {
         return;
       }
 
-      // 1. Fetch Cart
       const cart = await Cart.findOne({
         _id: new Types.ObjectId(cartId),
         status: "ACTIVE",
@@ -1236,7 +1143,6 @@ export class PublicController {
         return;
       }
 
-      // Resolve Dine-In Geofence and Session details
       let tableId = undefined;
       let tableNumber = undefined;
       let seatNumber = undefined;
@@ -1245,7 +1151,7 @@ export class PublicController {
         const qrSession = await QRSession.findOne({ sessionToken: cart.sessionToken, isDeleted: false });
         const activeSession = qrSession;
         if (activeSession && activeSession.tableId) {
-          // Enforce IP Lock check
+
           const ipAddress = String((req as any).headers?.["x-forwarded-for"] || (req as any).ip || "").split(',')[0]?.trim() || "";
           const activeLock = await TableLock.findOne({ tableId: activeSession.tableId as Types.ObjectId, expiresAt: { $gt: new Date() } });
           if (activeLock && activeLock.ipAddress !== ipAddress) {
@@ -1270,7 +1176,6 @@ export class PublicController {
         }
       }
 
-      // Idempotency Key check
       const idempotencyKey = req.headers["idempotency-key"] as string;
       if (idempotencyKey) {
         const cached = await Idempotency.check(idempotencyKey, cart.tenantId);
@@ -1280,7 +1185,6 @@ export class PublicController {
         }
       }
 
-      // Inventory Validation
       const unavailableItems = [];
       for (const cartItem of cart.items) {
         const inventory = await Inventory.findOne({
@@ -1319,7 +1223,6 @@ export class PublicController {
         return;
       }
 
-      // Update ChannelSession checkout steps
       const session = await ChannelSession.findOne({
         sessionToken: cart.sessionToken,
         isDeleted: false,
@@ -1331,7 +1234,6 @@ export class PublicController {
         await session.save();
       }
 
-      // 2. Re-evaluate prices strictly from DB models to prevent price tampering
       let subtotal = 0;
       const formattedItems = [];
 
@@ -1401,9 +1303,9 @@ export class PublicController {
         });
       }
 
-      const tax = Number((subtotal * 0.05).toFixed(2)); // 5% mock tax
+      const tax = Number((subtotal * 0.05).toFixed(2));
       const deliveryFee = fulfillment?.type === "DELIVERY" ? 50 : 0;
-      
+
       let discount = 0;
       if (couponCode) {
         const validation = await CouponService.validateCoupon(
@@ -1418,10 +1320,9 @@ export class PublicController {
         }
         discount = validation.discount;
       }
-      
+
       const totalAmount = subtotal + tax + deliveryFee - discount;
 
-      // 3. Resolve Delivery address if applicable
       let resolvedAddress = null;
       if (fulfillment?.type === "DELIVERY" && fulfillment.addressId) {
         resolvedAddress = await CustomerAddress.findOne({
@@ -1432,7 +1333,6 @@ export class PublicController {
 
       const generatedOrderId = `WEB-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-      // 4. Construct raw checkout payload matching WebsiteAdapter expectations
       const rawPayload = {
         orderId: generatedOrderId,
         outletId: cart.outletId.toString(),
@@ -1474,7 +1374,6 @@ export class PublicController {
         notes: cart.items.map(i => i.notes).filter(Boolean).join(", ") || undefined,
       };
 
-      // 5. Ingest and Process Order through canonical pipeline
       const { externalOrder } = await OrderGatewayService.ingestExternalOrder({
         tenantId: cart.tenantId.toString(),
         provider: IntegrationProvider.WEBSITE,
@@ -1493,7 +1392,6 @@ export class PublicController {
         return;
       }
 
-      // Link customer to session & cart if matches phone number
       const internalCustomer = await Customer.findOne({
         tenantId: cart.tenantId,
         phone: customer.phone,
@@ -1508,8 +1406,7 @@ export class PublicController {
       const generatedCustomerId = placedOrder?.customerId;
       if (generatedCustomerId) {
         cart.customerId = generatedCustomerId;
-        
-        // Auto-save CustomerAddress standalone record if raw address was provided
+
         if (rawPayload.fulfillment.address && !fulfillment.addressId) {
           await CustomerAddress.create({
             tenantId: cart.tenantId,
@@ -1524,12 +1421,10 @@ export class PublicController {
         }
       }
 
-      // Convert Cart status
       cart.status = "CONVERTED";
       cart.lastActivityAt = new Date();
       await cart.save();
 
-      // 6. Create CheckoutSession
       const checkoutSession = await CheckoutSession.create({
         tenantId: cart.tenantId,
         cartId: cart._id,
@@ -1539,7 +1434,6 @@ export class PublicController {
         paymentMethod: rawPayload.payment.mode,
       });
 
-      // Publish event
       await EventBusService.publishCheckoutStarted(cart.tenantId, cart.outletId, cart._id, cart, {
         correlationId: cart.sessionToken,
         sourceSystem: "WEBSITE",
@@ -1565,10 +1459,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/orders/track/:orderId
-   * Retrieves live timeline history querying OrderTimeline collection
-   */
   static async trackOrder(req: Request, res: Response): Promise<void> {
     try {
       const { orderId } = req.params;
@@ -1578,7 +1468,6 @@ export class PublicController {
         return;
       }
 
-      // Fetch order details
       const order = await Order.findOne({
         _id: new Types.ObjectId(orderId as string),
         isDeleted: false,
@@ -1589,7 +1478,6 @@ export class PublicController {
         return;
       }
 
-      // Fetch timeline logs
       const timeline = await OrderTimeline.find({
         orderId: order._id,
         isDeleted: false,
@@ -1611,10 +1499,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/cart/reorder
-   * Reorders a previous order by validating item availability and rebuilding the cart with current pricing.
-   */
   static async reorderToCart(req: Request, res: Response): Promise<void> {
     try {
       const { previousOrderId, sessionToken } = req.body;
@@ -1624,7 +1508,6 @@ export class PublicController {
         return;
       }
 
-      // 1. Fetch Previous Order
       const order = await Order.findOne({
         _id: new Types.ObjectId(previousOrderId),
         isDeleted: false,
@@ -1635,7 +1518,6 @@ export class PublicController {
         return;
       }
 
-      // 2. Fetch Order Items
       const orderItems = await OrderItem.find({
         orderId: order._id,
         isDeleted: false,
@@ -1646,7 +1528,6 @@ export class PublicController {
         return;
       }
 
-      // 3. Resolve or create active Cart
       let cart = await Cart.findOne({
         sessionToken,
         status: "ACTIVE",
@@ -1663,7 +1544,7 @@ export class PublicController {
           lastActivityAt: new Date(),
         });
       } else {
-        // Enforce outlet isolation: cart must belong to same outlet as the previous order
+
         if (cart.outletId.toString() !== order.outletId.toString()) {
           ApiResponseHandler.badRequest(res, "Cart contains items from another outlet. Reordering from a different outlet is rejected.");
           return;
@@ -1673,9 +1554,8 @@ export class PublicController {
       const warnings: string[] = [];
       const activeCart = cart!;
 
-      // 4. Revalidate Availability and Build Cart Items
       for (const orderItem of orderItems) {
-        // Revalidate MenuItem
+
         const menuItem = await MenuItem.findOne({
           _id: orderItem.menuItemId,
           isAvailable: true,
@@ -1687,7 +1567,6 @@ export class PublicController {
           continue;
         }
 
-        // Revalidate Variant if applicable
         let variantId: Types.ObjectId | null = null;
         if (orderItem.variantId) {
           const variant = await Variant.findOne({
@@ -1704,7 +1583,6 @@ export class PublicController {
           variantId = variant._id as Types.ObjectId;
         }
 
-        // Revalidate Addons
         const validatedAddons: { addonId: Types.ObjectId; quantity: number }[] = [];
         let addonFailure = false;
 
@@ -1724,7 +1602,7 @@ export class PublicController {
 
           validatedAddons.push({
             addonId: addon._id as Types.ObjectId,
-            quantity: 1, // default quantity to 1
+            quantity: 1,
           });
         }
 
@@ -1732,15 +1610,14 @@ export class PublicController {
           continue;
         }
 
-        // Add to cart items array
         const existingItemIndex = activeCart.items.findIndex((cartItem) => {
           const matchMenuItem = cartItem.menuItemId.toString() === menuItem._id.toString();
-          const matchVariant = (!cartItem.variantId && !variantId) || 
+          const matchVariant = (!cartItem.variantId && !variantId) ||
             (cartItem.variantId?.toString() === variantId?.toString());
-          
+
           if (!matchMenuItem || !matchVariant) return false;
           if (cartItem.addons.length !== validatedAddons.length) return false;
-          
+
           return validatedAddons.every((newAddon: any) =>
             cartItem.addons.some(
               (existingAddon) =>
@@ -1781,7 +1658,6 @@ export class PublicController {
         { path: "items.addons.addonId" }
       ]);
 
-      // Publish event
       await EventBusService.publishCartUpdated(activeCart.tenantId, activeCart.outletId, activeCart._id, activeCart, {
         correlationId: activeCart.sessionToken,
         sourceSystem: "WEBSITE",
@@ -1796,15 +1672,10 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/qr/resolve/:tableToken
-   * Resolves table by QR token, creates/joins active QRSession, manages guest sessions,
-   * handles "Join Existing Table" vs "Start New Group" selection, and returns session tokens.
-   */
   static async resolveQrCode(req: any, res: any): Promise<void> {
     try {
       const { tableToken } = req.params;
-      const { action } = req.query; // 'join' or 'new'
+      const { action } = req.query;
       const requestedGuestCount = Math.max(1, Math.min(20, parseInt(req.query.guestCount as string) || 1));
       const headers = req.headers || {};
       const clientGuestToken = headers["x-guest-session-token"];
@@ -1835,7 +1706,6 @@ export class PublicController {
         return;
       }
 
-      // Upsert/Refresh the lock for 5 minutes
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
       const lock = await TableLock.findOneAndUpdate(
         { tableId: (activeTable as any)._id },
@@ -1850,7 +1720,6 @@ export class PublicController {
         return;
       }
 
-      // Check Location coordinates instantly on QR scan (skip in test or bypass environment)
       const bypassGeofence = req.query.bypassGeofence === "true" || req.query.bypass === "true";
       if (process.env.NODE_ENV !== "test" && !bypassGeofence) {
         const latitude = req.query.latitude ? Number(req.query.latitude) : undefined;
@@ -1863,18 +1732,18 @@ export class PublicController {
 
         const outletCoords = outlet.location?.coordinates;
         if (!outletCoords || outletCoords.length !== 2 || (outletCoords[0] === 0 && outletCoords[1] === 0)) {
-          // If coordinates are default [0, 0], geofence is bypassed automatically
+
           console.info("[DineInGeofence] Geofence bypassed automatically: Outlet coordinates are [0, 0]");
         } else {
           const outletLng = outletCoords[0];
           const outletLat = outletCoords[1];
 
-          const R = 6371; // Earth radius in km
+          const R = 6371;
           const dLat = (latitude - outletLat) * (Math.PI / 180);
           const dLng = (longitude - outletLng) * (Math.PI / 180);
-          const a = 
+          const a =
             Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(outletLat * (Math.PI / 180)) * Math.cos(latitude * (Math.PI / 180)) * 
+            Math.cos(outletLat * (Math.PI / 180)) * Math.cos(latitude * (Math.PI / 180)) *
             Math.sin(dLng / 2) * Math.sin(dLng / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
@@ -1900,7 +1769,6 @@ export class PublicController {
         await session.save();
       }
 
-      // 1. Check for existing active guests to prompt join vs new group
       const code = req.query.code ? String(req.query.code).trim() : undefined;
 
       if (hasActiveSession) {
@@ -1909,9 +1777,8 @@ export class PublicController {
           status: "ACTIVE"
         });
 
-        // If other guests are active at this table, require verification
         if (activeGuests.length > 0) {
-          // If the user already has a valid active GuestSession token matching this table, allow auto-rejoin
+
           let existingGuest = null;
           if (clientGuestToken) {
             existingGuest = await GuestSession.findOne({
@@ -1932,10 +1799,8 @@ export class PublicController {
                 return;
               }
 
-              // Seat availability check: sum guestCount from all active guest sessions
               const totalOccupiedSeats = activeGuests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
 
-              // Calculate effective capacity (primary table + merged tables)
               let effectiveCapacity = activeTable.seatCount || 4;
               if (activeTable.isMerged && (activeTable.mergedWithTableIds?.length ?? 0) > 0) {
                 const mergedTables = await Table.find({ _id: { $in: activeTable.mergedWithTableIds }, isDeleted: false });
@@ -1947,9 +1812,8 @@ export class PublicController {
                 return;
               }
 
-              // Pin verified and seats available! Let them proceed to join
             } else {
-              // Calculate seats info for prompt response
+
               const totalOccupiedSeats = activeGuests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
               let effectiveCapacity = activeTable.seatCount || 4;
               if (activeTable.isMerged && (activeTable.mergedWithTableIds?.length ?? 0) > 0) {
@@ -1975,9 +1839,8 @@ export class PublicController {
         }
       }
 
-      // 2. Handle Action: Start New Group
       if (action === "new" && hasActiveSession) {
-        // Require that table is not occupied by other active guests to avoid session hijacking
+
         const activeGuests = await GuestSession.find({
           qrsessionId: session._id,
           status: "ACTIVE"
@@ -1987,13 +1850,10 @@ export class PublicController {
           return;
         }
 
-        // Close existing empty QRSession
         session.status = "CLOSED";
         session.closedAt = new Date();
         await session.save();
 
-        // Archive open BillSession without marking as SETTLED (no payment was received).
-        // Use VOIDED status so the finance audit trail clearly shows these were force-closed.
         await BillSession.updateMany(
           { sessionId: session._id, status: { $in: ["OPEN", "REQUESTED"] } },
           { status: "VOIDED", voidedAt: new Date(), voidReason: "SESSION_FORCE_CLOSED" }
@@ -2002,14 +1862,12 @@ export class PublicController {
         session = null;
       }
 
-      // 3. Resolve or initialize QRSession
       if (!session || session.status === "CLOSED" || session.status === "EXPIRED") {
         const joinCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-        // Capacity check for first-time scan: if guestCount exceeds table capacity, suggest merge
         const tableSeatCount = activeTable.seatCount || 4;
         if (requestedGuestCount > tableSeatCount) {
-          // Find available tables in the same outlet that could be merged
+
           const mergeQuery: any = {
             outletId: activeTable.outletId,
             _id: { $ne: activeTable._id },
@@ -2018,7 +1876,7 @@ export class PublicController {
             isMerged: { $ne: true },
             isDeleted: false
           };
-          // Prefer same dining area
+
           if (activeTable.diningAreaId) {
             mergeQuery.diningAreaId = activeTable.diningAreaId;
           }
@@ -2027,7 +1885,6 @@ export class PublicController {
             .limit(10)
             .lean();
 
-          // Find the minimum set of tables to cover the deficit
           const deficit = requestedGuestCount - tableSeatCount;
           let accumulatedSeats = 0;
           const suggestedMergeTables = [];
@@ -2068,7 +1925,6 @@ export class PublicController {
           waiterId: activeTable.defaultWaiterId || null
         });
 
-        // Atomic check: only update if activeSessionId is currently null and table is not reserved/cleaning
         const updatedTable = await Table.findOneAndUpdate(
           {
             _id: activeTable._id,
@@ -2083,7 +1939,7 @@ export class PublicController {
         );
 
         if (!updatedTable) {
-          // Lost race or table transitioned to reserved/cleaning! Delete newSession
+
           await QRSession.deleteOne({ _id: newSession._id });
           const winningTable = await Table.findById(activeTable._id);
           if (winningTable && ["RESERVED", "CLEANING"].includes(winningTable.operationalStatus)) {
@@ -2116,7 +1972,6 @@ export class PublicController {
         { sourceSystem: "QR" }
       );
 
-      // 4. Resolve or initialize GuestSession (Host vs Member)
       let guestSession = null;
       if (clientGuestToken) {
         guestSession = await GuestSession.findOne({
@@ -2148,14 +2003,12 @@ export class PublicController {
         await guestSession.save();
       }
 
-      // Fetch dining area name if available
       let diningAreaName = "Dine-In";
       if (activeTable.diningAreaId) {
         const da = await DiningArea.findById(activeTable.diningAreaId);
         if (da) diningAreaName = da.name;
       }
 
-      // Calculate effective seat capacity for response
       let effectiveSeatCount = activeTable.seatCount || 4;
       if (activeTable.isMerged && (activeTable.mergedWithTableIds?.length ?? 0) > 0) {
         const mergedTables = await Table.find({ _id: { $in: activeTable.mergedWithTableIds }, isDeleted: false });
@@ -2191,11 +2044,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/merge-tables
-   * Merges multiple tables into a single session when party size exceeds a single table's capacity.
-   * Body: { tableToken: string, mergeTableIds: string[], guestCount: number }
-   */
   static async mergeTablesForSession(req: Request, res: Response): Promise<void> {
     try {
       const { tableToken, mergeTableIds, guestCount: rawGuestCount } = req.body;
@@ -2206,7 +2054,6 @@ export class PublicController {
         return;
       }
 
-      // 1. Find primary table
       const primaryTable = await Table.findOne({ qrToken: tableToken, isDeleted: false });
       if (!primaryTable || primaryTable.status !== "ACTIVE") {
         ApiResponseHandler.notFound(res, "Primary table not found or inactive.");
@@ -2218,7 +2065,6 @@ export class PublicController {
         return;
       }
 
-      // 2. Validate merge targets
       const mergeTables = await Table.find({
         _id: { $in: mergeTableIds },
         outletId: primaryTable.outletId,
@@ -2233,14 +2079,12 @@ export class PublicController {
         return;
       }
 
-      // 3. Validate total capacity covers guestCount
       const totalCapacity = (primaryTable.seatCount || 4) + mergeTables.reduce((sum, t) => sum + (t.seatCount || 0), 0);
       if (guestCount > totalCapacity) {
         ApiResponseHandler.badRequest(res, `Combined capacity (${totalCapacity} seats) still insufficient for ${guestCount} guests.`);
         return;
       }
 
-      // 4. Create QRSession
       const joinCode = Math.floor(1000 + Math.random() * 9000).toString();
       const session = await QRSession.create({
         tenantId: primaryTable.tenantId,
@@ -2254,14 +2098,12 @@ export class PublicController {
         waiterId: primaryTable.defaultWaiterId || null
       });
 
-      // 5. Mark primary table as merged + occupied
       primaryTable.activeSessionId = session._id;
       primaryTable.operationalStatus = "OCCUPIED";
       primaryTable.isMerged = true;
       primaryTable.mergedWithTableIds = mergeTables.map(t => t._id);
       await primaryTable.save();
 
-      // 6. Mark merge targets as occupied + merged back to primary
       for (const mt of mergeTables) {
         mt.activeSessionId = session._id;
         mt.operationalStatus = "OCCUPIED";
@@ -2270,7 +2112,6 @@ export class PublicController {
         await mt.save();
       }
 
-      // 7. Create GuestSession (HOST)
       const guestSessionToken = "GUEST-SESS-" + Math.random().toString(36).substring(2, 15).toUpperCase() + "-" + Date.now();
       const guestSession = await GuestSession.create({
         qrsessionId: session._id,
@@ -2283,7 +2124,6 @@ export class PublicController {
         lastSeenAt: new Date()
       });
 
-      // 8. Publish event
       await EventBusService.publishTableOccupied(
         primaryTable.tenantId,
         primaryTable.outletId,
@@ -2299,7 +2139,6 @@ export class PublicController {
         { sourceSystem: "QR" }
       );
 
-      // 9. Fetch outlet for slug
       const outlet = await Outlet.findById(primaryTable.outletId);
       let diningAreaName = "Dine-In";
       if (primaryTable.diningAreaId) {
@@ -2336,10 +2175,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/qr/session/:sessionToken/bill
-   * Retrieves the active QR session's orders, items, and billing details
-   */
   static async getQrSessionBill(req: Request, res: Response): Promise<void> {
     try {
       const { sessionToken } = req.params;
@@ -2356,8 +2191,7 @@ export class PublicController {
       }
 
       const result = await BillingService.getSessionBill(session.tenantId, session._id.toString());
-      
-      // Let's also attach table details
+
       const table = await Table.findById(session.tableId);
 
       ApiResponseHandler.success(res, 200, "QR Session bill retrieved successfully", {
@@ -2374,10 +2208,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/session/:sessionToken/pay
-   * Submit payment request (UPI, PhonePe, Card, Cash) for dine-in tables
-   */
   static async payQrSessionBill(req: Request, res: Response): Promise<void> {
     try {
       const { sessionToken } = req.params;
@@ -2394,14 +2224,12 @@ export class PublicController {
         return;
       }
 
-      // 1. Retrieve/Generate BillSession
       const billData = await BillingService.getSessionBill(session.tenantId, session._id.toString());
       if (!billData.billSession) {
         ApiResponseHandler.badRequest(res, "No bill session found to pay");
         return;
       }
 
-      // Idempotency Key check
       const idempotencyKey = req.headers["idempotency-key"] as string;
       if (idempotencyKey) {
         const cached = await Idempotency.check(idempotencyKey, session.tenantId);
@@ -2442,7 +2270,6 @@ export class PublicController {
 
       const billSessionId = billData.billSession._id.toString();
 
-      // Apply tip adjustments if needed
       if (tip && Number(tip) > 0) {
         await BillingService.requestBill(session.tenantId, session.outletId, session._id.toString(), {
           tip: Number(tip),
@@ -2451,12 +2278,11 @@ export class PublicController {
       }
 
       if (paymentMode === "CASH") {
-        // Request bill (sets statuses)
+
         await BillingService.requestBill(session.tenantId, session.outletId, session._id.toString(), {
           notes: `Cash payment requested${seatNumber ? ` for seat ${seatNumber}` : ""}`
         });
 
-        // Trigger Waiter Task
         const waiterTask = await WaiterTaskService.createTask(
           session.tenantId,
           session.outletId,
@@ -2492,7 +2318,6 @@ export class PublicController {
         return;
       }
 
-      // For UPI / PHONEPE / CARD: Settle instantly
       let finalPaymentMethod = PaymentMethod.UPI;
       if (paymentMode === "CARD") {
         finalPaymentMethod = PaymentMethod.CARD;
@@ -2500,7 +2325,6 @@ export class PublicController {
         finalPaymentMethod = PaymentMethod.UPI;
       }
 
-      // Calculate correct payment amount matching seat split if active
       let paymentAmount = billData.billSession.outstandingBalance;
       if (seatNumber && billData.billSession.splits && billData.billSession.splits.length > 0) {
         const split = billData.billSession.splits.find((s: any) => s.seatNumber === seatNumber);
@@ -2509,7 +2333,6 @@ export class PublicController {
         }
       }
 
-      // Create a single Payment document representing the full session payment.
       const transactionId = `TXN-QR-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
       const primaryOrderId = billData.billSession.orderIds?.[0];
       if (!primaryOrderId) {
@@ -2518,7 +2341,7 @@ export class PublicController {
       }
       const paymentDoc = await Payment.create({
         tenantId: session.tenantId,
-        orderId: primaryOrderId,         // FK to first order; billSessionId links the aggregate
+        orderId: primaryOrderId,
         billSessionId: billData.billSession._id,
         transactionId,
         paymentMethod: finalPaymentMethod,
@@ -2527,13 +2350,11 @@ export class PublicController {
         status: PaymentStatus.SUCCESS
       });
 
-      // Call settleBill
       const result = await BillingService.settleBill(session.tenantId, session.outletId, billSessionId, {
         seatNumber: seatNumber || undefined,
         paymentId: paymentDoc._id.toString()
       });
 
-      // Automatically recalculate bill session totals on payment
       await BillingService.recalculateBillSession(session.tenantId, session._id);
 
       const responseBody = {
@@ -2554,14 +2375,10 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/session/:sessionToken/bill/split
-   * Triggers bill session splitting by EQUAL, BY_SEAT, or CUSTOM strategy
-   */
   static async splitQrSessionBill(req: Request, res: Response): Promise<void> {
     try {
       const { sessionToken } = req.params;
-      const { splitType, customSplits } = req.body; // splitType: 'EQUAL' | 'BY_SEAT' | 'CUSTOM'
+      const { splitType, customSplits } = req.body;
 
       const session = await QRSession.findOne({ sessionToken, isDeleted: false });
       if (!session) {
@@ -2590,10 +2407,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * PATCH /api/public/qr/guest/session
-   * Updates guest name, phone, seat number, and guest count in active GuestSession
-   */
   static async updateGuestSession(req: Request, res: Response): Promise<void> {
     try {
       const guestSessionToken = req.headers["x-guest-session-token"];
@@ -2604,7 +2417,7 @@ export class PublicController {
 
       const { name, phone, seatNumber, guestCount } = req.body;
 
-      const guestSession = await GuestSession.findOne({ 
+      const guestSession = await GuestSession.findOne({
         guestSessionToken: String(guestSessionToken),
         status: "ACTIVE"
       });
@@ -2629,10 +2442,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/guest/session/leave
-   * Marks the current guest session as LEFT. If no other active guest sessions remain, closes the table session.
-   */
   static async leaveGuestSession(req: Request, res: Response): Promise<void> {
     try {
       const guestSessionToken = req.headers["x-guest-session-token"];
@@ -2641,7 +2450,7 @@ export class PublicController {
         return;
       }
 
-      const guestSession = await GuestSession.findOne({ 
+      const guestSession = await GuestSession.findOne({
         guestSessionToken: String(guestSessionToken),
         status: "ACTIVE"
       });
@@ -2651,7 +2460,6 @@ export class PublicController {
         return;
       }
 
-      // 0. Fetch Table/Outlet settings for cancel approval
       const qrSession = await QRSession.findById(guestSession.qrsessionId);
       if (!qrSession) {
         ApiResponseHandler.notFound(res, "Associated QR session not found");
@@ -2662,7 +2470,6 @@ export class PublicController {
       const outlet = await Outlet.findById(qrSession.outletId);
       const tenantId = qrSession.tenantId;
 
-      // 1. Fetch active orders
       const orders = await mongoose.model("Order").find({
         "diningContext.sessionId": qrSession._id,
         tenantId,
@@ -2670,7 +2477,6 @@ export class PublicController {
         isDeleted: false
       });
 
-      // Group orders by status
       const hasServed = orders.some(o => o.orderStatus === OrderStatus.SERVED);
       const hasKitchenAccepted = orders.some(o => [OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY].includes(o.orderStatus));
       const hasPending = orders.some(o => o.orderStatus === OrderStatus.PENDING);
@@ -2678,7 +2484,7 @@ export class PublicController {
       const cancelReason = req.body.reason || "Customer left dining session";
 
       if (hasServed) {
-        // Case 4: Outstanding bill exists
+
         ApiResponseHandler.success(res, 200, "Outstanding bill exists. Please settle the balance first.", {
           status: "BILL_OUTSTANDING",
           message: "You have served items and an outstanding bill exists. Please settle the balance first."
@@ -2690,12 +2496,12 @@ export class PublicController {
 
       if (hasKitchenAccepted) {
         if (approvalMode === "AUTO") {
-          // Cancel automatically
+
           for (const order of orders) {
             await OrderService.cancelOrder(order._id.toString(), tenantId.toString(), cancelReason, guestSession._id.toString());
           }
         } else {
-          // Case 3: Requires approval. Create WaiterTask
+
           const existingTask = await WaiterTask.findOne({
             sessionId: qrSession._id,
             taskType: "ORDER_CANCEL_REQUEST",
@@ -2730,17 +2536,15 @@ export class PublicController {
           return;
         }
       } else if (hasPending) {
-        // Case 2: PENDING orders only. Cancel automatically.
+
         for (const order of orders) {
           await OrderService.cancelOrder(order._id.toString(), tenantId.toString(), cancelReason, guestSession._id.toString());
         }
       }
 
-      // Mark GuestSession as LEFT
       guestSession.status = "LEFT";
       await guestSession.save();
 
-      // Check if other active guest sessions exist for this QRSession
       const remainingActiveGuests = await GuestSession.find({
         qrsessionId: guestSession.qrsessionId,
         status: "ACTIVE"
@@ -2754,13 +2558,11 @@ export class PublicController {
           qrSession.closedAt = new Date();
           await qrSession.save();
 
-          // Reset table operational status
           if (table) {
             table.operationalStatus = "AVAILABLE";
             table.activeSessionId = null;
             await table.save();
 
-            // Publish WebSocket updates/Events
             await EventBusService.publishTableOccupied(
               table.tenantId,
               table.outletId,
@@ -2776,7 +2578,7 @@ export class PublicController {
           }
         }
       } else {
-        // Phase 3: Host successor promotion
+
         if (guestSession.role === "HOST") {
           let successor = null;
           const { successorGuestSessionId } = req.body;
@@ -2800,7 +2602,6 @@ export class PublicController {
         }
       }
 
-      // Recalculate bill automatically on leave/cancellations
       await BillingService.recalculateBillSession(tenantId, qrSession._id);
 
       ApiResponseHandler.success(res, 200, "Left guest session successfully", { remainingActive });
@@ -2810,10 +2611,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/qr/session/:sessionToken/guests
-   * Lists all active guest sessions for a table session
-   */
   static async getQrSessionGuests(req: Request, res: Response): Promise<void> {
     try {
       const { sessionToken } = req.params;
@@ -2835,10 +2632,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * GET /api/public/o/:outletSlug/coupons
-   * Lists all active coupons applicable for this outlet
-   */
   static async listOutletCoupons(req: Request, res: Response): Promise<void> {
     try {
       const { outletSlug } = req.params;
@@ -2848,7 +2641,6 @@ export class PublicController {
         return;
       }
 
-      // Find active coupons matching conditions matching ICoupon schema for this outlet/tenant or global
       const coupons = await Coupon.find({
         tenantId: { $in: [outlet.tenantId, null] },
         isActive: true,
@@ -2874,10 +2666,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/qr/session/:sessionToken/feedback
-   * Submits diner rating and feedback review, inserting it into ReviewAnalytics database
-   */
   static async submitQrSessionFeedback(req: Request, res: Response): Promise<void> {
     try {
       const { sessionToken } = req.params;
@@ -2894,7 +2682,6 @@ export class PublicController {
         return;
       }
 
-      // Import ReviewAnalytics model dynamically to use it
       const ReviewAnalytics = mongoose.model("ReviewAnalytics");
 
       const feedback = await ReviewAnalytics.create({
@@ -2915,10 +2702,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/orders/:orderId/items/:itemId/cancel
-   * Cancels a specific order item or requests approval based on order state.
-   */
   static async cancelOrderItem(req: Request, res: Response): Promise<void> {
     try {
       const { orderId, itemId } = req.params;
@@ -3091,10 +2874,6 @@ export class PublicController {
     }
   }
 
-  /**
-   * POST /api/public/contact
-   * Submit a contact/lead form and send email notification
-   */
   static async submitContactForm(req: Request, res: Response): Promise<void> {
     try {
       const { firstName, lastName, email, phone, message } = req.body;

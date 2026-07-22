@@ -12,10 +12,7 @@ import SubscriptionPlanModel from "../../models/subscriptionPlan.model.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class AdminSubscriptionController {
-  /**
-   * GET /plans
-   * Lists all subscription plans (including inactive ones for admins)
-   */
+
   static async listPlans(req: Request, res: Response): Promise<void> {
     try {
       const plans = await SubscriptionRepository.listPlans(true);
@@ -26,15 +23,10 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * POST /plans
-   * Creates a new plan
-   */
   static async createPlan(req: Request, res: Response): Promise<void> {
     try {
       const validated = createPlanSchema.parse(req.body);
-      
-      // Perform global uniqueness check on plan slug (ignoring isDeleted flag)
+
       const existingPlan = await SubscriptionPlanModel.collection.findOne({ slug: validated.slug });
       if (existingPlan) {
         ApiResponseHandler.badRequest(res, "A subscription plan with this slug already exists.");
@@ -49,10 +41,6 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * PUT /plans/:id
-   * Updates an existing plan
-   */
   static async updatePlan(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
@@ -73,10 +61,6 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * DELETE /plans/:id
-   * Soft deletes a plan
-   */
   static async deletePlan(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
@@ -96,10 +80,6 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * GET /subscriptions
-   * Lists all active subscriptions with role & outlet scoping
-   */
   static async listSubscriptions(req: Request, res: Response): Promise<void> {
     try {
       const limit = Number(req.query.limit) || 20;
@@ -131,10 +111,6 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * GET /subscription/:id
-   * Get detail of a specific subscription
-   */
   static async getSubscriptionById(req: Request, res: Response): Promise<void> {
     try {
       const id = req.params.id as string;
@@ -154,10 +130,6 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * GET /invoices
-   * Lists all invoices globally
-   */
   static async listInvoices(req: Request, res: Response): Promise<void> {
     try {
       const limit = Number(req.query.limit) || 20;
@@ -170,13 +142,9 @@ export class AdminSubscriptionController {
     }
   }
 
-  /**
-   * GET /analytics
-   * Aggregates SaaS recurring revenue metrics (MRR, ARR, Conversion, Expiring, Churn)
-   */
   static async getAnalytics(req: Request, res: Response): Promise<void> {
     try {
-      // 1. Fetch all active paid subscriptions
+
       const activeSubs = await RestaurantSubscriptionModel.find({
         status: SubscriptionStatus.ACTIVE,
         isDeleted: false,
@@ -200,13 +168,11 @@ export class AdminSubscriptionController {
         }
       }
 
-      // 2. Fetch Trial Users
       const trialUsers = await RestaurantSubscriptionModel.countDocuments({
         status: SubscriptionStatus.TRIAL,
         isDeleted: false,
       });
 
-      // 3. Fetch expiring soon (next 7 days)
       const sevenDaysFromNow = new Date();
       sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
       const expiringSoon = await RestaurantSubscriptionModel.countDocuments({
@@ -215,14 +181,12 @@ export class AdminSubscriptionController {
         isDeleted: false,
       });
 
-      // 4. Compute overall historical revenue from paid invoices
       const revenueAgg = await InvoiceModel.aggregate([
         { $match: { status: InvoiceStatus.PAID, isDeleted: false } },
         { $group: { _id: null, totalRevenue: { $sum: "$total" } } },
       ]);
       const revenue = revenueAgg[0]?.totalRevenue || 0;
 
-      // 5. Popular plans count
       const planStats = await RestaurantSubscriptionModel.aggregate([
         { $match: { isDeleted: false } },
         { $group: { _id: "$planId", count: { $sum: 1 } } },

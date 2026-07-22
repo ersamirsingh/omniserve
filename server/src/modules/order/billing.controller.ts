@@ -4,11 +4,7 @@ import { BillingService, SplitType } from "./billing.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 
 export class BillingController {
-  /**
-   * POST /api/v1/billing/sessions/:sessionId/request
-   * Request the bill for a QR session. Computes totals from all orders.
-   * Body: { discount?, tip?, notes?, outletId? }
-   */
+
   static async requestBill(req: Request, res: Response): Promise<void> {
     try {
       const sessionId = String(req.params.sessionId || "");
@@ -40,11 +36,6 @@ export class BillingController {
     }
   }
 
-  /**
-   * POST /api/v1/billing/:billSessionId/split
-   * Split the bill using a given strategy.
-   * Body: { splitType: "EQUAL" | "BY_SEAT" | "CUSTOM", customSplits?: [...] }
-   */
   static async splitBill(req: Request, res: Response): Promise<void> {
     try {
       const billSessionId = String(req.params.billSessionId || "");
@@ -74,11 +65,6 @@ export class BillingController {
     }
   }
 
-  /**
-   * POST /api/v1/billing/:billSessionId/settle
-   * Settle the bill (or a specific seat's portion).
-   * Body: { seatNumber?, paymentId? }
-   */
   static async settleBill(req: Request, res: Response): Promise<void> {
     try {
       const billSessionId = String(req.params.billSessionId || "");
@@ -110,10 +96,6 @@ export class BillingController {
     }
   }
 
-  /**
-   * GET /api/v1/billing/sessions/:sessionId
-   * Retrieve the full bill for a QR session (including splits and itemized breakdown).
-   */
   static async getSessionBill(req: Request, res: Response): Promise<void> {
     try {
       const sessionId = String(req.params.sessionId || "");

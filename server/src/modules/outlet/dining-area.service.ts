@@ -5,9 +5,7 @@ import { EventBusService } from "../../events/eventBus.js";
 import { escapeRegex } from "../../utils/sanitize.utils.js";
 
 export class DiningAreaService {
-  /**
-   * Create a new Dining Area
-   */
+
   static async createDiningArea(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -22,7 +20,6 @@ export class DiningAreaService {
       throw new Error("Dining area name cannot be empty");
     }
 
-    // Case-insensitive duplicate name check for active dining areas in the same outlet
     const existing = await DiningArea.findOne({
       tenantId: new Types.ObjectId(tenantId),
       outletId: new Types.ObjectId(outletId),
@@ -44,7 +41,6 @@ export class DiningAreaService {
 
     await diningArea.save();
 
-    // Publish transactional outbox event
     await EventBusService.publishDiningAreaCreated(
       tenantId,
       outletId,
@@ -61,9 +57,6 @@ export class DiningAreaService {
     return diningArea;
   }
 
-  /**
-   * Update an existing Dining Area
-   */
   static async updateDiningArea(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -72,13 +65,13 @@ export class DiningAreaService {
     triggeredById?: string
   ): Promise<IDiningArea> {
     const updateData: any = {};
-    
+
     if (payload.name !== undefined) {
       const nameClean = payload.name.trim();
       if (!nameClean) {
         throw new Error("Dining area name cannot be empty");
       }
-      // Case-insensitive duplicate name check
+
       const existing = await DiningArea.findOne({
         _id: { $ne: new Types.ObjectId(areaId) },
         tenantId: new Types.ObjectId(tenantId),
@@ -91,7 +84,7 @@ export class DiningAreaService {
       }
       updateData.name = nameClean;
     }
-    
+
     if (payload.description !== undefined) updateData.description = payload.description;
     if (payload.displayOrder !== undefined) updateData.displayOrder = payload.displayOrder;
     if (payload.isActive !== undefined) updateData.isActive = payload.isActive;
@@ -106,7 +99,6 @@ export class DiningAreaService {
       throw new Error(`DiningArea not found: ${areaId}`);
     }
 
-    // Publish event
     await EventBusService.publishDiningAreaUpdated(
       tenantId,
       outletId,
@@ -123,10 +115,6 @@ export class DiningAreaService {
     return diningArea;
   }
 
-  /**
-   * Archive (soft-delete) a Dining Area
-   * Fails if it contains active tables.
-   */
   static async archiveDiningArea(
     tenantId: string | Types.ObjectId,
     outletId: string | Types.ObjectId,
@@ -153,7 +141,6 @@ export class DiningAreaService {
       throw new Error(`DiningArea not found: ${areaId}`);
     }
 
-    // Publish event
     await EventBusService.publishDiningAreaArchived(
       tenantId,
       outletId,

@@ -3,15 +3,13 @@ import ReviewAnalytics, { IReviewAnalytics } from "../../models/reviewanalytics.
 import { SentimentLabel, ReviewSource } from "../../models/enums.js";
 
 export class ReviewService {
-  /**
-   * Submit/Create a new review
-   */
+
   static async createReview(
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<IReviewAnalytics> {
-    // Service-level validation of sentiment label (never trust client)
+
     const score = data.sentimentScore !== undefined ? Number(data.sentimentScore) : 0;
     let sentimentLabel: SentimentLabel;
 
@@ -41,9 +39,6 @@ export class ReviewService {
     return await review.save();
   }
 
-  /**
-   * Retrieve list of reviews with pagination
-   */
   static async getReviews(
     tenantId: string,
     filters: {
@@ -87,9 +82,6 @@ export class ReviewService {
     return { reviews, total };
   }
 
-  /**
-   * Calculate sentiment count summary & percentages
-   */
   static async getSentimentSummary(
     tenantId: string,
     outletId?: string,
@@ -152,9 +144,6 @@ export class ReviewService {
     };
   }
 
-  /**
-   * Soft delete a review (enforcing tenant isolation)
-   */
   static async deleteReview(
     id: string,
     tenantId: string,

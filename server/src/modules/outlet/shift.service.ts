@@ -30,17 +30,14 @@ export interface ICloseShiftResult {
 }
 
 export class ShiftService {
-  /**
-   * Open a new shift for an outlet.
-   * Throws if a shift of the same name is already OPEN for the outlet.
-   */
+
   static async openShift(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
     shiftName: ShiftName,
     openedBy: Types.ObjectId
   ): Promise<IOpenShiftResult> {
-    // Guard: no duplicate open shifts for same slot
+
     const existing = await Shift.findOne({
       tenantId,
       outletId,
@@ -78,9 +75,6 @@ export class ShiftService {
     };
   }
 
-  /**
-   * Close an open shift — computes statistics from orders during the shift window.
-   */
   static async closeShift(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -100,7 +94,6 @@ export class ShiftService {
     const closedAt = new Date();
     const shiftWindowFrom = shift.openedAt;
 
-    // Aggregate orders completed during shift window
     const [ordersAgg] = await Order.aggregate([
       {
         $match: {
@@ -120,7 +113,6 @@ export class ShiftService {
       }
     ]);
 
-    // Count unique sessions closed during shift (table turnovers)
     const sessionsClosedCount = await QRSession.countDocuments({
       tenantId,
       outletId,
@@ -129,7 +121,6 @@ export class ShiftService {
       isDeleted: false
     });
 
-    // Compute average dining duration from sessions with both createdAt + updatedAt
     const [durationAgg] = await QRSession.aggregate([
       {
         $match: {
@@ -158,7 +149,6 @@ export class ShiftService {
     const turnoverCount = sessionsClosedCount;
     const avgDiningDurationMs = Math.round(durationAgg?.avgMs ?? 0);
 
-    // SLA compliance: proportion of waiter tasks completed on time (simplified to 100% if no data)
     const slaComplianceRate = 100;
 
     const statistics = {
@@ -169,7 +159,6 @@ export class ShiftService {
       slaComplianceRate
     };
 
-    // Persist on the shift document
     shift.status = "CLOSED";
     shift.closedBy = closedBy;
     shift.closedAt = closedAt;
@@ -188,9 +177,6 @@ export class ShiftService {
     };
   }
 
-  /**
-   * Get the currently open shift for an outlet, or null if none.
-   */
   static async getCurrentShift(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId
@@ -198,9 +184,6 @@ export class ShiftService {
     return Shift.findOne({ tenantId, outletId, status: "OPEN", isDeleted: false }).lean() as any;
   }
 
-  /**
-   * Get shift history for an outlet (most recent first).
-   */
   static async getShiftHistory(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,

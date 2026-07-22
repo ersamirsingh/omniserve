@@ -7,13 +7,11 @@ import { AccessScope } from "../../utils/accessScope.utils.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class OutletController {
-  /**
-   * Helper to normalize lowercase/mixed-case day string to PascalCase WeekDay enum value
-   */
+
   private static normalizeDay(dayStr: string): WeekDay | null {
     if (!dayStr) return null;
     const lower = dayStr.trim().toLowerCase();
-    
+
     const mapping: Record<string, WeekDay> = {
       monday: WeekDay.MONDAY,
       tuesday: WeekDay.TUESDAY,
@@ -27,18 +25,11 @@ export class OutletController {
     return mapping[lower] || null;
   }
 
-  /**
-   * Helper to validate HH:MM time string format
-   */
   private static isValidTime(timeStr: string): boolean {
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
     return timeRegex.test(timeStr);
   }
 
-  /**
-   * Create a new outlet
-   * POST /outlets
-   */
   static async createOutlet(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -59,13 +50,11 @@ export class OutletController {
         operatingHours,
       } = req.body;
 
-      // Validate required fields
       if (!restaurantId || !name || !address || !city || !state || !pincode) {
         ApiResponseHandler.badRequest(res, 'restaurantId, name, address, city, state, and pincode are required');
         return;
       }
 
-      // Validate ObjectIds
       if (!Types.ObjectId.isValid(restaurantId)) {
         ApiResponseHandler.badRequest(res, 'Invalid restaurantId format');
         return;
@@ -76,25 +65,21 @@ export class OutletController {
         return;
       }
 
-      // Validate pincode (6-digit)
       if (!/^\d{6}$/.test(pincode)) {
         ApiResponseHandler.badRequest(res, 'Pincode must be exactly a 6-digit number');
         return;
       }
 
-      // Validate phone if provided
       if (phone && !/^\+?[\d\s\-().]{7,20}$/.test(phone)) {
         ApiResponseHandler.badRequest(res, 'Invalid phone number format');
         return;
       }
 
-      // Validate email if provided
       if (email && !/^\S+@\S+\.\S+$/.test(email)) {
         ApiResponseHandler.badRequest(res, 'Invalid email address format');
         return;
       }
 
-      // Process and validate location (REQUIRED)
       let parsedLocation = undefined;
       if (!location || !location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
         ApiResponseHandler.badRequest(res, 'Location coordinates are required as an array of [longitude, latitude]');
@@ -122,7 +107,6 @@ export class OutletController {
         coordinates: [lng, lat],
       };
 
-      // Process and validate operatingHours
       const parsedOperatingHours: any[] = [];
       if (operatingHours) {
         if (!Array.isArray(operatingHours)) {
@@ -198,10 +182,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * List outlets for the current tenant
-   * GET /outlets
-   */
   static async listOutlets(req: Request, res: Response): Promise<void> {
     try {
       if (req.user?.role === UserRole.SYSTEM_ADMIN) {
@@ -233,7 +213,6 @@ export class OutletController {
       const limit = Math.min(parseInt(req.query.limit as string) || defaultLimit, 500);
       const skip = (page - 1) * limit;
 
-      // Validate filter ObjectId
       if (restaurantId && !Types.ObjectId.isValid(restaurantId)) {
         ApiResponseHandler.badRequest(res, 'Invalid restaurantId query parameter format');
         return;
@@ -244,7 +223,6 @@ export class OutletController {
         return;
       }
 
-      // Normalize status query if provided
       let normalizedStatus: UserStatus | undefined = undefined;
       if (status) {
         const statusUpper = status.trim().toUpperCase();
@@ -312,10 +290,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * Get outlet by ID
-   * GET /outlets/:id
-   */
   static async getOutletById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -361,10 +335,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * Replace/Update outlet details
-   * PUT /outlets/:id
-   */
   static async updateOutlet(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -390,7 +360,6 @@ export class OutletController {
         location,
       } = req.body;
 
-      // Validate PUT required fields
       if (!restaurantId || !name || !address || !city || !state || !pincode) {
         ApiResponseHandler.badRequest(res, 'restaurantId, name, address, city, state, and pincode are required for replacement');
         return;
@@ -421,7 +390,6 @@ export class OutletController {
         return;
       }
 
-      // Process and validate location (REQUIRED)
       let parsedLocation = undefined;
       if (!location || !location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
         ApiResponseHandler.badRequest(res, 'Location coordinates are required as [longitude, latitude]');
@@ -495,10 +463,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * Toggle status
-   * PATCH /outlets/:id/status
-   */
   static async toggleOutletStatus(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -544,8 +508,7 @@ export class OutletController {
         ApiResponseHandler.notFound(res, 'Outlet not found');
         return;
       }
-      
-      // Enforce location coordinates check when opening/activating the outlet
+
       if (userStatus === UserStatus.ACTIVE) {
         const coords = oldOutlet.location?.coordinates;
         if (!coords || coords.length !== 2 || (coords[0] === 0 && coords[1] === 0)) {
@@ -568,7 +531,6 @@ export class OutletController {
         return;
       }
 
-      // Publish event to trigger auto-updates on online platforms (Swiggy/Zomato connectors) and realtime WebSocket broadcast
       await EventBusService.publishOutletStatusChanged(
         req.user.tenantId,
         updatedOutlet._id,
@@ -592,10 +554,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * Update operating hours array
-   * PATCH /outlets/:id/operating-hours
-   */
   static async updateOperatingHours(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -668,10 +626,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * Soft-delete an outlet
-   * DELETE /outlets/:id
-   */
   static async deleteOutlet(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -702,10 +656,6 @@ export class OutletController {
     }
   }
 
-  /**
-   * Find nearby outlets using 2dsphere index (Public endpoint)
-   * GET /outlets/nearby
-   */
   static async findNearbyOutlets(req: Request, res: Response): Promise<void> {
     try {
       const lng = req.query.lng as string | undefined;
@@ -732,9 +682,6 @@ export class OutletController {
         return;
       }
 
-      // Isolation logic:
-      // 1. If authenticated, enforce tenantId filtering.
-      // 2. If public, check if a tenantId parameter is provided to filter.
       let activeTenantId: string | undefined = req.user?.tenantId;
       if (!activeTenantId && tenantId) {
         if (Types.ObjectId.isValid(tenantId)) {
@@ -752,7 +699,6 @@ export class OutletController {
         activeTenantId
       );
 
-      // Map mongoose aggregation results to client shape (id instead of _id)
       const formattedOutlets = outlets.map(outlet => {
         const { _id, ...rest } = outlet;
         return {

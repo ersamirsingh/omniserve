@@ -96,7 +96,6 @@ const orderTimelineSchema = new Schema<IOrderTimeline>(
   }
 );
 
-// Indexes
 orderTimelineSchema.index({ tenantId: 1 });
 orderTimelineSchema.index({ orderId: 1, timestamp: 1 });
 orderTimelineSchema.index({ isDeleted: 1 });

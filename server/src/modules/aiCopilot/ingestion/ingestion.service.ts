@@ -6,10 +6,6 @@ export class IngestionService {
   private static isSyncing = false;
   private static intervalId: NodeJS.Timeout | null = null;
 
-  /**
-   * Runs the incremental sync pipeline for both VectorDB and GraphDB.
-   * Prevents concurrent sync execution using an in-memory lock flag.
-   */
   static async runIncrementalSync(forceFullReindex = false): Promise<{
     success: boolean;
     vectorSynced: number;
@@ -25,12 +21,12 @@ export class IngestionService {
     const now = new Date();
 
     try {
-      // Find or create sync state entry
+
       let state = await CopilotSyncState.findOne({ serviceName: 'RAG_CHATBOT_PIPELINE' });
       if (!state) {
         state = await CopilotSyncState.create({
           serviceName: 'RAG_CHATBOT_PIPELINE',
-          lastSyncedAt: new Date(0), // Epoch (1970) to index all initial data
+          lastSyncedAt: new Date(0),
           status: 'IDLE',
           recordsSynced: 0,
         });
@@ -43,13 +39,11 @@ export class IngestionService {
         { status: 'SYNCING' }
       );
 
-      // Execute Vector & Graph sync concurrently
       const [vectorSynced, graphSynced] = await Promise.all([
         VectorSyncService.syncAll(lastSyncTime),
         GraphSyncService.syncAll(lastSyncTime),
       ]);
 
-      // Update sync state on success
       await CopilotSyncState.updateOne(
         { serviceName: 'RAG_CHATBOT_PIPELINE' },
         {
@@ -58,7 +52,6 @@ export class IngestionService {
           recordsSynced: vectorSynced + graphSynced,
         }
       );
-
 
       return {
         success: true,
@@ -82,10 +75,6 @@ export class IngestionService {
     }
   }
 
-  /**
-   * Starts a scheduled background interval to index deltas.
-   * @param {number} [intervalMs=300000] - Interval time (default 5 minutes)
-   */
   static startScheduler(intervalMs = 300000): void {
     if (this.intervalId) {
       return;
@@ -100,9 +89,6 @@ export class IngestionService {
     }, intervalMs);
   }
 
-  /**
-   * Stops the scheduled background sync task.
-   */
   static stopScheduler(): void {
     if (this.intervalId) {
       clearInterval(this.intervalId);

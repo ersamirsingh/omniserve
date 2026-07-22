@@ -7,9 +7,8 @@ import { NotificationType } from '../../models/enums.js';
 import { ApiResponseHandler } from '../../utils/apiResponse.js';
 import cloudinary from '../../config/cloudinary.js';
 
-/** Generate a unique 12-character alphanumeric tracking code (e.g. A3F9KX21M7QP) */
 function generateTrackingCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // exclude confusing chars: 0/O, 1/I
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 12; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
@@ -18,10 +17,7 @@ function generateTrackingCode(): string {
 }
 
 export class HelpRequestController {
-  /**
-   * Create a new help support request
-   * POST /help-requests
-   */
+
   static async createHelpRequest(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.userId) {
@@ -76,7 +72,6 @@ export class HelpRequestController {
         console.error('Failed to resolve outlet details for support ticket:', err);
       }
 
-      // Upload screenshot to Cloudinary if provided as base64 or file data
       let screenshotUrl: string | null = null;
       if (screenshot && typeof screenshot === 'string') {
         if (screenshot.startsWith('data:image/')) {
@@ -88,7 +83,7 @@ export class HelpRequestController {
             screenshotUrl = uploadRes.secure_url;
           } catch (cloudErr: any) {
             console.error('Cloudinary upload failed for help request screenshot:', cloudErr.message || cloudErr);
-            screenshotUrl = screenshot; // fallback to original data URL if Cloudinary error
+            screenshotUrl = screenshot;
           }
         } else {
           screenshotUrl = screenshot;
@@ -134,7 +129,6 @@ export class HelpRequestController {
         }
       }
 
-      // Automatically create an Issue tracker ticket for this help request
       try {
         const Issue = mongoose.model('Issue');
         await Issue.create({
@@ -157,7 +151,6 @@ export class HelpRequestController {
         console.error('Failed to auto-create issue tracker record:', issueErr);
       }
 
-      // Notify all SYSTEM_ADMIN users using the existing notification path
       const admins = await User.find({ role: 'SYSTEM_ADMIN', isDeleted: false });
       const adminNotifyTenant = reqTenantId ? reqTenantId.toString() : new Types.ObjectId().toString();
 
@@ -187,10 +180,6 @@ export class HelpRequestController {
     }
   }
 
-  /**
-   * List support tickets (Admins only)
-   * GET /help-requests
-   */
   static async listHelpRequests(req: Request, res: Response): Promise<void> {
     try {
       if (req.user?.role !== 'SYSTEM_ADMIN') {
@@ -208,10 +197,6 @@ export class HelpRequestController {
     }
   }
 
-  /**
-   * Resolve / Update support ticket status (Admins only)
-   * PATCH /help-requests/:id
-   */
   static async resolveHelpRequest(req: Request, res: Response): Promise<void> {
     try {
       if (req.user?.role !== 'SYSTEM_ADMIN') {
@@ -245,7 +230,6 @@ export class HelpRequestController {
 
       await helpRequest.save();
 
-      // Notify the requester when status changes or is resolved
       const notifyTenant = helpRequest.tenantId ? helpRequest.tenantId.toString() : new Types.ObjectId().toString();
       try {
         await NotificationService.createNotification(
@@ -270,10 +254,6 @@ export class HelpRequestController {
     }
   }
 
-  /**
-   * Track support ticket status by 12-character tracking code
-   * GET /help-requests/track/:code
-   */
   static async trackHelpRequest(req: Request, res: Response): Promise<void> {
     try {
       const rawCode = Array.isArray(req.params.code) ? req.params.code[0] : req.params.code;

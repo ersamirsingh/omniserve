@@ -6,16 +6,13 @@ import ChannelMenuItemMapping from '../../../models/channelmenuitemmapping.model
 import ExternalOrder from '../../../models/externalorder.model.js';
 
 export class GraphSyncService {
-  /**
-   * Syncs database relationships and nodes modified since lastSyncTime into Neo4j.
-   * @param {Date} lastSyncTime - Sync records updated after this date
-   */
+
   static async syncAll(lastSyncTime: Date): Promise<number> {
     let txCount = 0;
     const queries: INeo4jWriteQuery[] = [];
 
     try {
-      // 1. Sync Tenants
+
       const tenants = await Models.Tenant.find({ updatedAt: { $gt: lastSyncTime } });
       for (const t of tenants) {
         queries.push({
@@ -33,7 +30,6 @@ export class GraphSyncService {
         });
       }
 
-      // 2. Sync Restaurants
       const restaurants = await Models.Restaurant.find({ updatedAt: { $gt: lastSyncTime } });
       for (const r of restaurants) {
         queries.push(
@@ -62,7 +58,6 @@ export class GraphSyncService {
         );
       }
 
-      // 3. Sync Outlets
       const outlets = await Models.Outlet.find({ updatedAt: { $gt: lastSyncTime } });
       for (const o of outlets) {
         queries.push(
@@ -92,7 +87,6 @@ export class GraphSyncService {
         );
       }
 
-      // 4. Sync Categories & Menu Items
       const categories = await Models.Category.find({ updatedAt: { $gt: lastSyncTime } });
       for (const c of categories) {
         queries.push(
@@ -153,7 +147,6 @@ export class GraphSyncService {
         );
       }
 
-      // 5. Sync Orders, Payments & Customers
       const orders = await Models.Order.find({ updatedAt: { $gt: lastSyncTime } });
       for (const ord of orders) {
         queries.push(
@@ -197,7 +190,6 @@ export class GraphSyncService {
         }
       }
 
-      // 6. Sync Payments
       const payments = await Models.Payment.find({ updatedAt: { $gt: lastSyncTime } });
       for (const p of payments) {
         queries.push(
@@ -228,7 +220,6 @@ export class GraphSyncService {
         );
       }
 
-      // 7. Sync Channel Connections & External Mappings
       const connections = await ChannelConnection.find({ updatedAt: { $gt: lastSyncTime } });
       for (const conn of connections) {
         queries.push({
@@ -289,7 +280,6 @@ export class GraphSyncService {
         }
       }
 
-      // Execute in transactional chunks to optimize memory and connection limits
       if (queries.length > 0) {
         const chunkSize = 100;
         for (let i = 0; i < queries.length; i += chunkSize) {

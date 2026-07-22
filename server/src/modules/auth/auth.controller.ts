@@ -2,12 +2,8 @@ import { Request, Response } from 'express';
 import { AuthService } from "./auth.service.js";
 import { TokenBlacklistService } from "./tokenblacklist.service.js";
 
-
 export class AuthController {
-  /**
-   * Register a new user
-   * POST /auth/register
-   */
+
   static async register(req: Request, res: Response): Promise<void> {
     try {
       const { email, password, firstName, lastName, tenantName } = req.body;
@@ -60,10 +56,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Login user
-   * POST /auth/login
-   */
   static async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
@@ -112,10 +104,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Logout user
-   * POST /auth/logout
-   */
   static async logout(req: Request, res: Response): Promise<void> {
     try {
       const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
@@ -145,10 +133,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Refresh access token
-   * POST /auth/refresh
-   */
   static async refreshToken(req: Request, res: Response): Promise<void> {
     try {
       const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
@@ -194,10 +178,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Get current user
-   * GET /auth/me
-   */
   static async getCurrentUser(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -233,10 +213,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Update password
-   * POST /auth/change-password
-   */
   static async changePassword(req: Request, res: Response): Promise<void> {
     try {
       const { oldPassword, newPassword, confirmPassword } = req.body;
@@ -297,10 +273,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Revoke all tokens for a user (security measure)
-   * POST /auth/revoke-all
-   */
   static async revokeAllTokens(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -328,10 +300,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Verify token
-   * POST /auth/verify
-   */
   static async verifyToken(req: Request, res: Response): Promise<void> {
     try {
       const token = req.headers.authorization?.split(' ')[1];

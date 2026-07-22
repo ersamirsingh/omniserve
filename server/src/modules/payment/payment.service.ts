@@ -5,9 +5,7 @@ import { PaymentStatus, PaymentMethod, NotificationType } from "../../models/enu
 import { NotificationService } from "../notification/notification.service.js";
 
 export class PaymentService {
-  /**
-   * Process/Create a new payment for an order
-   */
+
   static async createPayment(
     tenantId: string,
     data: any,
@@ -16,7 +14,6 @@ export class PaymentService {
     const tenantObjectId = new Types.ObjectId(tenantId);
     const orderObjectId = new Types.ObjectId(data.orderId);
 
-    // 1. Validate order existence, tenant ownership, and deletion status
     const order = await Order.findOne({
       _id: orderObjectId,
       tenantId: tenantObjectId,
@@ -26,14 +23,12 @@ export class PaymentService {
       throw new Error('Order not found or does not belong to this tenant');
     }
 
-    // 2. Validate payment amount equals order totalAmount (no partial payments allowed)
     if (Math.abs(Number(data.amount) - order.totalAmount) > 0.01) {
       throw new Error(`Payment amount ${data.amount} must match the order total amount ${order.totalAmount}`);
     }
 
     const requestedStatus = data.status || PaymentStatus.SUCCESS;
 
-    // 3. Prevent duplicate successful payments
     if (requestedStatus === PaymentStatus.SUCCESS) {
       const existingSuccess = await Payment.findOne({
         orderId: orderObjectId,
@@ -46,7 +41,6 @@ export class PaymentService {
       }
     }
 
-    // 4. Check for transactionId unique conflict
     const existingTx = await Payment.findOne({
       transactionId: data.transactionId,
       isDeleted: false,
@@ -55,7 +49,6 @@ export class PaymentService {
       throw new Error('A payment with this transaction ID already exists.');
     }
 
-    // 5. Save payment & update order status using a MongoDB transaction session
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -77,7 +70,6 @@ export class PaymentService {
 
       console.log(`[PaymentService] Payment processed: status=${savedPayment.status}, amount=${savedPayment.amount}, orderId=${savedPayment.orderId}, transactionId=${savedPayment.transactionId}`);
 
-      // Synchronize Order paymentStatus
       await Order.updateOne(
         { _id: orderObjectId, tenantId: tenantObjectId },
         {
@@ -89,7 +81,6 @@ export class PaymentService {
 
       await session.commitTransaction();
 
-      // Dispatch Payment Notification to all active tenant users
       const isSuccess = savedPayment.status === PaymentStatus.SUCCESS;
       const title = isSuccess ? 'Payment Successful' : 'Payment Failed';
       const message = isSuccess
@@ -116,9 +107,6 @@ export class PaymentService {
     }
   }
 
-  /**
-   * Process a refund for a payment
-   */
   static async refundPayment(
     id: string,
     tenantId: string,
@@ -128,7 +116,6 @@ export class PaymentService {
     const tenantObjectId = new Types.ObjectId(tenantId);
     const paymentObjectId = new Types.ObjectId(id);
 
-    // 1. Fetch existing payment
     const payment = await Payment.findOne({
       _id: paymentObjectId,
       tenantId: tenantObjectId,
@@ -139,12 +126,10 @@ export class PaymentService {
       return null;
     }
 
-    // 2. Validate status rules
     if (payment.status !== PaymentStatus.SUCCESS) {
       throw new Error(`Only successful payments can be refunded. Current status is ${payment.status}`);
     }
 
-    // 3. Check for refund transactionId uniqueness conflict
     const existingTx = await Payment.findOne({
       transactionId: refundTransactionId,
       isDeleted: false,
@@ -153,7 +138,6 @@ export class PaymentService {
       throw new Error('A payment/refund with this transaction ID already exists.');
     }
 
-    // 4. Save refund updates and update order paymentStatus under transaction session
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -169,7 +153,6 @@ export class PaymentService {
         { new: true, session }
       );
 
-      // Synchronize Order paymentStatus to REFUNDED
       await Order.updateOne(
         { _id: payment.orderId, tenantId: tenantObjectId },
         {
@@ -189,9 +172,6 @@ export class PaymentService {
     }
   }
 
-  /**
-   * Retrieve payment by ID
-   */
   static async getPaymentById(id: string, tenantId: string): Promise<IPayment | null> {
     return await Payment.findOne({
       _id: new Types.ObjectId(id),
@@ -200,9 +180,6 @@ export class PaymentService {
     });
   }
 
-  /**
-   * Retrieve payment by Order ID
-   */
   static async getPaymentByOrderId(orderId: string, tenantId: string): Promise<IPayment | null> {
     return await Payment.findOne({
       orderId: new Types.ObjectId(orderId),
@@ -211,9 +188,6 @@ export class PaymentService {
     });
   }
 
-  /**
-   * Retrieve list of payments with filtering
-   */
   static async getPayments(
     tenantId: string,
     filters: { orderId?: string; status?: string; limit: number; skip: number }

@@ -2,9 +2,7 @@ import { Types } from "mongoose";
 import Customer from "../../models/customer.model.js";
 
 export class CustomerResolutionService {
-  /**
-   * Resolves a customer by phone. If not found, creates one.
-   */
+
   static async resolveCustomer(args: {
     tenantId: string;
     phone: string;

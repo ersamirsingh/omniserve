@@ -32,19 +32,18 @@ export const makeModelChecker = (
     let insertedDocId: Types.ObjectId | null = null;
     try {
       if (deep && sampleDocForDeepCheck) {
-        // Write check
+
         const doc = new Model({
           ...sampleDocForDeepCheck,
-          __healthCheck: true, // Flag as health check throwaway
+          __healthCheck: true,
         });
         await doc.save();
         insertedDocId = doc._id;
 
-        // Delete check
         await Model.deleteOne({ _id: insertedDocId });
         insertedDocId = null;
       } else {
-        // Read check (shallow: fetch a single ID with a 1-doc limit)
+
         await Model.findOne().select('_id').lean();
       }
 
@@ -55,7 +54,7 @@ export const makeModelChecker = (
         details: deep && sampleDocForDeepCheck ? 'Read/Write check succeeded' : 'Read check succeeded',
       };
     } catch (error: any) {
-      // Emergency cleanup
+
       if (insertedDocId) {
         try {
           await Model.deleteOne({ _id: insertedDocId });
@@ -72,7 +71,6 @@ export const makeModelChecker = (
   };
 };
 
-// Define safe mock documents for deep write checks
 const sampleTenantDoc = {
   name: 'Health Check Tenant',
   slug: `health-check-${Math.random().toString(36).substring(2, 10)}`,
@@ -93,15 +91,11 @@ const sampleSubscriptionPlanDoc = {
   limits: {},
 };
 
-// Export model checkers
-// Models with complex dependency chains, unique constraints (like email/phone),
-// or cascades are run as read-only even in deep mode.
 export const modelCheckers = {
   tenant: makeModelChecker(Tenant, 'Tenant', sampleTenantDoc),
   category: makeModelChecker(Category, 'Category', sampleCategoryDoc),
   subscriptionPlan: makeModelChecker(SubscriptionPlan, 'SubscriptionPlan', sampleSubscriptionPlanDoc),
 
-  // Read-only fallbacks
   user: makeModelChecker(User, 'User'),
   restaurant: makeModelChecker(Restaurant, 'Restaurant'),
   outlet: makeModelChecker(Outlet, 'Outlet'),

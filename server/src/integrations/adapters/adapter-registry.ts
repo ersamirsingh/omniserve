@@ -11,7 +11,6 @@ const mockZomato = new MockZomatoAdapter();
 const qrAdapter = new QrAdapter();
 const websiteAdapter = new WebsiteAdapter();
 
-// Register with static OrderGatewayService registry
 OrderGatewayService.registerAdapter(mockSwiggy);
 OrderGatewayService.registerAdapter(mockZomato);
 OrderGatewayService.registerAdapter(qrAdapter);

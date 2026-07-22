@@ -7,10 +7,7 @@ import { AccessScope } from "../../utils/accessScope.utils.js";
 import OrderItem from "../../models/orderItem.model.js";
 
 export class OrderController {
-  /**
-   * Place a new order
-   * POST /orders
-   */
+
   static async placeOrder(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -31,13 +28,11 @@ export class OrderController {
         items,
       } = req.body;
 
-      // Validate required fields
       if (!outletId || !customerId || !source || subtotal === undefined || totalAmount === undefined || !items) {
         ApiResponseHandler.badRequest(res, 'outletId, customerId, source, subtotal, totalAmount, and items are required');
         return;
       }
 
-      // Validate ObjectIds
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
         return;
@@ -51,13 +46,11 @@ export class OrderController {
         return;
       }
 
-      // Validate enum
       if (!Object.values(OrderSource).includes(source)) {
         ApiResponseHandler.badRequest(res, `Invalid order source. Must be one of: ${Object.values(OrderSource).join(', ')}`);
         return;
       }
 
-      // Validate amounts
       if (isNaN(Number(subtotal)) || Number(subtotal) < 0) {
         ApiResponseHandler.badRequest(res, 'subtotal must be a non-negative number');
         return;
@@ -67,7 +60,6 @@ export class OrderController {
         return;
       }
 
-      // Validate items array
       if (!Array.isArray(items) || items.length === 0) {
         ApiResponseHandler.badRequest(res, 'items must be a non-empty array');
         return;
@@ -124,10 +116,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * List orders
-   * GET /orders
-   */
   static async listOrders(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -137,7 +125,7 @@ export class OrderController {
 
       let outletId = req.query.outletId as string | undefined;
       const orderStatus = req.query.orderStatus as string | undefined;
-      const date = req.query.date as string | undefined; // YYYY-MM-DD
+      const date = req.query.date as string | undefined;
       const operationalMode = req.query.operationalMode as string | undefined;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -175,11 +163,9 @@ export class OrderController {
             return allowedOutletIds.includes(oid);
           });
 
-      // Bulk fetch OrderItems for all retrieved orders
       const orderIds = scopedOrders.map(o => o._id);
       const allOrderItems = await OrderItem.find({ orderId: { $in: orderIds }, isDeleted: false });
 
-      // Group items by orderId
       const itemsMap = new Map<string, any[]>();
       allOrderItems.forEach(item => {
         const oid = item.orderId.toString();
@@ -235,10 +221,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * Get order with details (items and payment status)
-   * GET /orders/:id
-   */
   static async getOrderById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -318,10 +300,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * Update order status (workflow progression)
-   * PATCH /orders/:id/status
-   */
   static async updateOrderStatus(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -369,7 +347,6 @@ export class OrderController {
         return;
       }
 
-      // Format transition response values
       const responseData: any = {
         id: order._id,
         orderStatus: order.orderStatus,
@@ -387,10 +364,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * Cancel an order
-   * PATCH /orders/:id/cancel
-   */
   static async cancelOrder(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -447,10 +420,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * List order items
-   * GET /orders/:id/items
-   */
   static async listOrderItems(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -495,10 +464,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * Add item to order (pre-ACCEPTED only)
-   * POST /orders/:id/items
-   */
   static async addItemToOrder(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -587,10 +552,6 @@ export class OrderController {
     }
   }
 
-  /**
-   * Soft-delete an order
-   * DELETE /orders/:id
-   */
   static async deleteOrder(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

@@ -12,13 +12,13 @@ export type ReservationStatus =
 export interface IReservation extends Document {
   tenantId: Types.ObjectId;
   outletId: Types.ObjectId;
-  /** Assigned table (optional until seated) */
+
   tableId?: Types.ObjectId | null;
-  /** Dining area the guest prefers */
+
   diningAreaId?: Types.ObjectId | null;
-  /** Customer reference (optional — walk-ins may not have an account) */
+
   customerId?: Types.ObjectId | null;
-  /** Guest name for display on the floor map */
+
   guestName: string;
   guestPhone?: string;
   guestEmail?: string;
@@ -32,13 +32,13 @@ export interface IReservation extends Document {
   noShowAt?: Date | null;
   cancellationReason?: string;
   specialRequests?: string;
-  /** Internal notes from staff */
+
   notes?: string;
-  /** QR session created when guest is seated */
+
   sessionId?: Types.ObjectId | null;
   seatNumber?: string | null;
   seatNumbers?: string[];
-  /** Waiter pre-assigned to this reservation */
+
   assignedWaiterId?: Types.ObjectId | null;
   createdBy?: Types.ObjectId | null;
   updatedBy?: Types.ObjectId | null;
@@ -166,7 +166,6 @@ const reservationSchema = new Schema<IReservation>(
   }
 );
 
-// Indexes for common query patterns
 reservationSchema.index({ tenantId: 1, outletId: 1, scheduledAt: 1 });
 reservationSchema.index({ tenantId: 1, outletId: 1, status: 1 });
 reservationSchema.index({ customerId: 1 });

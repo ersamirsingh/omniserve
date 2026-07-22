@@ -7,7 +7,6 @@ import { UserStatus, SubscriptionPlan, UserRole } from "../../models/enums.js";
 import { Types } from 'mongoose';
 import Tenant from "../../models/tenant.model.js";
 
-
 interface TokenPayload {
   userId: string;
   tenantId?: string;
@@ -26,24 +25,16 @@ interface AuthResponse {
 }
 
 export class AuthService {
-  /**
-   * Hash a password using bcrypt
-   */
+
   static async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
     return bcrypt.hash(password, salt);
   }
 
-  /**
-   * Compare password with hash
-   */
   static async comparePassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 
-  /**
-   * Generate JWT access token
-   */
   static generateAccessToken(payload: TokenPayload): string {
     if(!process.env.JWT_SECRET || !process.env.JWT_EXPIRY) throw new Error('JWT_SECRET or JWT_EXPIRY is not defined');
     return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -51,9 +42,6 @@ export class AuthService {
     } as any);
   }
 
-  /**
-   * Generate JWT refresh token and store in database
-   */
   static async generateRefreshToken(
     userId: string,
     tenantId?: string | null,
@@ -86,9 +74,6 @@ export class AuthService {
     return token;
   }
 
-  /**
-   * Verify JWT token
-   */
   static verifyAccessToken(token: string): TokenPayload | null {
     try {
       if(!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not defined');
@@ -98,9 +83,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Verify refresh token
-   */
   static verifyRefreshToken(token: string): { userId: string; tenantId?: string } | null {
     try {
       if(!process.env.JWT_REFRESH_SECRET) throw new Error('JWT_REFRESH_SECRET is not defined');
@@ -114,7 +96,6 @@ export class AuthService {
     return tenantName.replace(/\s+/g, '-').toLowerCase();
   }
 
-  /** Register a new user */
   static async register(
     email: string,
     password: string,
@@ -127,7 +108,6 @@ export class AuthService {
       throw new Error('Email already exists');
     }
 
-
     const tenantSlug = this.tenantSlagGenerator(tenantName);
     const existingTenant = await Tenant.findOne({ slug: tenantSlug });
     if (existingTenant) {
@@ -137,13 +117,12 @@ export class AuthService {
     const tenant = await Tenant.create({
       name: tenantName,
       slug: tenantSlug,
-      ownerId: new Types.ObjectId(), //Temporary placeholder
+      ownerId: new Types.ObjectId(),
       subscriptionPlan: SubscriptionPlan.FREE,
       status: UserStatus.ACTIVE,
     });
 
     const passwordHash = await this.hashPassword(password);
-
 
     const user = await User.create({
       tenantId: tenant._id,
@@ -151,21 +130,17 @@ export class AuthService {
       lastName,
       email,
       passwordHash,
-      role: UserRole.SUPER_ADMIN,   // first user of a tenant is always super_admin
+      role: UserRole.SUPER_ADMIN,
       status: UserStatus.ACTIVE,
       createdBy: null,
     });
 
-    //update tenant owner
     tenant.ownerId = user._id;
     await tenant.save();
 
     return user;
   }
 
-  /**
-   * Login user
-   */
   static async login(
     email: string,
     password: string,
@@ -201,7 +176,7 @@ export class AuthService {
       role: user.role,
       status: user.status,
     };
-    
+
     const accessToken = this.generateAccessToken(tokenPayload);
     const refreshToken = await this.generateRefreshToken(
       user._id.toString(),
@@ -210,7 +185,6 @@ export class AuthService {
       userAgent
     );
 
-    // Update last login
     await User.updateOne({ _id: user._id }, { lastLogin: new Date() });
 
     return {
@@ -220,9 +194,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Refresh access token
-   */
   static async refreshAccessToken(refreshToken: string): Promise<AuthResponse> {
     const decoded = this.verifyRefreshToken(refreshToken);
     if (!decoded) {
@@ -275,9 +246,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Logout user - revoke refresh token
-   */
   static async logout(refreshToken: string): Promise<void> {
     await RefreshToken.updateOne(
       { token: refreshToken },
@@ -288,9 +256,6 @@ export class AuthService {
     );
   }
 
-  /**
-   * Verify user credentials
-   */
   static async verifyUserCredentials(
     email: string,
     password: string
@@ -309,16 +274,10 @@ export class AuthService {
     return user;
   }
 
-  /**
-   * Get user by ID
-   */
   static async getUserById(userId: string): Promise<IUser | null> {
     return User.findById(new Types.ObjectId(userId));
   }
 
-  /**
-   * Update user password
-   */
   static async updatePassword(
     userId: string,
     oldPassword: string,
@@ -339,17 +298,11 @@ export class AuthService {
     await User.updateOne({ _id: user._id }, { passwordHash });
   }
 
-  /**
-   * Remove sensitive fields from user object
-   */
   private static sanitizeUser(user: IUser): Partial<IUser> {
     const { passwordHash, ...rest } = user.toObject();
     return rest;
   }
 
-  /**
-   * Revoke all refresh tokens for a user
-   */
   static async revokeAllTokens(userId: string): Promise<void> {
     await RefreshToken.updateMany(
       { userId: new Types.ObjectId(userId) },

@@ -4,9 +4,7 @@ import mongoose, { Types } from 'mongoose';
 import { RestaurantParams } from "../../types/restro.type.js";
 import { UserRole } from "../../models/enums.js";
 
-
 export class RestaurantController {
-
 
    static async getRestaurants(req: Request, res: Response): Promise<void> {
 
@@ -117,7 +115,7 @@ export class RestaurantController {
             name,
             description,
             brandName,
-            gstNumber,  
+            gstNumber,
             logoUrl
          );
 
@@ -189,9 +187,8 @@ export class RestaurantController {
       }
    }
 
-
    static async deleteRestaurant(req: Request<RestaurantParams>, res: Response): Promise<void> {
-    
+
       try {
          const restaurantId = req.params.id;
          const tenantId: string | undefined = req.user?.tenantId;

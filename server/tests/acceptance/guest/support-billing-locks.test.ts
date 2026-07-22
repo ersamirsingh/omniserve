@@ -20,7 +20,6 @@ async function runSupportAndLockTests() {
   const tableId = new mongoose.Types.ObjectId();
   const outletId = new mongoose.Types.ObjectId();
 
-  // Cleanup
   await Tenant.deleteMany({ $or: [{ _id: tid }, { slug: "support-lock-tenant" }] });
   await User.deleteMany({ $or: [{ _id: { $in: [requesterId, adminId] } }, { email: { $in: ["staff@omniserve.com", "sysadmin@omniserve.com"] } }] });
   await Table.deleteMany({ $or: [{ tenantId: tid }, { qrToken: "qr_token_sl" }] });
@@ -30,7 +29,6 @@ async function runSupportAndLockTests() {
   await Customer.deleteMany({ tenantId: tid });
   await QRSession.deleteMany({ tenantId: tid });
 
-  // 1. Seed base data
   await Tenant.create({
     _id: tid,
     name: "Support Lock Tenant",
@@ -74,7 +72,6 @@ async function runSupportAndLockTests() {
     operationalStatus: "AVAILABLE"
   });
 
-  // Mock Outlet as active
   const Outlet = mongoose.model("Outlet");
   await Outlet.create({
     _id: outletId,
@@ -90,10 +87,8 @@ async function runSupportAndLockTests() {
     isDeleted: false
   });
 
-  // --- 2. Test Help Support Ticketing & Notifications ---
   console.log("\n--- Testing Help Ticketing & Notification Pipelines ---");
 
-  // Create Help Request via Controller (Mock Request/Response objects)
   let createResPayload: any = null;
   const mockReq = {
     user: { userId: requesterId.toString(), tenantId: tid.toString(), role: "STAFF" },
@@ -130,7 +125,6 @@ async function runSupportAndLockTests() {
   }
   console.log("✔ Help request validated in DB!");
 
-  // Verify Admin received the notification
   const adminNotification = await Notification.findOne({ userId: adminId });
   if (!adminNotification || adminNotification.title !== "New Support Request") {
     throw new Error("System Admin failed to receive help request notification!");
@@ -163,41 +157,35 @@ async function runSupportAndLockTests() {
   }
   console.log("✔ Help request successfully resolved by admin!");
 
-  // Verify requester received resolution notification
   const userNotification = await Notification.findOne({ userId: requesterId });
   if (!userNotification || !userNotification.title.startsWith("Support Request Status Update")) {
     throw new Error("Requester failed to receive resolution notification!");
   }
   console.log("✔ Requester received resolve alert notification successfully! Title: ", userNotification.title);
 
-  // --- 3. Test Table Status Booking Guards ---
   console.log("\n--- Testing Reservation Operational Status Guards ---");
 
   const resInput = {
     outletId: outletId.toString(),
     guestName: "Praveen",
     partySize: 2,
-    scheduledAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes later (within 2-hour operational check window)
+    scheduledAt: new Date(Date.now() + 30 * 60 * 1000),
     guestPhone: "9876543211",
     tableId: tableId.toString(),
     seatNumbers: ["Seat 1", "Seat 2"]
   };
 
-  // Try when table is AVAILABLE
   const successRes = await ReservationService.createReservation(tid, resInput);
   if (!successRes.reservationId) {
     throw new Error("Expected reservation to succeed for AVAILABLE table status!");
   }
   console.log("✔ Reservation successfully created on AVAILABLE table status!");
 
-  // Delete previous reservation to clean overlap checks
   await Reservation.deleteMany({ tenantId: tid });
 
-  // Update table status to BILL_REQUESTED
   table.operationalStatus = "BILL_REQUESTED";
   await table.save();
 
-  // Try creating reservation now
   try {
     await ReservationService.createReservation(tid, resInput);
     throw new Error("Expected reservation on BILL_REQUESTED table to fail!");
@@ -209,11 +197,9 @@ async function runSupportAndLockTests() {
     }
   }
 
-  // Update table status to OCCUPIED
   table.operationalStatus = "OCCUPIED";
   await table.save();
 
-  // Try creating reservation now
   try {
     await ReservationService.createReservation(tid, resInput);
     throw new Error("Expected reservation on OCCUPIED table to fail!");
@@ -225,7 +211,6 @@ async function runSupportAndLockTests() {
     }
   }
 
-  // Clean up
   await Tenant.deleteMany({ _id: tid });
   await User.deleteMany({ _id: { $in: [requesterId, adminId] } });
   await Table.deleteMany({ tenantId: tid });

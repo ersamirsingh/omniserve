@@ -79,7 +79,7 @@ auditLogSchema.index({ userId: 1 });
 auditLogSchema.index({ entityType: 1, entityId: 1 });
 auditLogSchema.index({ tenantId: 1, createdAt: -1 });
 auditLogSchema.index({ action: 1 });
-// TTL: auto-delete audit logs after 365 days
+
 auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 
 const AuditLog: Model<IAuditLog> = mongoose.model<IAuditLog>(

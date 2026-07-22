@@ -15,10 +15,7 @@ import TableLock from "../../models/tableLock.model.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class DiningOperationsController {
-  /**
-   * POST /api/v1/dining/operations
-   * Executes a restaurant operational command (e.g. TRANSFER_TABLE, MERGE_TABLE, etc.)
-   */
+
   static async executeOperation(req: Request, res: Response): Promise<void> {
     try {
       const { operationType, payload } = req.body;
@@ -63,10 +60,6 @@ export class DiningOperationsController {
     return { tenantId, outletId };
   }
 
-  /**
-   * PUT /api/v1/dining/tables/layout
-   * Batch updates table layout coordinates for the floor designer
-   */
   static async updateTablesLayout(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -105,10 +98,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * POST /api/v1/dining/tables/:tableId/rotate-qr
-   * Rotates the QR code token for a table and isolates any active session.
-   */
   static async rotateTableQrToken(req: Request, res: Response): Promise<void> {
     try {
       const tableId = req.params.tableId as string;
@@ -127,10 +116,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * GET /api/v1/dining/timeline/:sessionId
-   * Retrieves unified chronological activity timeline merging Table, Order, and Waiter tasks
-   */
   static async getUnifiedTimeline(req: Request, res: Response): Promise<void> {
     try {
       const sessionId = String(req.params.sessionId || "");
@@ -148,14 +133,12 @@ export class DiningOperationsController {
 
       const tenantId = new Types.ObjectId(tenantIdStr);
 
-      // 1. Fetch OrderTimeline events
       const orderTimelines = await OrderTimeline.find({
         tenantId,
         qrsessionId: new Types.ObjectId(sessionId),
         isDeleted: false
       });
 
-      // 2. Fetch WaiterTasks for the session
       const waiterTasks = await WaiterTask.find({
         tenantId,
         sessionId: new Types.ObjectId(sessionId),
@@ -172,7 +155,6 @@ export class DiningOperationsController {
 
       const activityFeed: IUnifiedActivity[] = [];
 
-      // Map Order & Table events from OrderTimeline
       for (const ot of orderTimelines) {
         let eventType: "TABLE" | "ORDER" = "ORDER";
         const isTableEvent = [
@@ -201,7 +183,6 @@ export class DiningOperationsController {
         });
       }
 
-      // Map WaiterTask transitions
       for (const task of waiterTasks) {
         if (task.createdAt) {
           activityFeed.push({
@@ -268,7 +249,6 @@ export class DiningOperationsController {
         }
       }
 
-      // Sort timeline chronologically
       activityFeed.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
       ApiResponseHandler.success(res, 200, "Unified timeline retrieved successfully", {
@@ -281,10 +261,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * GET /api/v1/dining/tables
-   * Retrieves all tables for a given tenant + outlet
-   */
   static async listTables(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);
@@ -305,10 +281,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * POST /api/v1/dining/tables
-   * Create a new table
-   */
   static async createTable(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -325,10 +297,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * PATCH /api/v1/dining/tables/:id
-   * Update a table
-   */
   static async updateTable(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -351,10 +319,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * DELETE /api/v1/dining/tables/:id
-   * Archive a table
-   */
   static async archiveTable(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -376,10 +340,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * GET /api/v1/dining/areas
-   * Retrieves all dining areas for a given tenant + outlet
-   */
   static async listDiningAreas(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);
@@ -401,10 +361,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * POST /api/v1/dining/areas
-   * Create a new dining area
-   */
   static async createDiningArea(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -427,10 +383,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * PATCH /api/v1/dining/areas/:id
-   * Update a dining area
-   */
   static async updateDiningArea(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -454,10 +406,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * DELETE /api/v1/dining/areas/:id
-   * Archive a dining area
-   */
   static async archiveDiningArea(req: Request, res: Response): Promise<void> {
     try {
       const context = await DiningOperationsController.checkStructuralPermission(req, res);
@@ -480,10 +428,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * POST /api/v1/dining/tables/:tableId/hold
-   * Places a temporary lock/hold on a table (operationalStatus = HELD)
-   */
   static async holdTable(req: Request, res: Response): Promise<void> {
     try {
       const { tableId } = req.params;
@@ -495,20 +439,17 @@ export class DiningOperationsController {
         return;
       }
 
-      // If table is occupied or already reserved, block hold creation
       if (["OCCUPIED", "DINING", "BILL_REQUESTED", "PAYMENT_PENDING", "RESERVED"].includes(table.operationalStatus)) {
         ApiResponseHandler.badRequest(res, `Table is currently ${table.operationalStatus} and cannot be held`);
         return;
       }
 
-      // Check if it's already held by another staff member
       const activeLock = await TableLock.findOne({ tableId: table._id, expiresAt: { $gt: new Date() } });
       if (activeLock && activeLock.ipAddress !== req.ip) {
         ApiResponseHandler.badRequest(res, "Table is already held by another staff member");
         return;
       }
 
-      // Set hold duration: 15 minutes
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
       await TableLock.findOneAndUpdate(
@@ -526,7 +467,6 @@ export class DiningOperationsController {
       table.operationalStatus = "HELD";
       await table.save();
 
-      // Broadcast update
       await EventBusService.publishTableStatusChanged(
         tenantId,
         outletId,
@@ -547,10 +487,6 @@ export class DiningOperationsController {
     }
   }
 
-  /**
-   * GET /api/v1/dining/waiter-tasks
-   * Retrieves all waiter tasks for an outlet
-   */
   static async listWaiterTasks(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);
@@ -582,4 +518,3 @@ export class DiningOperationsController {
     }
   }
 }
-

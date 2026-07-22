@@ -6,10 +6,7 @@ import { AccessScope } from "../../utils/accessScope.utils.js";
 import { UserRole } from "../../models/enums.js";
 
 export class InventoryController {
-  /**
-   * Create a new Inventory record
-   * POST /inventory
-   */
+
   static async createInventory(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -23,13 +20,11 @@ export class InventoryController {
 
       const { outletId, menuItemId, quantity, threshold } = req.body;
 
-      // Validate required fields
       if (!outletId || !menuItemId || quantity === undefined) {
         ApiResponseHandler.badRequest(res, 'outletId, menuItemId, and quantity are required');
         return;
       }
 
-      // Validate ObjectId format
       if (!Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId format');
         return;
@@ -45,14 +40,12 @@ export class InventoryController {
         return;
       }
 
-      // Validate quantity
       const numQuantity = Number(quantity);
       if (isNaN(numQuantity) || numQuantity < 0) {
         ApiResponseHandler.badRequest(res, 'Quantity cannot be negative');
         return;
       }
 
-      // Validate threshold if provided
       let numThreshold = 10;
       if (threshold !== undefined) {
         numThreshold = Number(threshold);
@@ -91,10 +84,6 @@ export class InventoryController {
     }
   }
 
-  /**
-   * List Inventory records with optional filtering
-   * GET /inventory
-   */
   static async listInventory(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -112,7 +101,6 @@ export class InventoryController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
 
-      // Validate query parameter ObjectIds if provided
       if (outletId && !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid outletId query parameter format');
         return;
@@ -178,10 +166,6 @@ export class InventoryController {
     }
   }
 
-  /**
-   * Get Inventory details by ID
-   * GET /inventory/:id
-   */
   static async getInventoryById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -225,10 +209,6 @@ export class InventoryController {
     }
   }
 
-  /**
-   * Update Inventory stock quantity
-   * PATCH /inventory/:id/quantity
-   */
   static async updateQuantity(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -297,10 +277,6 @@ export class InventoryController {
     }
   }
 
-  /**
-   * List Inventory records that have low stock
-   * GET /inventory/low-stock
-   */
   static async listLowStock(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

@@ -17,7 +17,6 @@ interface IModelVectorConfig {
   };
 }
 
-// Map models and how to extract text and tenancy metadata for VectorDB
 const VECTOR_SYNC_CONFIGS: IModelVectorConfig[] = [
   {
     model: Models.MenuItem,
@@ -128,19 +127,15 @@ const VECTOR_SYNC_CONFIGS: IModelVectorConfig[] = [
 ];
 
 export class VectorSyncService {
-  /**
-   * Syncs new/updated documents of configured models to Qdrant.
-   * @param {Date} lastSyncTime - Sync documents updated after this date
-   */
+
   static async syncAll(lastSyncTime: Date): Promise<number> {
     let totalSynced = 0;
 
-    // Ensure Qdrant collection is prepared
     await QdrantService.ensureCollection();
 
     for (const config of VECTOR_SYNC_CONFIGS) {
       try {
-        // Query database using Mongoose models (respects soft deletes and find pre-hooks)
+
         const docs = await config.model.find({
           updatedAt: { $gt: lastSyncTime },
         });
@@ -153,10 +148,8 @@ export class VectorSyncService {
           const text = config.extractText(doc);
           if (!text) continue;
 
-          // Generate embedding vector
           const vector = await LlmService.getEmbedding(text);
 
-          // Build payload with tenancy scopes to enforce boundaries at query time
           const baseMetadata = config.extractMetadata(doc);
           const payload = {
             ...baseMetadata,
@@ -166,8 +159,6 @@ export class VectorSyncService {
             createdAt: doc.createdAt ? doc.createdAt.toISOString() : new Date().toISOString(),
           };
 
-          // Generate a deterministic UUID or integer point ID based on doc._id
-          // We can use a simple hash of ObjectId or convert it to a uuid-like string
           const pointId = this.generateUuidFromObjectId(doc._id);
 
           points.push({
@@ -189,13 +180,9 @@ export class VectorSyncService {
     return totalSynced;
   }
 
-  /**
-   * Helper to convert a 24-character hex MongoDB ObjectId into a 36-character UUID format for Qdrant compatibility.
-   */
   private static generateUuidFromObjectId(objectId: Types.ObjectId | string): string {
     const hex = objectId.toString();
-    // Padding/formatting hex to match UUID structure: 8-4-4-4-12 (32 chars hex + 4 hyphens)
-    // We pad with zeros if the object ID is 24 hex characters
+
     const padded = hex.padEnd(32, '0');
     return `${padded.substring(0, 8)}-${padded.substring(8, 12)}-${padded.substring(12, 16)}-${padded.substring(16, 20)}-${padded.substring(20, 32)}`;
   }

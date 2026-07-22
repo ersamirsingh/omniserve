@@ -3,9 +3,7 @@ import AuditLog, { IAuditLog } from "../../models/auditLog.model.js";
 import { AuditAction } from "../../models/enums.js";
 
 export class AuditLogService {
-  /**
-   * Helper to write a new audit log entry
-   */
+
   static async createAuditLog(
     tenantId: string | null | undefined,
     data: {
@@ -35,10 +33,6 @@ export class AuditLogService {
     return await audit.save();
   }
 
-  /**
-   * Retrieve list of audit logs under strict tenant isolation
-   * Sorted by createdAt descending (newest-first)
-   */
   static async getAuditLogs(
     tenantId: string,
     filters: {
@@ -92,10 +86,6 @@ export class AuditLogService {
     return { logs, total };
   }
 
-  /**
-   * Retrieve list of audit logs globally (for system admins)
-   * Sorted by createdAt descending (newest-first)
-   */
   static async getGlobalAuditLogs(
     filters: {
       tenantId?: string;
@@ -151,9 +141,6 @@ export class AuditLogService {
     return { logs, total };
   }
 
-  /**
-   * Retrieve a specific audit log details, verifying tenant ownership
-   */
   static async getAuditLogById(id: string, tenantId: string): Promise<IAuditLog | null> {
     return await AuditLog.findOne({
       _id: new Types.ObjectId(id),

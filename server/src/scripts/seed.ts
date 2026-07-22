@@ -3,7 +3,7 @@ import 'dotenv/config';
 import dns from 'dns';
 if (process.env.NODE_ENV !== 'production') {
   try {
-    // Force public DNS resolvers to handle local ISP/DNS SRV query issues for MongoDB Atlas
+
     dns.setServers(['8.8.8.8', '1.1.1.1']);
   } catch (e) {
     console.warn('Unable to set custom DNS servers, using system defaults:', e);
@@ -14,7 +14,6 @@ import mongoose, { Types } from 'mongoose';
 import bcrypt from 'bcrypt';
 import connectToMongoDB from '../config/db.js';
 
-// Import Models
 import User from '../models/user.model.js';
 import Tenant from '../models/tenant.model.js';
 import Restaurant from '../models/restaurant.model.js';
@@ -27,7 +26,6 @@ import OrderItem from '../models/orderItem.model.js';
 import SubscriptionPlanModel from '../models/subscriptionPlan.model.js';
 import RestaurantSubscriptionModel from '../models/subscription.model.js';
 
-// Import Enums
 import {
   UserRole,
   UserStatus,
@@ -72,7 +70,6 @@ const runSeed = async () => {
     const passwordHash = await bcrypt.hash(PASSWORD_PLAIN, 10);
     console.log('Password hash generated.');
 
-    // 1. Seed Subscription Plan
     console.log('Seeding Subscription Plan...');
     const superPlan = await SubscriptionPlanModel.create({
       name: 'Super Plan',
@@ -105,7 +102,6 @@ const runSeed = async () => {
     });
     console.log(`Subscription Plan seeded: ${superPlan.name} (${superPlan._id})`);
 
-    // 2. Seed System Admin
     console.log('Seeding System Admin...');
     const systemAdmin = await User.create({
       firstName: 'System',
@@ -118,7 +114,6 @@ const runSeed = async () => {
     });
     console.log(`System Admin seeded: ${systemAdmin.email}`);
 
-    // 3. Seed Tenant
     console.log('Seeding Tenant...');
     const tenantOwnerId = new Types.ObjectId();
     const tenant = await Tenant.create({
@@ -131,7 +126,6 @@ const runSeed = async () => {
     });
     console.log(`Tenant seeded: ${tenant.name} (${tenant._id})`);
 
-    // 4. Seed Super Admin (Tenant Owner)
     console.log('Seeding Tenant Super Admin...');
     const superAdmin = await User.create({
       _id: tenantOwnerId,
@@ -147,7 +141,6 @@ const runSeed = async () => {
     });
     console.log(`Super Admin seeded: ${superAdmin.email}`);
 
-    // 5. Seed Customer Pool for Tenant (20 customers)
     console.log('Seeding Customer Pool...');
     const customerPromises = Array.from({ length: 20 }).map((_, i) => {
       const idx = i + 1;
@@ -179,7 +172,6 @@ const runSeed = async () => {
     const customers = await Promise.all(customerPromises);
     console.log(`${customers.length} Customers seeded.`);
 
-    // Helper data for generating menu items and categories
     const mockCategories = ['Starters', 'Mains', 'Desserts', 'Drinks'];
     const mockItemsByCategory: Record<string, Array<{ name: string; price: number; isVeg: boolean }>> = {
       'Starters': [
@@ -207,12 +199,10 @@ const runSeed = async () => {
       ]
     };
 
-    // Keep track of statistics
     let totalOutletsSeeded = 0;
     let totalStaffSeeded = 0;
     let totalOrdersSeeded = 0;
 
-    // 6. Seed 10 Restaurants
     console.log('Seeding 10 Restaurants...');
     for (let r = 1; r <= 10; r++) {
       const restroName = r === 1 ? 'Test Restaurant 1' : `Restaurant ${r}`;
@@ -224,7 +214,6 @@ const runSeed = async () => {
         createdBy: superAdmin._id,
       });
 
-      // Seed Restaurant Owner
       const ownerEmail = r === 1 ? 'restroowner@test.com' : `restroowner${r}@test.com`;
       const restroOwner = await User.create({
         tenantId: tenant._id,
@@ -239,7 +228,6 @@ const runSeed = async () => {
         createdBy: superAdmin._id,
       });
 
-      // Seed Restaurant Subscription
       await RestaurantSubscriptionModel.create({
         tenantId: tenant._id,
         restaurantId: restaurant._id,
@@ -257,8 +245,7 @@ const runSeed = async () => {
         createdBy: superAdmin._id,
       });
 
-      // Determine outlets count (5 to 10)
-      const outletCount = r === 1 ? 6 : Math.floor(Math.random() * 6) + 5; // 5 to 10
+      const outletCount = r === 1 ? 6 : Math.floor(Math.random() * 6) + 5;
 
       console.log(`Seeding ${outletCount} Outlets for ${restroName}...`);
       for (let o = 1; o <= outletCount; o++) {
@@ -286,7 +273,6 @@ const runSeed = async () => {
         });
         totalOutletsSeeded++;
 
-        // Seed Outlet Manager
         const managerEmail = (r === 1 && o === 1) ? 'outletmanager@test.com' : `manager_r${r}_o${o}@test.com`;
         const outletManager = await User.create({
           tenantId: tenant._id,
@@ -303,8 +289,7 @@ const runSeed = async () => {
           createdBy: restroOwner._id,
         });
 
-        // Seed Staff (5 to 10 per outlet)
-        const staffCount = (r === 1 && o === 1) ? 6 : Math.floor(Math.random() * 6) + 5; // 5 to 10
+        const staffCount = (r === 1 && o === 1) ? 6 : Math.floor(Math.random() * 6) + 5;
         const staffIds: Types.ObjectId[] = [];
 
         for (let s = 1; s <= staffCount; s++) {
@@ -327,7 +312,6 @@ const runSeed = async () => {
           totalStaffSeeded++;
         }
 
-        // Seed Categories & Menu Items for this Outlet
         const menuItemsCreated: Array<{ id: Types.ObjectId; name: string; price: number }> = [];
 
         for (const catName of mockCategories) {
@@ -362,14 +346,13 @@ const runSeed = async () => {
           }
         }
 
-        // Seed Orders for this Outlet (10 to 20 orders)
-        const orderCount = Math.floor(Math.random() * 11) + 10; // 10 to 20
-        const orderSources = Object.values(OrderSource).filter(s => s !== OrderSource.POS); // Skip deprecated POS
-        
+        const orderCount = Math.floor(Math.random() * 11) + 10;
+        const orderSources = Object.values(OrderSource).filter(s => s !== OrderSource.POS);
+
         for (let ord = 1; ord <= orderCount; ord++) {
           const randomCustomer = customers[Math.floor(Math.random() * customers.length)]!;
           const randomSource = orderSources[Math.floor(Math.random() * orderSources.length)]!;
-          
+
           let randomStatus: OrderStatus = OrderStatus.COMPLETED;
           const statusRand = Math.random();
           if (statusRand < 0.1) {
@@ -391,7 +374,6 @@ const runSeed = async () => {
             randomPaymentStatus = PaymentStatus.FAILED;
           }
 
-          // Pick 1 to 3 items
           const itemsCount = Math.floor(Math.random() * 3) + 1;
           const selectedItems: typeof menuItemsCreated = [];
           for (let i = 0; i < itemsCount; i++) {
@@ -405,13 +387,12 @@ const runSeed = async () => {
             selectedItems.push(menuItemsCreated[0]!);
           }
 
-          // Calculate pricing
           let subtotal = 0;
           const orderItemsData: any[] = [];
           const orderId = new Types.ObjectId();
 
           for (const item of selectedItems) {
-            const qty = Math.floor(Math.random() * 2) + 1; // 1 or 2
+            const qty = Math.floor(Math.random() * 2) + 1;
             const totalPrice = qty * item.price;
             subtotal += totalPrice;
 
@@ -434,7 +415,6 @@ const runSeed = async () => {
           const discount = Math.random() < 0.3 ? 50 : 0;
           const totalAmount = Math.max(0, subtotal + tax + deliveryFee - discount);
 
-          // Spread orders over last 30 days
           const daysAgo = Math.floor(Math.random() * 30);
           const orderDate = new Date();
           orderDate.setDate(orderDate.getDate() - daysAgo);

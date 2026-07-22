@@ -7,22 +7,14 @@ export class OutboxPollerService {
   private static recoveryInterval: NodeJS.Timeout | null = null;
   private static nodeId = `node-${Math.random().toString(36).substring(2, 11)}`;
 
-  /**
-   * Start the background polling and recovery intervals
-   */
   static start(pollIntervalMs = 5000): void {
     if (this.pollInterval) return;
-    
-    // Poll loop
+
     this.pollInterval = setInterval(() => this.poll(), pollIntervalMs);
-    
-    // Recovery loop every 60 seconds
+
     this.recoveryInterval = setInterval(() => this.runRecovery(), 60000);
   }
 
-  /**
-   * Stop the background polling and recovery intervals
-   */
   static stop(): void {
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
@@ -34,23 +26,17 @@ export class OutboxPollerService {
     }
   }
 
-  /**
-   * Check if the outbox poller is active
-   */
   static isActive(): boolean {
     return this.pollInterval !== null;
   }
 
-  /**
-   * Find and process pending/retryable events
-   */
   static async poll(): Promise<void> {
     if (this.isPolling) return;
     this.isPolling = true;
 
     try {
       const now = new Date();
-      // Find PENDING events OR FAILED events whose nextRetryAt is in the past
+
       const events = await IntegrationEventQueue.find({
         $or: [
           { status: "PENDING" },
@@ -58,14 +44,14 @@ export class OutboxPollerService {
         ],
       })
         .sort({ queuedAt: 1 })
-        .limit(10); // Batch size 10
+        .limit(10);
 
       for (const event of events) {
-        // Atomically claim the event so no other node handles it concurrently
+
         const claimedEvent = await IntegrationEventQueue.findOneAndUpdate(
           {
             _id: event._id,
-            status: event.status, // Ensure status has not changed in the database
+            status: event.status,
             ...(event.status === "FAILED" ? { nextRetryAt: event.nextRetryAt } : {})
           },
           {
@@ -80,7 +66,7 @@ export class OutboxPollerService {
         );
 
         if (claimedEvent) {
-          // Process the claimed event
+
           await SyncEngineService.processEvent(claimedEvent, this.nodeId);
         }
       }
@@ -91,9 +77,6 @@ export class OutboxPollerService {
     }
   }
 
-  /**
-   * Recovery job: identify stuck processing events (older than 10 minutes) and reset back to PENDING
-   */
   static async runRecovery(): Promise<void> {
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     try {
@@ -119,9 +102,6 @@ export class OutboxPollerService {
     }
   }
 
-  /**
-   * Manual run utility for synchronously running recovery and poll in tests
-   */
   static async triggerManualRun(): Promise<void> {
     await this.runRecovery();
     await this.poll();

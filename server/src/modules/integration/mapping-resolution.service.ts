@@ -5,9 +5,7 @@ import ChannelVariantMapping from "../../models/channelvariantmapping.model.js";
 import ChannelAddonMapping from "../../models/channeladdonmapping.model.js";
 
 export class MappingResolutionService {
-  /**
-   * Resolves internal outletId via ChannelOutletMapping
-   */
+
   static async resolveOutletId(
     tenantId: string,
     provider: string,
@@ -33,9 +31,6 @@ export class MappingResolutionService {
     return mapping.outletId.toString();
   }
 
-  /**
-   * Resolves internal menuItemId via ChannelMenuItemMapping
-   */
   static async resolveMenuItemId(
     tenantId: string,
     outletId: string,
@@ -63,9 +58,6 @@ export class MappingResolutionService {
     return mapping.menuItemId.toString();
   }
 
-  /**
-   * Resolves internal variantId via ChannelVariantMapping
-   */
   static async resolveVariantId(
     tenantId: string,
     outletId: string,
@@ -93,9 +85,6 @@ export class MappingResolutionService {
     return mapping.variantId.toString();
   }
 
-  /**
-   * Resolves internal addonId via ChannelAddonMapping
-   */
   static async resolveAddonId(
     tenantId: string,
     outletId: string,

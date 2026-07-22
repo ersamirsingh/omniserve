@@ -6,10 +6,7 @@ import { MenuItemService } from "../menuItem/menuItem.service.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class AddonController {
-  /**
-   * Create a new addon
-   * POST /addons
-   */
+
   static async createAddon(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -19,13 +16,11 @@ export class AddonController {
 
       const { menuItemId, name, price, isAvailable } = req.body;
 
-      // Validate required fields
       if (!menuItemId || !name || price === undefined) {
         ApiResponseHandler.badRequest(res, 'menuItemId, name, and price are required');
         return;
       }
 
-      // Validate ObjectId format
       if (!Types.ObjectId.isValid(menuItemId)) {
         ApiResponseHandler.badRequest(res, 'Invalid menuItemId format');
         return;
@@ -41,7 +36,6 @@ export class AddonController {
         return;
       }
 
-      // Validate name
       if (typeof name !== 'string' || name.trim().length === 0) {
         ApiResponseHandler.badRequest(res, 'name must be a non-empty string');
         return;
@@ -51,7 +45,6 @@ export class AddonController {
         return;
       }
 
-      // Validate price
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice < 0) {
         ApiResponseHandler.badRequest(res, 'Price cannot be negative');
@@ -86,10 +79,6 @@ export class AddonController {
     }
   }
 
-  /**
-   * List addons for a menu item
-   * GET /addons?menuItemId=xxx
-   */
   static async listAddons(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -138,10 +127,6 @@ export class AddonController {
     }
   }
 
-  /**
-   * Replace/Update addon details
-   * PUT /addons/:id
-   */
   static async updateAddon(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -157,7 +142,6 @@ export class AddonController {
 
       const { menuItemId, name, price, isAvailable } = req.body;
 
-      // Validate required fields for PUT replacement
       if (!menuItemId || !name || price === undefined || isAvailable === undefined) {
         ApiResponseHandler.badRequest(res, 'menuItemId, name, price, and isAvailable are required');
         return;
@@ -227,10 +211,6 @@ export class AddonController {
     }
   }
 
-  /**
-   * Soft-delete an addon
-   * DELETE /addons/:id
-   */
   static async deleteAddon(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

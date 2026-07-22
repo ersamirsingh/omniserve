@@ -1,6 +1,4 @@
-/**
- * Configuration manager for VectorDB (Qdrant), GraphDB (Neo4j), and LLM (Gemini).
- */
+
 export interface ICopilotConfig {
   gemini: {
     apiKey: string;
@@ -35,10 +33,6 @@ export const COPILOT_CONFIG: ICopilotConfig = {
   },
 };
 
-/**
- * Validates that the required environment variables are present.
- * Logs a warning if any are missing.
- */
 export function validateCopilotConfig(): void {
   const missing: string[] = [];
   if (!COPILOT_CONFIG.gemini.apiKey) missing.push('GEMINI_API_KEY');

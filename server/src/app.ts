@@ -13,7 +13,6 @@ const app = express();
 
 app.use(helmet());
 
-
 app.use(cors({
    credentials: true,
    origin: (origin, callback) => {
@@ -29,16 +28,13 @@ app.use(cors({
    }
 }));
 
-
 app.use(express.json());
 app.use(cookieParser())
-
 
 app.get("/", (req, res) => {
    res.json({ connection: "OK" });
 })
 
-// Apply global rate limiter to all api routes: 100 requests per 15 minutes
 app.use('/api', rateLimiter({
    windowMs: 15 * 60 * 1000,
    max: 200,
@@ -47,7 +43,6 @@ app.use('/api', rateLimiter({
 
 app.use('/api', router);
 
-// Global Error Handler
 app.use(errorHandler);
 
 export default app;

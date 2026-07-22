@@ -26,7 +26,6 @@ async function runGuestAcceptanceTest() {
   console.log("[GuestTest] Starting Acceptance Test...");
   await connectTestDB();
 
-  // Register adapters
   OrderGatewayService.registerAdapter(new MockSwiggyAdapter());
   OrderGatewayService.registerAdapter(new MockZomatoAdapter());
   OrderGatewayService.registerAdapter(new QrAdapter());
@@ -39,7 +38,6 @@ async function runGuestAcceptanceTest() {
   const oid = new mongoose.Types.ObjectId();
   const tableId = new mongoose.Types.ObjectId();
 
-  // Cleanup existing test records
   await Tenant.deleteMany({ name: tenantName });
   await Outlet.deleteMany({ tenantId: tid });
   await Table.deleteMany({ tenantId: tid });
@@ -50,7 +48,6 @@ async function runGuestAcceptanceTest() {
   await Payment.deleteMany({ tenantId: tid });
   await ReviewAnalytics.deleteMany({ tenantId: tid });
 
-  // 1. Seed base data
   const tenant = await Tenant.create({
     _id: tid,
     name: tenantName,
@@ -103,7 +100,6 @@ async function runGuestAcceptanceTest() {
 
   console.log("[GuestTest] Base records seeded successfully.");
 
-  // 2. Validate QR session init
   console.log("[GuestTest] Simulating QR Scan & Join...");
   const mockReqResolve = {
     params: { tableToken: table.qrToken },
@@ -126,7 +122,6 @@ async function runGuestAcceptanceTest() {
   }
   console.log("[GuestTest] Table scan resolved successfully. sessionToken:", resolvedData.sessionToken);
 
-  // 3. Update Guest Profile
   console.log("[GuestTest] Simulating Guest Session Profile setup...");
   let guestProfile: any = null;
   const mockReqUpdateGuest = {
@@ -147,7 +142,6 @@ async function runGuestAcceptanceTest() {
   }
   console.log("[GuestTest] Guest session profile saved. Name:", guestProfile.name);
 
-  // 4. Cart Operations
   console.log("[GuestTest] Adding items to Cart...");
   let cartData: any = null;
   const mockReqAddCart = {
@@ -179,7 +173,6 @@ async function runGuestAcceptanceTest() {
   }
   console.log("[GuestTest] Item added to cart. Subtotal:", cartData.subtotal);
 
-  // 5. Place QR Order (postpaid table order)
   console.log("[GuestTest] Placing QR table order...");
   let orderData: any = null;
   const mockReqPlaceOrder = {
@@ -218,7 +211,6 @@ async function runGuestAcceptanceTest() {
   const orderId = orderData.internalOrderId;
   console.log("[GuestTest] QR Order placed successfully! Internal Order ID:", orderId);
 
-  // 6. Request Waiter Assistance
   console.log("[GuestTest] Dispatching Waiter Assistance call...");
   let assistData: any = null;
   const mockReqAssist = {
@@ -244,7 +236,6 @@ async function runGuestAcceptanceTest() {
   }
   console.log("[GuestTest] Waiter task alert dispatched.");
 
-  // 7. Settle Postpaid Bill payment
   console.log("[GuestTest] Settle postpaid Table Bill...");
   let paymentSettle: any = null;
   const mockReqPay = {
@@ -267,7 +258,6 @@ async function runGuestAcceptanceTest() {
   }
   console.log("[GuestTest] Postpaid bill settled successfully.");
 
-  // 8. Submit feedback rating
   console.log("[GuestTest] Submitting dining feedback review...");
   let feedbackData: any = null;
   const mockReqFeedback = {
@@ -290,7 +280,6 @@ async function runGuestAcceptanceTest() {
   }
   console.log("[GuestTest] Feedback review registered. Rating:", feedbackData.rating);
 
-  // 9. Leave session
   console.log("[GuestTest] Leaving guest table session...");
   let leaveData: any = null;
   const mockReqLeave = {

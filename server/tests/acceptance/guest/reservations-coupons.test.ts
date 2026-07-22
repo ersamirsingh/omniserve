@@ -22,7 +22,6 @@ async function runReservationAndCouponTests() {
   const tableId1 = new mongoose.Types.ObjectId();
   const tableId2 = new mongoose.Types.ObjectId();
 
-  // Cleanup
   await Tenant.deleteMany({ _id: tid });
   await Outlet.deleteMany({ _id: oid });
   await Table.deleteMany({ tenantId: tid });
@@ -33,7 +32,6 @@ async function runReservationAndCouponTests() {
   await QRSession.deleteMany({ tenantId: tid });
   await Order.deleteMany({ tenantId: tid });
 
-  // 1. Seed structures
   await Tenant.create({
     _id: tid,
     name: "Res Coupon Tenant",
@@ -77,10 +75,8 @@ async function runReservationAndCouponTests() {
     operationalStatus: "AVAILABLE"
   });
 
-  // --- Coupon Test Suite ---
   console.log("\n--- Testing Coupon Subsystem Security & Restrictions ---");
 
-  // Create a Held Coupon
   await Coupon.create({
     code: "HELD10",
     discountType: "PERCENTAGE",
@@ -91,7 +87,6 @@ async function runReservationAndCouponTests() {
     isDeleted: false
   });
 
-  // Validate Held Coupon fails validation
   const heldValidation = await CouponService.validateSubscriptionCoupon("HELD10", 150, tid.toString());
   if (heldValidation.isValid) {
     throw new Error("Expected validation to fail for a HELD coupon!");
@@ -99,7 +94,6 @@ async function runReservationAndCouponTests() {
     console.log("✔ Held coupon successfully blocked: ", heldValidation.reason);
   }
 
-  // Create a Single-use subscription coupon
   await Coupon.create({
     code: "SINGLE20",
     discountType: "PERCENTAGE",
@@ -112,17 +106,14 @@ async function runReservationAndCouponTests() {
     isDeleted: false
   });
 
-  // Validate Single-use initially succeeds
   const firstUse = await CouponService.validateSubscriptionCoupon("SINGLE20", 200, tid.toString());
   if (!firstUse.isValid) {
     throw new Error(`Expected first coupon use to be valid: ${firstUse.reason}`);
   }
   console.log("✔ Initial validation for single-use coupon succeeded!");
 
-  // Redeem the coupon
   await CouponService.redeemSubscriptionCoupon("SINGLE20", tid.toString());
 
-  // Second validation attempt should fail
   const secondUse = await CouponService.validateSubscriptionCoupon("SINGLE20", 200, tid.toString());
   if (secondUse.isValid) {
     throw new Error("Expected second coupon validation attempt to fail!");
@@ -130,10 +121,8 @@ async function runReservationAndCouponTests() {
     console.log("✔ Duplicate redemption of single-use coupon successfully blocked: ", secondUse.reason);
   }
 
-  // --- Table Holds & Locks ---
   console.log("\n--- Testing Table holds & locks ---");
 
-  // Lock table
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   await TableLock.create({
     tableId: tableId1,
@@ -145,21 +134,18 @@ async function runReservationAndCouponTests() {
   await table1.save();
   console.log("✔ Table 1 successfully placed on HELD status!");
 
-  // Verify TableLock exists
   const lockExists = await TableLock.findOne({ tableId: tableId1 });
   if (!lockExists) {
     throw new Error("Expected table lock to exist!");
   }
 
-  // --- Duplicate Booking Guard & Merge ---
   console.log("\n--- Testing Duplicate-Booking Guard & Merges ---");
 
-  // Create primary reservation
   const resInput = {
     outletId: oid,
     guestName: "Aman Sen",
     partySize: 2,
-    scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+    scheduledAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
     guestPhone: "9876543210",
     tableId: tableId2.toString(),
     seatNumbers: ["Seat 1", "Seat 2"]
@@ -168,18 +154,15 @@ async function runReservationAndCouponTests() {
   const primaryRes = await ReservationService.createReservation(tid, resInput);
   console.log("✔ Primary reservation created successfully!");
 
-  // Confirm primary reservation
   await ReservationService.confirmReservation(tid, primaryRes.reservationId);
   console.log("✔ Primary reservation confirmed!");
 
-  // Check table status became RESERVED
   const reservedTable = await Table.findById(tableId2);
   if (reservedTable?.operationalStatus !== "RESERVED") {
     throw new Error(`Expected table operational status to be RESERVED, got: ${reservedTable?.operationalStatus}`);
   }
   console.log("✔ Table operational status correctly transitioned to RESERVED!");
 
-  // Attempt duplicate booking under the same phone number
   try {
     await ReservationService.createReservation(tid, {
       ...resInput,
@@ -196,7 +179,6 @@ async function runReservationAndCouponTests() {
     }
   }
 
-  // Perform a merge action instead
   const mergedResult = await ReservationService.createReservation(tid, {
     ...resInput,
     guestName: "Aman Sen Duplicate",
@@ -205,7 +187,6 @@ async function runReservationAndCouponTests() {
     allowMerge: true
   });
 
-  // Verify merged reservation size
   const finalRes = await Reservation.findById(primaryRes.reservationId);
   if (!finalRes || finalRes.partySize !== 4) {
     throw new Error(`Expected merged party size of 4, got: ${finalRes?.partySize}`);
@@ -215,7 +196,6 @@ async function runReservationAndCouponTests() {
   }
   console.log("✔ Booking and seat selections merged successfully! Final party size: 4");
 
-  // Clean up
   await Tenant.deleteMany({ _id: tid });
   await Outlet.deleteMany({ _id: oid });
   await Table.deleteMany({ tenantId: tid });

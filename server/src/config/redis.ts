@@ -5,7 +5,6 @@ let redisReady = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
-
 export function isRedisReady(): boolean {
   return redisReady && redisClient !== null && (redisClient as RedisClientType).isOpen;
 }
@@ -38,16 +37,15 @@ const connectRedis = async (): Promise<RedisClientType | null> => {
             if (retries >= MAX_RECONNECT_ATTEMPTS) {
               console.error(`[Redis] Giving up after ${MAX_RECONNECT_ATTEMPTS} reconnect attempts. Cache disabled.`);
               redisReady = false;
-              return false; // stop reconnecting
+              return false;
             }
-            const delay = Math.min(retries * 200, 5000); // cap at 5 s
+            const delay = Math.min(retries * 200, 5000);
             console.warn(`[Redis] Reconnecting in ${delay}ms (attempt ${retries + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
             return delay;
           },
         },
       } as any);
 
-      // ── Event Listeners ──────────────────────────────────────────────────────
       redisClient.on('error', (err: Error) => {
         console.error('[Redis] Client error:', err.message);
         redisReady = false;

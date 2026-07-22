@@ -70,7 +70,7 @@ const customerAddressSchema = new Schema<ICustomerAddress>(
       },
       coordinates: {
         type: [Number],
-        default: [0, 0], // longitude, latitude
+        default: [0, 0],
       },
     },
     isDefault: {
@@ -88,7 +88,6 @@ const customerAddressSchema = new Schema<ICustomerAddress>(
   }
 );
 
-// Indexes
 customerAddressSchema.index({ tenantId: 1 });
 customerAddressSchema.index({ customerId: 1 });
 customerAddressSchema.index({ isDeleted: 1 });

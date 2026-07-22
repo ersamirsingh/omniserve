@@ -17,7 +17,6 @@ router.get(
   UserController.getMyProfileContext
 );
 
-// Get list of users (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.get(
   '/',
   verifyToken,
@@ -25,7 +24,6 @@ router.get(
   UserController.listUsers
 );
 
-// Create user (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.post(
   '/',
   verifyToken,
@@ -33,7 +31,6 @@ router.post(
   UserController.createUser
 );
 
-// Get user details by ID (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.get(
   '/:id',
   verifyToken,
@@ -41,14 +38,12 @@ router.get(
   UserController.getUserById
 );
 
-// Update user details (Auth required, restricted to Restaurant Owner and above, or self-update)
 router.put(
   '/:id',
   verifyToken,
   UserController.updateUser
 );
 
-// Soft-delete user (Auth required, restricted to Restaurant Owner, Outlet Manager and above)
 router.delete(
   '/:id',
   verifyToken,

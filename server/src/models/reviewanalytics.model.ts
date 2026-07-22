@@ -98,7 +98,6 @@ reviewAnalyticsSchema.index({ outletId: 1, sentimentLabel: 1 });
 reviewAnalyticsSchema.index({ reviewDate: -1 });
 reviewAnalyticsSchema.index({ isDeleted: 1 });
 
-// Auto-compute sentiment label from score
 reviewAnalyticsSchema.pre('save', async function (this: IReviewAnalytics) {
   if (this.sentimentScore > 0.2) {
     this.sentimentLabel = SentimentLabel.POSITIVE;

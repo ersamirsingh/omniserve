@@ -9,7 +9,7 @@ export const tenantScoping = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Bypass tenant-scoping if user is a SYSTEM_ADMIN and accessing a system-admin route
+
     if (req.user?.role === UserRole.SYSTEM_ADMIN && req.path.startsWith('/system-admin')) {
       return next();
     }

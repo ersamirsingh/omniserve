@@ -17,7 +17,7 @@ const copilotSyncStateSchema = new Schema<ICopilotSyncState>(
     lastSyncedAt: {
       type: Date,
       required: true,
-      default: () => new Date(0), // Default to epoch if never synced
+      default: () => new Date(0),
     },
     status: {
       type: String,

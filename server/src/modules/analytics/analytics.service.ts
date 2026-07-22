@@ -67,9 +67,6 @@ export class AnalyticsService {
     return match;
   }
 
-  /**
-   * Upsert metrics for a daily analytics record using compound index: tenantId + outletId + reportDate
-   */
   static async upsertDailyMetrics(
     tenantId: string,
     outletId: string,
@@ -133,10 +130,6 @@ export class AnalyticsService {
     return record.save();
   }
 
-  /**
-   * Retrieve list of daily analytics records (tenant isolated)
-   * Sorted by reportDate ascending
-   */
   static async getDailyStats(
     tenantId: string,
     filters: { outletId?: string; outletIds?: string[]; from?: string; to?: string }
@@ -250,9 +243,6 @@ export class AnalyticsService {
     });
   }
 
-  /**
-   * Aggregate statistics for the tenant
-   */
   static async getSummaryStats(tenantId: string, outletIds?: string[] | null): Promise<{
     totalRevenue: number;
     totalOrders: number;
@@ -339,9 +329,9 @@ export class AnalyticsService {
       ] = await Promise.all([
         Restaurant.countDocuments({ _id: { $in: uniqueRestIds }, isDeleted: false }),
         Subscription.countDocuments({ tenantId: tenantObjectId, status: SubscriptionStatus.ACTIVE, isDeleted: false }),
-        User.countDocuments({ 
-          tenantId: tenantObjectId, 
-          isDeleted: false, 
+        User.countDocuments({
+          tenantId: tenantObjectId,
+          isDeleted: false,
           $or: [
             { restaurantId: { $in: uniqueRestIds } },
             { pendingRestaurantId: { $in: uniqueRestIds } },
@@ -395,9 +385,6 @@ export class AnalyticsService {
     };
   }
 
-  /**
-   * Retrieve extended analytical statistics (peak hours, channels, turnover, retention, reservation duration)
-   */
   static async getExtendedStats(
     tenantId: string,
     outletIds?: string[] | null
@@ -415,7 +402,6 @@ export class AnalyticsService {
     }
     const orderMatchNoCancelled = this.buildOrderMatch(tenantId, orderFilters, false);
 
-    // 1. Peak Hours Heatmap (Asia/Kolkata timezone offset +5:30)
     const peakHours = await Order.aggregate([
       { $match: orderMatchNoCancelled },
       {
@@ -438,7 +424,6 @@ export class AnalyticsService {
       { $sort: { dayOfWeek: 1, hour: 1 } }
     ]);
 
-    // 2. Channel Volume
     const channelVolume = await Order.aggregate([
       { $match: orderMatchNoCancelled },
       {
@@ -459,7 +444,6 @@ export class AnalyticsService {
       { $sort: { count: -1 } }
     ]);
 
-    // 3. Customer Retention (repeat-visit rate)
     const customerStats = await Order.aggregate([
       { $match: orderMatchNoCancelled },
       {
@@ -479,11 +463,10 @@ export class AnalyticsService {
       }
     ]);
     const cStats = customerStats[0] || { totalCustomers: 0, repeatCustomers: 0 };
-    const customerRetention = cStats.totalCustomers > 0 
+    const customerRetention = cStats.totalCustomers > 0
       ? parseFloat(((cStats.repeatCustomers / cStats.totalCustomers) * 100).toFixed(2))
       : 0;
 
-    // 4. Table Turnover
     const tableQuery: any = { tenantId: tenantObjectId, isDeleted: false };
     if (outletIds !== undefined && outletIds !== null) {
       tableQuery.outletId = { $in: outletIds.map(id => new Types.ObjectId(id)) };
@@ -501,7 +484,6 @@ export class AnalyticsService {
     const closedSessionsCount = await QRSession.countDocuments(sessionQuery);
     const tableTurnover = parseFloat((closedSessionsCount / totalTablesCount).toFixed(2));
 
-    // 5. Avg Reservation Duration
     const reservationQuery: any = {
       tenantId: tenantObjectId,
       status: "COMPLETED",

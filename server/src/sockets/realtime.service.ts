@@ -14,7 +14,7 @@ export class RealtimeService {
 
   static initialize(server: http.Server): SocketIOServer {
     const clientUrl = process.env.CLIENT_URL || "*";
-    
+
     this.io = new SocketIOServer(server, {
       cors: {
         origin: clientUrl === "*" ? "*" : [clientUrl],
@@ -23,7 +23,6 @@ export class RealtimeService {
       }
     });
 
-    // Configure Redis Adapter for horizontal scaling
     connectRedis().then((pubClient) => {
       if (pubClient && pubClient.isOpen) {
         const subClient = pubClient.duplicate();
@@ -38,16 +37,14 @@ export class RealtimeService {
       console.warn("[RealtimeService] Failed to configure Redis Adapter (running in standalone mode):", err.message);
     });
 
-    // Authentication middleware
     this.io.use(async (socket: Socket, next) => {
       try {
         const token = socket.handshake.auth?.token || socket.handshake.query?.token;
-        
+
         if (!token) {
           return next(new Error("Authentication error: No token provided"));
         }
 
-        // 1. Handle Guest Session Tokens
         if (typeof token === "string" && (token.startsWith("GUEST-SESS-") || token.startsWith("WEB-SESS-"))) {
           const guestSession = await GuestSession.findOne({ guestSessionToken: token, status: "ACTIVE" });
           if (!guestSession) {
@@ -67,7 +64,6 @@ export class RealtimeService {
           return next();
         }
 
-        // 2. Handle Admin / Staff Access Tokens
         const isBlacklisted = await TokenBlacklistService.isBlacklisted(token);
         if (isBlacklisted) {
           return next(new Error("Authentication error: Token is blacklisted"));
@@ -78,7 +74,6 @@ export class RealtimeService {
           return next(new Error("Authentication error: Invalid or expired token"));
         }
 
-        // Assign decoded data to socket
         socket.data = {
           userId: decoded.userId,
           tenantId: decoded.tenantId,
@@ -97,23 +92,19 @@ export class RealtimeService {
       }
     });
 
-    // Connection handler
     this.io.on("connection", (socket: Socket) => {
       const { tenantId, outletId, role, sessionId } = socket.data;
 
-      // 1. Join Outlet room automatically if tenantId, outletId exist and role is not CUSTOMER
       if (tenantId && outletId && role !== "CUSTOMER") {
         const outletRoom = `tenant:${tenantId}:outlet:${outletId}`;
         socket.join(outletRoom);
       }
 
-      // 2. Join Session room automatically if guest has sessionId on handshake
       if (sessionId) {
         const sessionRoom = `session:${sessionId}`;
         socket.join(sessionRoom);
       }
 
-      // 3. Dynamic Room Join / Leave handlers
       socket.on("join_session", (data: { sessionId: string }) => {
         if (data?.sessionId) {
           const sessionRoom = `session:${data.sessionId}`;
@@ -147,7 +138,7 @@ export class RealtimeService {
       });
 
       socket.on("disconnect", () => {
-        // No-op
+
       });
     });
 
@@ -161,27 +152,18 @@ export class RealtimeService {
     return this.io;
   }
 
-  /**
-   * Broadcast message to a physical outlet room
-   */
   static sendToOutlet(tenantId: string | object, outletId: string | object, event: RealtimeEvent, payload: any): void {
     if (!this.io) return;
     const room = `tenant:${tenantId.toString()}:outlet:${outletId.toString()}`;
     this.io.to(room).emit(event, payload);
   }
 
-  /**
-   * Broadcast message to a session-wide table cart room
-   */
   static sendToSession(sessionId: string | object, event: RealtimeEvent, payload: any): void {
     if (!this.io) return;
     const room = `session:${sessionId.toString()}`;
     this.io.to(room).emit(event, payload);
   }
 
-  /**
-   * Broadcast message to kitchen dashboard screens
-   */
   static sendToKitchen(outletId: string | object, event: RealtimeEvent, payload: any): void {
     if (!this.io) return;
     const room = `kitchen:${outletId.toString()}`;

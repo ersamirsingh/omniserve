@@ -46,10 +46,7 @@ export interface IKdsQueueItem {
 }
 
 export class CourseService {
-  /**
-   * Hold a specific order item — marks it as HELD so it will not be sent to KDS
-   * until explicitly fired. Publishes ITEM_HELD event.
-   */
+
   static async holdItem(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -73,7 +70,6 @@ export class CourseService {
     (item as any).firedAt = undefined;
     await item.save();
 
-    // Fetch parent order for session context
     const order = await Order.findById(item.orderId).lean();
 
     await EventBusService.publishItemHeld(
@@ -101,10 +97,6 @@ export class CourseService {
     };
   }
 
-  /**
-   * Fire a specific order item — marks it as FIRED and sends it to the KDS.
-   * Publishes ITEM_FIRED + ITEM_FIRE_REQUESTED events.
-   */
   static async fireItem(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -132,7 +124,6 @@ export class CourseService {
     }
     await item.save();
 
-    // Fetch parent order for session context
     const order = await Order.findById(item.orderId).lean();
 
     const eventPayload = {
@@ -149,7 +140,6 @@ export class CourseService {
       notes: item.notes ?? null
     };
 
-    // Publish ITEM_FIRED for realtime broadcast
     await EventBusService.publishItemFired(
       tenantId,
       outletId,
@@ -158,7 +148,6 @@ export class CourseService {
       { createdBy: firedBy, sourceSystem: "SYSTEM" }
     );
 
-    // Publish ITEM_FIRE_REQUESTED for KDS workflow processing
     await EventBusService.publishItemFireRequested(
       tenantId,
       outletId,
@@ -177,10 +166,6 @@ export class CourseService {
     };
   }
 
-  /**
-   * Fire all HELD items for a specific course on an order.
-   * Publishes individual ITEM_FIRED events + a batch COURSE_FIRED event.
-   */
   static async fireCourse(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -223,7 +208,6 @@ export class CourseService {
       });
     }
 
-    // Fetch parent order for session context
     const order = await Order.findById(new Types.ObjectId(orderId)).lean();
 
     const courseBatchPayload = {
@@ -236,7 +220,6 @@ export class CourseService {
       firedBy: firedBy?.toString()
     };
 
-    // Publish COURSE_FIRED batch event
     await EventBusService.publishCourseFired(
       tenantId,
       outletId,
@@ -245,7 +228,6 @@ export class CourseService {
       { createdBy: firedBy, sourceSystem: "SYSTEM" }
     );
 
-    // Also publish ITEM_FIRE_REQUESTED for each item for KDS routing
     for (const item of heldItems) {
       const eventPayload = {
         itemId: item._id.toString(),
@@ -269,7 +251,7 @@ export class CourseService {
         eventPayload,
         { createdBy: firedBy, sourceSystem: "SYSTEM" }
       ).catch((err: any) => {
-        // Swallow deduplication errors on batch fires — items may share correlationIds
+
         if (err?.code !== 11000) throw err;
       });
     }
@@ -282,10 +264,6 @@ export class CourseService {
     };
   }
 
-  /**
-   * Get the KDS queue — returns all HELD/FIRE_REQUESTED items for an outlet,
-   * optionally filtered by course or KDS station.
-   */
   static async getKdsQueue(
     tenantId: Types.ObjectId,
     outletId: Types.ObjectId,
@@ -303,7 +281,7 @@ export class CourseService {
     if (filters.holdStatus) {
       query.holdStatus = filters.holdStatus;
     } else {
-      // Default: show all items active in KDS queue
+
       query.holdStatus = { $in: ["HELD", "FIRE_REQUESTED", "FIRED"] };
     }
 
@@ -317,7 +295,6 @@ export class CourseService {
 
     const items = await OrderItem.find(query).lean();
 
-    // Group by orderId and batch-fetch orders for context
     const orderIds = [...new Set(items.map(i => i.orderId.toString()))];
     const orders = await Order.find({
       _id: { $in: orderIds.map(id => new Types.ObjectId(id)) },
@@ -328,7 +305,7 @@ export class CourseService {
     const orderMap = new Map(orders.map(o => [o._id.toString(), o]));
 
     const result: IKdsQueueItem[] = items
-      .filter(item => orderMap.has(item.orderId.toString())) // only items for this outlet
+      .filter(item => orderMap.has(item.orderId.toString()))
       .map(item => {
         const order = orderMap.get(item.orderId.toString());
         return {
@@ -348,7 +325,6 @@ export class CourseService {
         };
       });
 
-    // Sort: FIRE_REQUESTED first, then HELD, then by creation time
     result.sort((a, b) => {
       const priority: Record<string, number> = { FIRE_REQUESTED: 0, HELD: 1, FIRED: 2 };
       const diff = (priority[a.holdStatus] ?? 2) - (priority[b.holdStatus] ?? 2);
@@ -358,9 +334,6 @@ export class CourseService {
     return result;
   }
 
-  /**
-   * Update the KDS station assignment for an item (e.g. reroute to different kitchen station)
-   */
   static async updateKdsStation(
     tenantId: Types.ObjectId,
     itemId: string,

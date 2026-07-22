@@ -35,7 +35,7 @@ export class MockZomatoConnector extends MockProviderConnector {
     await syncJob.save();
 
     try {
-      // Simulate mock failure check
+
       if (
         (payload as any)?.mockFailure === true ||
         (event.payload as any)?.mockFailure === true
@@ -43,7 +43,6 @@ export class MockZomatoConnector extends MockProviderConnector {
         throw new Error("Simulated mock connector sync failure");
       }
 
-      // Simulate network latency
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const responsePayload = {
@@ -58,7 +57,6 @@ export class MockZomatoConnector extends MockProviderConnector {
       syncJob.processedAt = new Date();
       await syncJob.save();
 
-      // Update provider sync state
       await ProviderSyncState.findOneAndUpdate(
         { tenantId, outletId: outletId || new Types.ObjectId(), provider: this.provider },
         {
@@ -82,7 +80,6 @@ export class MockZomatoConnector extends MockProviderConnector {
       syncJob.failureReason = error.message;
       await syncJob.save();
 
-      // Update provider sync state failure
       await ProviderSyncState.findOneAndUpdate(
         { tenantId, outletId: outletId || new Types.ObjectId(), provider: this.provider },
         {

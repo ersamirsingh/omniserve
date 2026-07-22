@@ -27,11 +27,6 @@ export class KdsController {
     return firstOutlet._id as Types.ObjectId;
   }
 
-  /**
-   * GET /api/v1/kds/queue
-   * Returns all items in the KDS queue for an outlet.
-   * Supports optional filtering by course, kdsStation, and holdStatus.
-   */
   static async getKdsQueue(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = new Types.ObjectId(String(req.user?.tenantId || req.headers["x-tenant-id"] || ""));
@@ -57,10 +52,6 @@ export class KdsController {
     }
   }
 
-  /**
-   * POST /api/v1/kds/items/:itemId/hold
-   * Hold a specific order item — prevents it from being sent to KDS.
-   */
   static async holdItem(req: Request, res: Response): Promise<void> {
     try {
       const itemId = String(req.params.itemId || "");
@@ -82,11 +73,6 @@ export class KdsController {
     }
   }
 
-  /**
-   * POST /api/v1/kds/items/:itemId/fire
-   * Fire a specific order item — marks it FIRED and sends it to the KDS.
-   * Optionally assign a kdsStation.
-   */
   static async fireItem(req: Request, res: Response): Promise<void> {
     try {
       const itemId = String(req.params.itemId || "");
@@ -109,11 +95,6 @@ export class KdsController {
     }
   }
 
-  /**
-   * POST /api/v1/kds/orders/:orderId/fire-course
-   * Fire all HELD items for a specific course on an order — batch operation.
-   * Body: { course: "STARTERS" | "MAINS" | "DESSERTS" | "IMMEDIATE", kdsStation? }
-   */
   static async fireCourse(req: Request, res: Response): Promise<void> {
     try {
       const orderId = String(req.params.orderId || "");
@@ -141,11 +122,6 @@ export class KdsController {
     }
   }
 
-  /**
-   * PATCH /api/v1/kds/items/:itemId/station
-   * Update the KDS station assignment for a specific item.
-   * Body: { kdsStation: "HOT" | "COLD" | "BAR" | "GRILL" | "SALAD" | "PASTRY" | "GENERAL" }
-   */
   static async updateKdsStation(req: Request, res: Response): Promise<void> {
     try {
       const itemId = String(req.params.itemId || "");

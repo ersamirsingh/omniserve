@@ -21,7 +21,7 @@ export interface IOrderItem extends Document {
   holdStatus: 'HELD' | 'FIRE_REQUESTED' | 'FIRED';
   status: 'ACTIVE' | 'CANCELLED';
   firedAt?: Date | null;
-  kdsStation?: string | null;  // e.g. "HOT", "COLD", "BAR", "GRILL"
+  kdsStation?: string | null;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   isDeleted: boolean;
@@ -146,7 +146,6 @@ orderItemSchema.index({ menuItemId: 1 });
 orderItemSchema.index({ tenantId: 1 });
 orderItemSchema.index({ isDeleted: 1 });
 
-// Auto-calculate totalPrice before save
 orderItemSchema.pre("save", async function (this: IOrderItem) {
   this.totalPrice = this.quantity * this.unitPrice;
 });

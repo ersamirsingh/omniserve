@@ -153,7 +153,6 @@ tableSchema.index({ outletId: 1 });
 tableSchema.index({ tenantId: 1, outletId: 1, tableNumber: 1 });
 tableSchema.index({ isDeleted: 1 });
 
-// Generate unique qrToken pre-save if not provided
 tableSchema.pre('save', function (this: ITable, next) {
   if (!this.qrToken) {
     this.qrToken = crypto.randomBytes(16).toString('hex');

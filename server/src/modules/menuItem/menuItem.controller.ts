@@ -5,10 +5,7 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class MenuItemController {
-  /**
-   * Create a new menu item
-   * POST /menu-items
-   */
+
   static async createMenuItem(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -29,13 +26,11 @@ export class MenuItemController {
         displayOrder,
       } = req.body;
 
-      // Validate required fields
       if (!categoryId || !outletId || !name || price === undefined) {
         ApiResponseHandler.badRequest(res, 'categoryId, outletId, name, and price are required');
         return;
       }
 
-      // Validate ObjectIds format
       if (!Types.ObjectId.isValid(categoryId) || !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid categoryId or outletId format');
         return;
@@ -46,7 +41,6 @@ export class MenuItemController {
         return;
       }
 
-      // Validate name
       if (typeof name !== 'string' || name.trim().length === 0) {
         ApiResponseHandler.badRequest(res, 'name must be a non-empty string');
         return;
@@ -56,20 +50,17 @@ export class MenuItemController {
         return;
       }
 
-      // Validate price
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice < 0) {
         ApiResponseHandler.badRequest(res, 'Price cannot be negative');
         return;
       }
 
-      // Validate description if provided
       if (description && (typeof description !== 'string' || description.length > 500)) {
         ApiResponseHandler.badRequest(res, 'Description cannot exceed 500 characters');
         return;
       }
 
-      // Validate SKU if provided
       if (sku) {
         if (typeof sku !== 'string' || sku.length > 50) {
           ApiResponseHandler.badRequest(res, 'SKU cannot exceed 50 characters');
@@ -77,7 +68,6 @@ export class MenuItemController {
         }
       }
 
-      // Validate displayOrder if provided
       let parsedDisplayOrder = 0;
       if (displayOrder !== undefined) {
         parsedDisplayOrder = Number(displayOrder);
@@ -127,10 +117,6 @@ export class MenuItemController {
     }
   }
 
-  /**
-   * List menu items for a tenant/outlet
-   * GET /menu-items
-   */
   static async listMenuItems(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -145,7 +131,6 @@ export class MenuItemController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const skip = (page - 1) * limit;
 
-      // Validate ObjectIds if provided
       if (categoryId && !Types.ObjectId.isValid(categoryId)) {
         ApiResponseHandler.badRequest(res, 'Invalid categoryId format');
         return;
@@ -211,10 +196,6 @@ export class MenuItemController {
     }
   }
 
-  /**
-   * Get menu item by ID with child variants and addons populated
-   * GET /menu-items/:id
-   */
   static async getMenuItemById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -273,10 +254,6 @@ export class MenuItemController {
     }
   }
 
-  /**
-   * Replace/Update menu item details (PUT replacement)
-   * PUT /menu-items/:id
-   */
   static async updateMenuItem(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -303,13 +280,11 @@ export class MenuItemController {
         displayOrder,
       } = req.body;
 
-      // Validate required fields for PUT replacement
       if (!categoryId || !outletId || !name || price === undefined || isVeg === undefined || isAvailable === undefined || displayOrder === undefined) {
         ApiResponseHandler.badRequest(res, 'categoryId, outletId, name, price, isVeg, isAvailable, and displayOrder are required');
         return;
       }
 
-      // Validate ObjectIds format
       if (!Types.ObjectId.isValid(categoryId) || !Types.ObjectId.isValid(outletId)) {
         ApiResponseHandler.badRequest(res, 'Invalid categoryId or outletId format');
         return;
@@ -320,7 +295,6 @@ export class MenuItemController {
         return;
       }
 
-      // Validate name
       if (typeof name !== 'string' || name.trim().length === 0) {
         ApiResponseHandler.badRequest(res, 'name must be a non-empty string');
         return;
@@ -330,20 +304,17 @@ export class MenuItemController {
         return;
       }
 
-      // Validate price
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice < 0) {
         ApiResponseHandler.badRequest(res, 'Price cannot be negative');
         return;
       }
 
-      // Validate description if provided
       if (description && (typeof description !== 'string' || description.length > 500)) {
         ApiResponseHandler.badRequest(res, 'Description cannot exceed 500 characters');
         return;
       }
 
-      // Validate SKU if provided
       if (sku) {
         if (typeof sku !== 'string' || sku.length > 50) {
           ApiResponseHandler.badRequest(res, 'SKU cannot exceed 50 characters');
@@ -351,7 +322,6 @@ export class MenuItemController {
         }
       }
 
-      // Validate displayOrder
       const parsedDisplayOrder = Number(displayOrder);
       if (isNaN(parsedDisplayOrder) || parsedDisplayOrder < 0) {
         ApiResponseHandler.badRequest(res, 'displayOrder must be a non-negative number');
@@ -404,10 +374,6 @@ export class MenuItemController {
     }
   }
 
-  /**
-   * Toggle availability status of a menu item
-   * PATCH /menu-items/:id/availability
-   */
   static async toggleAvailability(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -459,10 +425,6 @@ export class MenuItemController {
     }
   }
 
-  /**
-   * Soft-delete a menu item and cascade soft-deletes to variants and addons
-   * DELETE /menu-items/:id
-   */
   static async deleteMenuItem(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

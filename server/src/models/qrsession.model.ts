@@ -126,7 +126,6 @@ qrSessionSchema.index({ outletId: 1 });
 qrSessionSchema.index({ tableId: 1, status: 1 });
 qrSessionSchema.index({ isDeleted: 1 });
 
-// Generate unique sessionToken pre-save if not provided
 qrSessionSchema.pre('save', function (this: IQRSession, next) {
   if (!this.sessionToken) {
     this.sessionToken = 'SESS-' + crypto.randomBytes(16).toString('hex').toUpperCase();

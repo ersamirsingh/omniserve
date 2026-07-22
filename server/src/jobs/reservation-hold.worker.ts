@@ -10,7 +10,6 @@ async function checkExpiredTableLocks() {
   try {
     const now = new Date();
 
-    // 1. Process expired locks explicitly
     const expiredLocks = await TableLock.find({ expiresAt: { $lte: now } });
     for (const lock of expiredLocks) {
       const table = await Table.findById(lock.tableId);
@@ -18,19 +17,18 @@ async function checkExpiredTableLocks() {
         if (table.activeSessionId) {
           const session = await QRSession.findById(table.activeSessionId);
           if (session) {
-            // Count active orders (exclude cancelled ones)
+
             const ordersCount = await Order.countDocuments({
               "diningContext.sessionId": session._id,
               orderStatus: { $ne: "CANCELLED" }
             });
 
             if (ordersCount === 0) {
-              // Close session
+
               session.status = "EXPIRED";
               session.closedAt = now;
               await session.save();
 
-              // Free table
               const statusChanged = !["AVAILABLE", "RESERVED", "CLEANING"].includes(table.operationalStatus);
               table.activeSessionId = null;
               if (statusChanged) {
@@ -39,7 +37,7 @@ async function checkExpiredTableLocks() {
               await table.save();
 
               if (statusChanged) {
-                // Broadcast event
+
                 await EventBusService.publishTableAvailable(
                   table.tenantId,
                   table.outletId,
@@ -55,7 +53,7 @@ async function checkExpiredTableLocks() {
               }
             }
           } else {
-            // Active session record doesn't exist, just free table
+
             table.activeSessionId = null;
             table.operationalStatus = "AVAILABLE";
             await table.save();
@@ -74,7 +72,7 @@ async function checkExpiredTableLocks() {
             );
           }
         } else {
-          // No active session, just free table
+
           table.operationalStatus = "AVAILABLE";
           await table.save();
 
@@ -92,11 +90,10 @@ async function checkExpiredTableLocks() {
           );
         }
       }
-      // Delete the expired lock
+
       await TableLock.deleteOne({ _id: lock._id });
     }
 
-    // 2. Process tables that are occupied but have no TableLock document in DB
     const occupiedTables = await Table.find({
       operationalStatus: { $in: ["OCCUPIED", "ORDERING"] },
       activeSessionId: { $ne: null }
@@ -109,10 +106,10 @@ async function checkExpiredTableLocks() {
 
       for (const table of occupiedTables) {
         if (!lockedTableIdSet.has(table._id.toString())) {
-          // No lock exists in DB (meaning it expired and was deleted by TTL, or was never created)
+
           const session = await QRSession.findById(table.activeSessionId);
           if (session) {
-            // If the session was created more than 5 minutes ago, check if we should expire it
+
             const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
             if (session.openedAt <= fiveMinutesAgo) {
               const ordersCount = await Order.countDocuments({
@@ -144,7 +141,7 @@ async function checkExpiredTableLocks() {
               }
             }
           } else {
-            // Session is missing, free table
+
             table.activeSessionId = null;
             table.operationalStatus = "AVAILABLE";
             await table.save();
@@ -171,7 +168,7 @@ async function checkExpiredTableLocks() {
 }
 
 export function startReservationHoldWorker() {
-  // Check expired table locks every 10 seconds
+
   setInterval(checkExpiredTableLocks, 10 * 1000);
 
   setInterval(async () => {
@@ -179,7 +176,6 @@ export function startReservationHoldWorker() {
       const now = new Date();
       const fifteenMinsFromNow = new Date(now.getTime() + 15 * 60 * 1000);
 
-      // Find all CONFIRMED reservations starting within the next 15 minutes
       const impendingReservations = await Reservation.find({
         status: "CONFIRMED",
         scheduledAt: { $lte: fifteenMinsFromNow },
@@ -189,8 +185,7 @@ export function startReservationHoldWorker() {
 
       for (const res of impendingReservations) {
         if (!res.tableId) continue;
-        
-        // Update reservation to HOLD atomically
+
         const updatedRes = await Reservation.findOneAndUpdate(
           { _id: res._id, status: "CONFIRMED" },
           { $set: { status: "HOLD" } },
@@ -198,7 +193,7 @@ export function startReservationHoldWorker() {
         );
 
         if (updatedRes) {
-          // Update table to RESERVED
+
           await TableService.updateTableOperationalStatus(
             res.tenantId.toString(),
             res.outletId.toString(),
@@ -211,5 +206,5 @@ export function startReservationHoldWorker() {
     } catch (error) {
       console.error("[ReservationHoldWorker] Error checking hold windows:", error);
     }
-  }, 60 * 1000); // Run every minute
+  }, 60 * 1000);
 }

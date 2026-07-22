@@ -2,10 +2,7 @@ import { AggregationTools } from './aggregation.tools.js';
 import { IScopeFilter } from '../router/query-router.js';
 
 export class ToolExecutor {
-  /**
-   * Executes a registered structured aggregation tool securely.
-   * Forces the injected security scope into the tool call parameters.
-   */
+
   static async execute(
     toolName: string,
     rawParams: Record<string, any>,
@@ -13,7 +10,6 @@ export class ToolExecutor {
   ): Promise<any> {
     const tenantId = securityScope.tenantId;
     const outletId = securityScope.outletId;
-
 
     switch (toolName) {
       case 'getRevenueByPeriod':
@@ -82,9 +78,6 @@ export class ToolExecutor {
     }
   }
 
-  /**
-   * Returns a schema declaration of all tools to supply to the LLM.
-   */
   static getToolsSchema(): any[] {
     return [
       {

@@ -3,9 +3,7 @@ import Subscription, { ISubscription } from "../../models/subscription.model.js"
 import { SubscriptionPlan, SubscriptionStatus } from "../../models/enums.js";
 
 export class SubscriptionService {
-  /**
-   * Create a new subscription for a tenant (cancels other active subscriptions)
-   */
+
   static async createSubscription(
     tenantId: string,
     plan: SubscriptionPlan,
@@ -21,7 +19,7 @@ export class SubscriptionService {
     session.startTransaction();
 
     try {
-      // Deactivate all previous active subscriptions for this tenant
+
       await Subscription.updateMany(
         {
           tenantId: tenantObjectId,
@@ -57,9 +55,6 @@ export class SubscriptionService {
     }
   }
 
-  /**
-   * Get current subscription for a tenant (new spec format)
-   */
   static async getCurrentSubscription(tenantId: string): Promise<ISubscription | null> {
     const now = new Date();
 
@@ -72,9 +67,6 @@ export class SubscriptionService {
     });
   }
 
-  /**
-   * Get all subscriptions for a tenant (including inactive/expired)
-   */
   static async getSubscriptionsByTenantId(
     tenantId: string,
     limit: number = 10,
@@ -98,9 +90,6 @@ export class SubscriptionService {
     return { subscriptions, total };
   }
 
-  /**
-   * Get subscription by ID (tenant isolated)
-   */
   static async getSubscriptionById(subscriptionId: string, tenantId: string): Promise<ISubscription | null> {
     return await Subscription.findOne({
       _id: new Types.ObjectId(subscriptionId),
@@ -109,9 +98,6 @@ export class SubscriptionService {
     });
   }
 
-  /**
-   * Check if subscription is active and not expired (tenant isolated)
-   */
   static async isSubscriptionActive(subscriptionId: string): Promise<boolean> {
     const subscription = await Subscription.findById(subscriptionId);
 
@@ -125,9 +111,6 @@ export class SubscriptionService {
     );
   }
 
-  /**
-   * Update subscription status (tenant isolated)
-   */
   static async updateSubscriptionStatus(
     subscriptionId: string,
     tenantId: string,
@@ -148,9 +131,6 @@ export class SubscriptionService {
     );
   }
 
-  /**
-   * Cancel subscription - Set status = CANCELLED (new spec, does not soft delete)
-   */
   static async cancelSubscription(
     subscriptionId: string,
     tenantId: string,

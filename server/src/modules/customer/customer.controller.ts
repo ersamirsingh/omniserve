@@ -4,14 +4,11 @@ import { CustomerService } from "./customer.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 
 export class CustomerController {
-  // Regex patterns from the customer model
+
   private static PHONE_REGEX = /^\+?[\d\s\-().]{7,20}$/;
   private static EMAIL_REGEX = /^\S+@\S+\.\S+$/;
   private static PINCODE_REGEX = /^\d{6}$/;
 
-  /**
-   * Helper to validate coordinate and location object structures
-   */
   private static validateAddressPayload(res: Response, address: any): boolean {
     if (address.pincode && !this.PINCODE_REGEX.test(address.pincode)) {
       ApiResponseHandler.badRequest(
@@ -48,10 +45,6 @@ export class CustomerController {
     return true;
   }
 
-  /**
-   * Create or Upsert a Customer
-   * POST /customers
-   */
   static async upsertCustomer(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -64,7 +57,6 @@ export class CustomerController {
 
       const { firstName, lastName, phone, email, address } = req.body;
 
-      // Validate required fields
       if (!firstName || !phone) {
         ApiResponseHandler.badRequest(res, "firstName and phone are required");
         return;
@@ -111,7 +103,6 @@ export class CustomerController {
         return;
       }
 
-      // Address structure validation if provided
       if (address && !CustomerController.validateAddressPayload(res, address)) {
         return;
       }
@@ -156,10 +147,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * List Customers
-   * GET /customers
-   */
   static async listCustomers(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -217,10 +204,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Get Customer Details by ID
-   * GET /customers/:id
-   */
   static async getCustomerById(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -272,10 +255,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Replace/Update Customer Details
-   * PUT /customers/:id
-   */
   static async updateCustomer(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -385,10 +364,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Soft-delete a Customer
-   * DELETE /customers/:id
-   */
   static async deleteCustomer(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -424,10 +399,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Add a new Address to Customer profile
-   * POST /customers/:id/addresses
-   */
   static async addAddress(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -476,10 +447,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Update an Address
-   * PATCH /customers/:id/addresses/:addrId
-   */
   static async updateAddress(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {
@@ -535,10 +502,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Delete an Address
-   * DELETE /customers/:id/addresses/:addrId
-   */
   static async deleteAddress(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user?.tenantId) {

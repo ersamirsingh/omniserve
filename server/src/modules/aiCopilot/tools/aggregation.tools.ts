@@ -3,9 +3,7 @@ import * as Models from '../../../models/index.js';
 import { AnalyticsService } from '../../analytics/analytics.service.js';
 
 export class AggregationTools {
-  /**
-   * Safe helper to convert a string ID to mongoose Types.ObjectId.
-   */
+
   private static toObjectId(id?: string): mongoose.Types.ObjectId | null {
     if (!id) return null;
     try {
@@ -15,9 +13,6 @@ export class AggregationTools {
     }
   }
 
-  /**
-   * 1. Get Revenue aggregated by period (day, week, month)
-   */
   static async getRevenueByPeriod(
     tenantId: string,
     outletId?: string,
@@ -30,7 +25,7 @@ export class AggregationTools {
     const matchStage: any = {
       tenantId: tId,
       isDeleted: false,
-      paymentStatus: 'SUCCESS', // only count paid orders
+      paymentStatus: 'SUCCESS',
     };
 
     if (outletId) {
@@ -59,9 +54,6 @@ export class AggregationTools {
     return Models.Order.aggregate(pipeline);
   }
 
-  /**
-   * 2. Get Order count and statistics grouped by status
-   */
   static async getOrderCountAndStatus(
     tenantId: string,
     outletId?: string,
@@ -102,9 +94,6 @@ export class AggregationTools {
     return Models.Order.aggregate(pipeline);
   }
 
-  /**
-   * 3. Compute payment success/failure rates
-   */
   static async getPaymentSuccessRate(
     tenantId: string,
     outletId?: string,
@@ -134,7 +123,7 @@ export class AggregationTools {
       { $match: matchStage },
       {
         $group: {
-          _id: '$status', // Success, Failed, Pending, Refunded
+          _id: '$status',
           count: { $sum: 1 },
           totalAmount: { $sum: '$amount' },
         },
@@ -144,9 +133,6 @@ export class AggregationTools {
     return Models.Payment.aggregate(pipeline);
   }
 
-  /**
-   * 4. Top Menu Items ordered
-   */
   static async getTopMenuItems(
     tenantId: string,
     outletId?: string,
@@ -157,7 +143,6 @@ export class AggregationTools {
     const tId = this.toObjectId(tenantId);
     if (!tId) throw new Error('Invalid tenantId');
 
-    // OrderItems match stage
     const matchStage: any = {
       tenantId: tId,
       isDeleted: false,
@@ -165,7 +150,6 @@ export class AggregationTools {
 
     const pipeline: any[] = [{ $match: matchStage }];
 
-    // If outletId is provided, we must lookup Order to filter by outletId
     if (outletId) {
       const oId = this.toObjectId(outletId);
       if (oId) {
@@ -216,9 +200,6 @@ export class AggregationTools {
     return Models.OrderItem.aggregate(pipeline);
   }
 
-  /**
-   * 5. Get low inventory alerts mapped with Menu Item name
-   */
   static async getLowInventoryAlerts(tenantId: string, outletId?: string): Promise<any[]> {
     const tId = this.toObjectId(tenantId);
     if (!tId) throw new Error('Invalid tenantId');
@@ -259,9 +240,6 @@ export class AggregationTools {
     return Models.Inventory.aggregate(pipeline);
   }
 
-  /**
-   * 6. Analyze review sentiment trends
-   */
   static async getReviewSentimentTrends(tenantId: string, outletId?: string): Promise<any[]> {
     const tId = this.toObjectId(tenantId);
     if (!tId) throw new Error('Invalid tenantId');
@@ -280,7 +258,7 @@ export class AggregationTools {
       { $match: matchStage },
       {
         $group: {
-          _id: '$sentiment', // Positive, Negative, Neutral
+          _id: '$sentiment',
           averageRating: { $avg: '$rating' },
           count: { $sum: 1 },
         },
@@ -290,25 +268,16 @@ export class AggregationTools {
     return Models.ReviewAnalytics.aggregate(pipeline);
   }
 
-  /**
-   * 7. Get peak hours density data
-   */
   static async getPeakHours(tenantId: string, outletId?: string): Promise<any[]> {
     const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
     return res.peakHours;
   }
 
-  /**
-   * 8. Get customer retention repeat rate
-   */
   static async getCustomerRetention(tenantId: string, outletId?: string): Promise<number> {
     const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
     return res.customerRetention;
   }
 
-  /**
-   * 9. Get table turnover and average reservation duration
-   */
   static async getTableTurnoverAndReservations(tenantId: string, outletId?: string): Promise<any> {
     const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
     return {
@@ -317,9 +286,6 @@ export class AggregationTools {
     };
   }
 
-  /**
-   * 10. Get order volume grouped by sales channel
-   */
   static async getOrderVolumeByChannel(tenantId: string, outletId?: string): Promise<any[]> {
     const res = await AnalyticsService.getExtendedStats(tenantId, outletId ? [outletId] : null);
     return res.channelVolume;

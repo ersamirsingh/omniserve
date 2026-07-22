@@ -4,9 +4,7 @@ import MenuItem from "../../models/menuItem.model.js";
 import { EventBusService } from "../../events/eventBus.js";
 
 export class VariantService {
-  /**
-   * Validate that the parent menu item exists, belongs to the tenant, and is active (not soft-deleted)
-   */
+
   static async validateMenuItemOwnership(menuItemId: string, tenantId: string): Promise<boolean> {
     try {
       const menuItem = await MenuItem.findOne({
@@ -20,9 +18,6 @@ export class VariantService {
     }
   }
 
-  /**
-   * Create a new variant under a menu item
-   */
   static async createVariant(
     tenantId: string,
     data: any,
@@ -44,8 +39,7 @@ export class VariantService {
     });
 
     const saved = await variant.save();
-    
-    // Fetch parent menu item to get outletId
+
     const menuItem = await MenuItem.findById(saved.menuItemId);
     if (menuItem) {
       EventBusService.publishMenuChanged(
@@ -61,9 +55,6 @@ export class VariantService {
     return saved;
   }
 
-  /**
-   * Retrieve list of variants for a parent menu item
-   */
   static async getVariants(tenantId: string, menuItemId: string): Promise<IVariant[]> {
     return await Variant.find({
       menuItemId: new Types.ObjectId(menuItemId),
@@ -72,9 +63,6 @@ export class VariantService {
     }).sort({ createdAt: 1 });
   }
 
-  /**
-   * Retrieve variant by ID and tenant ID
-   */
   static async getVariantById(id: string, tenantId: string): Promise<IVariant | null> {
     return await Variant.findOne({
       _id: new Types.ObjectId(id),
@@ -83,16 +71,13 @@ export class VariantService {
     });
   }
 
-  /**
-   * Replace/Update variant details (PUT replacement)
-   */
   static async updateVariant(
     id: string,
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<IVariant | null> {
-    // Validate parent menu item ownership if it's changing or provided
+
     if (data.menuItemId) {
       const isOwner = await this.validateMenuItemOwnership(data.menuItemId, tenantId);
       if (!isOwner) {
@@ -138,9 +123,6 @@ export class VariantService {
     return updated;
   }
 
-  /**
-   * Soft-delete a variant
-   */
   static async deleteVariant(
     id: string,
     tenantId: string,

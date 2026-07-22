@@ -29,7 +29,7 @@ export interface ICustomer extends Document {
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
-  // virtuals
+
   fullName: string;
 }
 

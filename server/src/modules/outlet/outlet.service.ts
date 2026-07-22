@@ -5,9 +5,7 @@ import { UserStatus } from "../../models/enums.js";
 import { escapeRegex } from "../../utils/sanitize.utils.js";
 
 export class OutletService {
-  /**
-   * Validate that a restaurant exists, is not soft-deleted, and belongs to the specified tenant
-   */
+
   static async validateRestaurantOwnership(restaurantId: string, tenantId: string): Promise<boolean> {
     try {
       const restaurant = await Restaurant.findOne({
@@ -21,15 +19,12 @@ export class OutletService {
     }
   }
 
-  /**
-   * Create a new physical outlet under a restaurant
-   */
   static async createOutlet(
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<IOutlet> {
-    // Check restaurant ownership
+
     const isOwner = await this.validateRestaurantOwnership(data.restaurantId, tenantId);
     if (!isOwner) {
       throw new Error('Restaurant not found or does not belong to this tenant');
@@ -48,9 +43,6 @@ export class OutletService {
     return await outlet.save();
   }
 
-  /**
-   * List outlets with filters and pagination
-   */
   static async getOutlets(
     tenantId: string,
     filters: { restaurantId?: string; status?: UserStatus; city?: string; limit: number; skip: number; ids?: string[] }
@@ -69,7 +61,7 @@ export class OutletService {
     }
 
     if (filters.city) {
-      // Case-insensitive query for city — escaped to prevent ReDoS
+
       query.city = { $regex: new RegExp(`^${escapeRegex(filters.city)}$`, 'i') };
     }
 
@@ -87,9 +79,6 @@ export class OutletService {
     return { outlets, total };
   }
 
-  /**
-   * Get an outlet by ID and Tenant ID
-   */
   static async getOutletById(id: string, tenantId: string): Promise<IOutlet | null> {
     return await Outlet.findOne({
       _id: new Types.ObjectId(id),
@@ -98,16 +87,13 @@ export class OutletService {
     });
   }
 
-  /**
-   * Replace/Update outlet details (PUT operation)
-   */
   static async updateOutletDetails(
     id: string,
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<IOutlet | null> {
-    // If restaurantId is being modified, validate it first
+
     if (data.restaurantId) {
       const isOwner = await this.validateRestaurantOwnership(data.restaurantId, tenantId);
       if (!isOwner) {
@@ -145,9 +131,6 @@ export class OutletService {
     );
   }
 
-  /**
-   * Toggle status of an outlet
-   */
   static async updateOutletStatus(
     id: string,
     tenantId: string,
@@ -168,9 +151,6 @@ export class OutletService {
     );
   }
 
-  /**
-   * Replace operating hours array
-   */
   static async updateOperatingHours(
     id: string,
     tenantId: string,
@@ -191,9 +171,6 @@ export class OutletService {
     );
   }
 
-  /**
-   * Soft-delete an outlet
-   */
   static async deleteOutlet(
     id: string,
     tenantId: string,
@@ -214,9 +191,6 @@ export class OutletService {
     );
   }
 
-  /**
-   * Geospatial aggregation to find outlets near search center
-   */
   static async findNearbyOutlets(
     lng: number,
     lat: number,
@@ -224,7 +198,7 @@ export class OutletService {
     tenantId?: string
   ): Promise<any[]> {
     const geoQuery: any = { isDeleted: false };
-    
+
     if (tenantId) {
       geoQuery.tenantId = new Types.ObjectId(tenantId);
     }

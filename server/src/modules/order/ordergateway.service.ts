@@ -204,8 +204,7 @@ export class OrderGatewayService {
     );
 
     try {
-      // DEV/TEST ONLY: chaos mode simulation via rawPayload._chaosMode field.
-      // This block is intentionally disabled in production to prevent accidental error injection.
+
       const rawPay = externalOrder.rawPayload as any;
       if (process.env.NODE_ENV !== "production" && rawPay && rawPay._chaosMode) {
         if (rawPay._chaosMode === "VALIDATION_ERROR") {
@@ -229,7 +228,6 @@ export class OrderGatewayService {
         throw new Error("Canonical order tenant does not match external order tenant");
       }
 
-      // Resolve the internal outletId from the external outletId
       const internalOutletId = await MappingResolutionService.resolveOutletId(
         canonicalOrder.tenantId,
         canonicalOrder.provider,
@@ -256,12 +254,11 @@ export class OrderGatewayService {
         input.actorUserId
       );
 
-      // Record successful payment transaction if prepaid/online payment succeeded
       if (canonicalOrder.payment && canonicalOrder.payment.status === "SUCCESS") {
         try {
           const paymentMethod = canonicalOrder.payment.mode === "CASH" ? PaymentMethod.CASH : PaymentMethod.UPI;
           const transactionId = canonicalOrder.payment.transactionId || `TXN-${canonicalOrder.provider}-${canonicalOrder.externalOrderId}`;
-          
+
           await PaymentService.createPayment(
             externalOrder.tenantId.toString(),
             {
@@ -276,8 +273,7 @@ export class OrderGatewayService {
             input.actorUserId ? input.actorUserId.toString() : undefined
           );
         } catch (payError: any) {
-          // Idempotency: ignore duplicate transaction ID errors (both MongoDB 11000 and
-          // PaymentService's manual uniqueness check) — payment was already recorded.
+
           const isDuplicate =
             payError?.code === 11000 ||
             (payError?.message && payError.message.includes("transaction ID already exists"));
@@ -387,7 +383,6 @@ export class OrderGatewayService {
       throw new Error(`External order in status ${externalOrder.status} cannot be replayed`);
     }
 
-    // Reset external order to RECEIVED status
     await ExternalOrder.updateOne(
       { _id: externalOrder._id, tenantId: externalOrder.tenantId },
       {
@@ -412,7 +407,6 @@ export class OrderGatewayService {
       actorUserId,
     });
 
-    // Reprocess
     return await this.processExternalOrder({
       externalOrderId: externalOrder._id.toString(),
       tenantId,
@@ -587,12 +581,6 @@ export class OrderGatewayService {
     };
   }
 
-  /**
-   * TECHNICAL DEBT NOTE:
-   * Order.source currently carries both provider-origin values (e.g. SWIGGY, ZOMATO, WEBSITE)
-   * and fallback fulfillment-derived values (e.g. DINE_IN, TAKEAWAY, DELIVERY).
-   * Persisted orders do not separate provider channel vs fulfillment type natively.
-   */
   private static mapCanonicalSourceToInternal(canonicalOrder: CanonicalOrder): OrderSource {
     const provStr = String(canonicalOrder.provider || "").toUpperCase();
     if (provStr === "QR" || provStr === "QR_DINE_IN") return OrderSource.QR_DINE_IN;
@@ -803,5 +791,3 @@ export class OrderGatewayService {
     }
   }
 }
-
-

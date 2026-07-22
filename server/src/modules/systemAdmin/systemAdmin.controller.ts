@@ -15,9 +15,7 @@ import {
 import { UserStatus } from '../../models/enums.js';
 
 export class SystemAdminController {
-  /**
-   * Invite a new system admin
-   */
+
   static async inviteAdmin(req: Request, res: Response): Promise<void> {
     try {
       const validated = sendInviteSchema.parse(req.body);
@@ -41,9 +39,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * List all invites
-   */
   static async getInvites(req: Request, res: Response): Promise<void> {
     try {
       const invites = await SystemAdminService.getInvites();
@@ -53,9 +48,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Revoke a pending invite
-   */
   static async revokeInvite(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -73,9 +65,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Accept invite and create system admin user
-   */
   static async acceptInvite(req: Request, res: Response): Promise<void> {
     try {
       const validated = acceptInviteSchema.parse(req.body);
@@ -88,7 +77,6 @@ export class SystemAdminController {
         req.get('user-agent')
       );
 
-      // Set auth cookies for auto-login
       res.cookie('accessToken', result.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -113,9 +101,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * List tenants with filters, search, and pagination
-   */
   static async listTenants(req: Request, res: Response): Promise<void> {
     try {
       const search = req.query.search as string | undefined;
@@ -143,9 +128,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * View details of a single tenant
-   */
   static async getTenantDetail(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -156,9 +138,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Suspend or Activate a tenant, cascading to outlets
-   */
   static async updateTenantStatus(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -185,9 +164,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Soft delete a tenant, cascading to outlets
-   */
   static async deleteTenant(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -218,9 +194,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Manually override a tenant's subscription plan, trial, and dates
-   */
   static async overrideSubscription(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -255,9 +228,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Global search across all tenants for a user by email or phone
-   */
   static async searchUsers(req: Request, res: Response): Promise<void> {
     try {
       const search = req.query.search as string || '';
@@ -268,9 +238,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * View audit logs across all tenants
-   */
   static async getAuditLogs(req: Request, res: Response): Promise<void> {
     try {
       const tenantId = req.query.tenantId as string | undefined;
@@ -304,12 +271,9 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Run visual database stats diagnostics and anomaly prediction
-   */
   static async getHealthStats(req: Request, res: Response): Promise<void> {
     try {
-      // 1. Gather document counts for key models
+
       const [
         tenantsCount,
         restaurantsCount,
@@ -336,7 +300,6 @@ export class SystemAdminController {
         HelpRequest.estimatedDocumentCount().catch(() => 0),
       ]);
 
-      // 2. Fetch connection stats
       let dbStats = { db: 'omniserve', collections: 0, objects: 0, dataSize: 0, storageSize: 0, indexSize: 0 };
       try {
         if (mongoose.connection.db) {
@@ -354,10 +317,8 @@ export class SystemAdminController {
         console.error('Failed to get database stats:', err);
       }
 
-      // 3. Problem predictions / Anomaly detection checks
       const predictions: any[] = [];
 
-      // Check open support tickets count
       const openHelpTickets = await HelpRequest.countDocuments({ status: { $ne: 'RESOLVED' } }).catch(() => 0);
       if (openHelpTickets > 5) {
         predictions.push({
@@ -369,7 +330,6 @@ export class SystemAdminController {
         });
       }
 
-      // Check orders stuck in non-final states for over 12 hours
       const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
       const stuckOrders = await Order.countDocuments({
         status: { $nin: ['COMPLETED', 'CANCELLED', 'DELIVERED'] },
@@ -386,7 +346,6 @@ export class SystemAdminController {
         });
       }
 
-      // Check for high audit log volume in last 24h
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const recentAuditLogs = await AuditLog.countDocuments({ createdAt: { $gt: oneDayAgo } }).catch(() => 0);
       if (recentAuditLogs > 500) {
@@ -399,7 +358,6 @@ export class SystemAdminController {
         });
       }
 
-      // Check DB storage warning
       const indexRatio = dbStats.storageSize > 0 ? (dbStats.indexSize / dbStats.storageSize) * 100 : 0;
       if (indexRatio > 50) {
         predictions.push({
@@ -411,7 +369,6 @@ export class SystemAdminController {
         });
       }
 
-      // If no issues, add all-clear
       if (predictions.length === 0) {
         predictions.push({
           type: 'OPTIMAL',
@@ -444,9 +401,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Get DB schema graph node/edge definitions for visual map representation
-   */
   static async getSchemaGraph(req: Request, res: Response): Promise<void> {
     try {
       const nodes = [
@@ -503,9 +457,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * List all system admin tracking issues
-   */
   static async listIssues(req: Request, res: Response): Promise<void> {
     try {
       const issues = await Issue.find().sort({ updatedAt: -1 }).populate('assigneeId', 'firstName lastName email');
@@ -515,15 +466,11 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Create an issue manually
-   */
   static async createIssue(req: Request, res: Response): Promise<void> {
     try {
       const { title, description, type, priority, tenantId, restaurantId, outletId } = req.body;
       const reporterId = req.user?.userId;
 
-      // Resolve reporter user details
       let reporterName = 'System Admin';
       let reporterEmail = '';
       if (reporterId) {
@@ -555,9 +502,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Post comment/update on an issue thread
-   */
   static async addComment(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -590,7 +534,6 @@ export class SystemAdminController {
         createdAt: new Date(),
       });
 
-      // Touch updatedAt timestamp
       issue.markModified('comments');
       await issue.save();
 
@@ -600,9 +543,6 @@ export class SystemAdminController {
     }
   }
 
-  /**
-   * Change status or assignment of an issue
-   */
   static async updateIssueStatus(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -660,9 +600,7 @@ export class SystemAdminController {
       ApiResponseHandler.badRequest(res, error.message || 'Failed to update tracking issue');
     }
   }
-  /**
-   * List all system admin users (for issue assignment dropdown)
-   */
+
   static async listSystemAdmins(req: Request, res: Response): Promise<void> {
     try {
       const admins = await User.find({ role: 'SYSTEM_ADMIN', isDeleted: false })
@@ -674,4 +612,3 @@ export class SystemAdminController {
     }
   }
 }
-

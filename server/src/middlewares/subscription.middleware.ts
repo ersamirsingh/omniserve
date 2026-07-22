@@ -14,10 +14,6 @@ declare global {
   }
 }
 
-/**
- * Ensures the tenant has an active subscription or is in trial/grace period.
- * Blocks expired or payment-pending accounts.
- */
 export function requireActiveSubscription() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -47,7 +43,6 @@ export function requireActiveSubscription() {
         return;
       }
 
-      // Attach subscription details to req for downstream usage
       req.subscription = subscription;
       next();
     } catch (error: any) {
@@ -57,9 +52,6 @@ export function requireActiveSubscription() {
   };
 }
 
-/**
- * Guard that verifies if the tenant's current plan includes the requested feature flag.
- */
 export function requireFeature(featureName: string) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -94,9 +86,6 @@ export function requireFeature(featureName: string) {
   };
 }
 
-/**
- * Guards that inspect the database counts vs subscription limits to prevent over-allocation.
- */
 export function checkUsage(resource: "outlets" | "employees" | "monthlyOrders") {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

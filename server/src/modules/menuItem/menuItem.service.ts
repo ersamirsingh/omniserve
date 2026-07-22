@@ -9,9 +9,7 @@ import { EventBusService } from "../../events/eventBus.js";
 import { CacheUtils } from "../../utils/cache.utils.js";
 
 export class MenuItemService {
-  /**
-   * Helper to invalidate cache keys for a tenant/outlet
-   */
+
   private static async invalidateCache(tenantId: string, outletId: string, itemId?: string): Promise<void> {
     try {
       const promises: Promise<void>[] = [
@@ -27,11 +25,6 @@ export class MenuItemService {
     }
   }
 
-  /**
-   * Validate that:
-   * 1. The outlet exists and belongs to the tenant.
-   * 2. The category exists and belongs to the target outlet (and tenant).
-   */
   static async validateHierarchy(categoryId: string, outletId: string, tenantId: string): Promise<boolean> {
     try {
       const [category, outlet] = await Promise.all([
@@ -51,16 +44,12 @@ export class MenuItemService {
         return false;
       }
 
-      // Check if the category is assigned to the specified outlet
       return category.outletId.toString() === outletId;
     } catch {
       return false;
     }
   }
 
-  /**
-   * Create a new menu item
-   */
   static async createMenuItem(
     tenantId: string,
     data: any,
@@ -85,8 +74,7 @@ export class MenuItemService {
     });
 
     const saved = await menuItem.save();
-    
-    // Invalidate menu items cache for the tenant & outlet
+
     await this.invalidateCache(tenantId, saved.outletId.toString());
 
     await EventBusService.publishMenuChanged(
@@ -101,9 +89,6 @@ export class MenuItemService {
     return saved;
   }
 
-  /**
-   * List menu items with filters and text/regex search
-   */
   static async getMenuItems(
     tenantId: string,
     filters: { limit: number; skip: number; search?: string; categoryId?: string; outletId?: string }
@@ -147,16 +132,12 @@ export class MenuItemService {
     const total = await MenuItem.countDocuments(query);
 
     const result = { menuItems, total };
-    
-    // Cache the result for 1 hour (3600 seconds)
+
     await CacheUtils.set(cacheKey, result, 3600);
 
     return result;
   }
 
-  /**
-   * Get menu item by ID, with associated child variants and addons populated
-   */
   static async getMenuItemWithDetails(
     id: string,
     tenantId: string
@@ -196,7 +177,6 @@ export class MenuItemService {
       addons,
     };
 
-    // Cache the result for 1 hour (3600 seconds)
     await CacheUtils.set(cacheKey, result, 3600);
 
     return result;
@@ -210,16 +190,13 @@ export class MenuItemService {
     });
   }
 
-  /**
-   * Update menu item details (PUT operation replacing details)
-   */
   static async updateMenuItemDetails(
     id: string,
     tenantId: string,
     data: any,
     userId?: string
   ): Promise<IMenuItem | null> {
-    // If either hierarchy ID is being updated, validate the new relationship
+
     if (data.categoryId || data.outletId) {
       const currentItem = await MenuItem.findOne({ _id: new Types.ObjectId(id), tenantId: new Types.ObjectId(tenantId), isDeleted: false });
       if (!currentItem) {
@@ -262,7 +239,7 @@ export class MenuItemService {
     );
 
     if (updated) {
-      // Invalidate cache for old and new outlets
+
       await this.invalidateCache(tenantId, updated.outletId.toString(), id);
       if (data.outletId && data.outletId !== updated.outletId.toString()) {
         await this.invalidateCache(tenantId, data.outletId);
@@ -281,9 +258,6 @@ export class MenuItemService {
     return updated;
   }
 
-  /**
-   * Toggle menu item availability status
-   */
   static async updateAvailabilityStatus(
     id: string,
     tenantId: string,
@@ -304,7 +278,7 @@ export class MenuItemService {
     );
 
     if (updated) {
-      // Invalidate cache
+
       await this.invalidateCache(tenantId, updated.outletId.toString(), id);
 
       await EventBusService.publishMenuChanged(
@@ -320,9 +294,6 @@ export class MenuItemService {
     return updated;
   }
 
-  /**
-   * Soft-delete a menu item and cascade soft-deletes to variants and addons
-   */
   static async deleteMenuItem(
     id: string,
     tenantId: string,
@@ -346,7 +317,6 @@ export class MenuItemService {
       return null;
     }
 
-    // Cascade soft delete to associated variants and addons under the same tenant
     const updaterUser = userId ? new Types.ObjectId(userId) : null;
     await Promise.all([
       Variant.updateMany(
@@ -376,7 +346,7 @@ export class MenuItemService {
     ]);
 
     if (deletedMenuItem) {
-      // Invalidate cache
+
       await this.invalidateCache(tenantId, deletedMenuItem.outletId.toString(), id);
 
       await EventBusService.publishMenuChanged(

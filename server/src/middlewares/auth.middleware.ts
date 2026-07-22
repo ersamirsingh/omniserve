@@ -3,8 +3,6 @@ import { AuthService } from "../modules/auth/auth.service.js";
 import { TokenBlacklistService } from "../modules/auth/tokenblacklist.service.js";
 import { UserRole } from "../models/enums.js";
 
-
-
 declare global {
   namespace Express {
     interface Request {
@@ -22,7 +20,6 @@ declare global {
   }
 }
 
-/** Verify JWT access token and attach user to request */
 export const verifyToken = async (
   req: Request,
   res: Response,
@@ -36,7 +33,6 @@ export const verifyToken = async (
       return;
     }
 
-    // Check if token is blacklisted (revoked)
     const isBlacklisted = await TokenBlacklistService.isBlacklisted(token);
     if (isBlacklisted) {
       res.status(401).json({
@@ -61,7 +57,6 @@ export const verifyToken = async (
   }
 };
 
-/** Verify JWT access token from cookies */
 export const verifyTokenFromCookie = (
   req: Request,
   res: Response,
@@ -89,7 +84,6 @@ export const verifyTokenFromCookie = (
   }
 };
 
-/** Middleware to check if user has required role(s) */
 export const authorizeRole = (...roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -109,7 +103,6 @@ export const authorizeRole = (...roles: UserRole[]) => {
   };
 };
 
-/** Middleware to check if user is super admin */
 export const isSuperAdmin = (
   req: Request,
   res: Response,
@@ -131,7 +124,6 @@ export const isSuperAdmin = (
   next();
 };
 
-/** Middleware to check if user is restaurant owner or super admin */
 export const isRestaurantOwner = (
   req: Request,
   res: Response,
@@ -159,7 +151,6 @@ export const isRestaurantOwner = (
   next();
 };
 
-/**  Middleware to check if user is outlet manager or above */
 export const isOutletManager = (
   req: Request,
   res: Response,
@@ -188,7 +179,6 @@ export const isOutletManager = (
   next();
 };
 
-/** Optional authentication middleware - doesn't fail if no token */
 export const optionalAuth = (
   req: Request,
   res: Response,

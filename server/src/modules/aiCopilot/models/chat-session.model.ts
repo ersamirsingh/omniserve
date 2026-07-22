@@ -80,10 +80,8 @@ const chatSessionSchema = new Schema<IChatSession>(
   }
 );
 
-// Indexes for fast history lookups
 chatSessionSchema.index({ userId: 1, isDeleted: 1, updatedAt: -1 });
 
-// Soft delete query hooks
 chatSessionSchema.pre('find', function () {
   this.where({ isDeleted: false });
 });

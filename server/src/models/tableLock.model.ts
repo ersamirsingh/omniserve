@@ -15,7 +15,7 @@ const tableLockSchema = new Schema<ITableLock>({
 });
 
 tableLockSchema.index({ tableId: 1 }, { unique: true });
-tableLockSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Native Mongoose TTL index
+tableLockSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const TableLock: Model<ITableLock> = mongoose.models.TableLock || mongoose.model<ITableLock>('TableLock', tableLockSchema);
 export default TableLock;

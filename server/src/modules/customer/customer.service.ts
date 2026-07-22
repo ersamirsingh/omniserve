@@ -3,9 +3,7 @@ import Customer, { ICustomer, IAddress } from "../../models/customer.model.js";
 import { escapeRegex } from "../../utils/sanitize.utils.js";
 
 export class CustomerService {
-  /**
-   * Helper to verify if phone or email are already taken by another active customer
-   */
+
   private static async checkConflicts(
     tenantId: string,
     phone: string,
@@ -13,8 +11,7 @@ export class CustomerService {
     excludeCustomerId?: string
   ): Promise<void> {
     const tenantObjectId = new Types.ObjectId(tenantId);
-    
-    // Check phone conflict
+
     const phoneConflictQuery: any = {
       tenantId: tenantObjectId,
       phone,
@@ -28,7 +25,6 @@ export class CustomerService {
       throw new Error('A customer with this phone number already exists under this tenant.');
     }
 
-    // Check email conflict
     if (email) {
       const emailConflictQuery: any = {
         tenantId: tenantObjectId,
@@ -45,13 +41,6 @@ export class CustomerService {
     }
   }
 
-  /**
-   * Upsert Customer:
-   * 1. Search by phone + tenantId.
-   * 2. If not found, search by email + tenantId (if email is provided).
-   * 3. If found, update the customer.
-   * 4. If not found, create a new customer.
-   */
   static async upsertCustomer(
     tenantId: string,
     data: any,
@@ -63,14 +52,12 @@ export class CustomerService {
 
     let customer: ICustomer | null = null;
 
-    // 1. Search by phone
     customer = await Customer.findOne({
       tenantId: tenantObjectId,
       phone: phoneClean,
       isDeleted: false,
     });
 
-    // 2. Search by email if not found by phone
     if (!customer && emailClean) {
       customer = await Customer.findOne({
         tenantId: tenantObjectId,
@@ -80,17 +67,15 @@ export class CustomerService {
     }
 
     if (customer) {
-      // Perform conflict checks before updating
+
       await this.checkConflicts(tenantId, phoneClean, emailClean, customer._id.toString());
 
-      // Update fields
       customer.firstName = data.firstName;
       if (data.lastName !== undefined) customer.lastName = data.lastName;
       customer.phone = phoneClean;
       if (emailClean !== undefined) customer.email = emailClean;
       customer.updatedBy = userId ? new Types.ObjectId(userId) : null;
 
-      // Handle address if passed in the body
       if (data.address) {
         const isFirst = customer.address.length === 0;
         const newAddress: any = {
@@ -109,10 +94,9 @@ export class CustomerService {
       const savedCustomer = await customer.save();
       return { customer: savedCustomer, isNew: false };
     } else {
-      // Verify no conflicts for a new customer
+
       await this.checkConflicts(tenantId, phoneClean, emailClean);
 
-      // Create new customer
       const newCustomer = new Customer({
         firstName: data.firstName,
         lastName: data.lastName,
@@ -127,11 +111,10 @@ export class CustomerService {
         updatedBy: userId ? new Types.ObjectId(userId) : null,
       });
 
-      // Handle address if passed in the body
       if (data.address) {
         const newAddress = {
           ...data.address,
-          isDefault: true, // first address must be default
+          isDefault: true,
         };
         newCustomer.address.push(newAddress);
       }
@@ -141,9 +124,6 @@ export class CustomerService {
     }
   }
 
-  /**
-   * List customers with pagination and search (first/last name, phone, email)
-   */
   static async getCustomers(
     tenantId: string,
     filters: { limit: number; skip: number; search?: string }
@@ -175,9 +155,6 @@ export class CustomerService {
     return { customers, total };
   }
 
-  /**
-   * Retrieve customer details by ID (tenant isolated)
-   */
   static async getCustomerById(id: string, tenantId: string): Promise<ICustomer | null> {
     return await Customer.findOne({
       _id: new Types.ObjectId(id),
@@ -186,9 +163,6 @@ export class CustomerService {
     });
   }
 
-  /**
-   * Update Customer details (PUT replacement)
-   */
   static async updateCustomer(
     id: string,
     tenantId: string,
@@ -208,7 +182,6 @@ export class CustomerService {
     const phoneClean = data.phone.trim();
     const emailClean = data.email ? data.email.trim().toLowerCase() : undefined;
 
-    // Check conflicts excluding the current customer
     await this.checkConflicts(tenantId, phoneClean, emailClean, id);
 
     customer.firstName = data.firstName;
@@ -220,21 +193,12 @@ export class CustomerService {
     return await customer.save();
   }
 
-  /**
-   * Soft-delete customer
-   */
   static async deleteCustomer(
     id: string,
     tenantId: string,
     userId?: string
   ): Promise<ICustomer | null> {
-    /**
-     * Future Order integration point:
-     * When deleting a customer, we could verify if they have any active pending orders.
-     * e.g.:
-     * const activeOrders = await Order.countDocuments({ customerId: id, orderStatus: { $ne: OrderStatus.DELIVERED } });
-     * if (activeOrders > 0) throw new Error("Cannot delete customer with active orders");
-     */
+
     return await Customer.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),
@@ -249,9 +213,6 @@ export class CustomerService {
     );
   }
 
-  /**
-   * Add a new Address to a Customer
-   */
   static async addAddress(
     customerId: string,
     tenantId: string,
@@ -286,14 +247,10 @@ export class CustomerService {
     customer.updatedBy = userId ? new Types.ObjectId(userId) : null;
 
     const savedCustomer = await customer.save();
-    
-    // Return the newly added address subdocument (last in array)
+
     return savedCustomer.address[savedCustomer.address.length - 1] || null;
   }
 
-  /**
-   * Update an existing Address
-   */
   static async updateAddress(
     customerId: string,
     tenantId: string,
@@ -324,7 +281,7 @@ export class CustomerService {
       });
       addressSubdoc.isDefault = true;
     } else if (addressData.isDefault === false && addressSubdoc.isDefault) {
-      // If we are explicitly unsetting the default, ensure we don't leave customer without a default address if others exist
+
       addressSubdoc.isDefault = false;
       const otherAddr = customer.address.find((addr: any) => addr._id.toString() !== addrId);
       if (otherAddr) {
@@ -332,7 +289,6 @@ export class CustomerService {
       }
     }
 
-    // Apply other updates
     if (addressData.label !== undefined) addressSubdoc.label = addressData.label;
     if (addressData.line1 !== undefined) addressSubdoc.line1 = addressData.line1;
     if (addressData.line2 !== undefined) addressSubdoc.line2 = addressData.line2;
@@ -347,9 +303,6 @@ export class CustomerService {
     return (savedCustomer.address as any).id(addrId) || null;
   }
 
-  /**
-   * Delete an Address from Customer (supports auto-promoting fallback default address)
-   */
   static async deleteAddress(
     customerId: string,
     tenantId: string,
@@ -373,10 +326,8 @@ export class CustomerService {
 
     const wasDefault = addressSubdoc.isDefault;
 
-    // Remove the subdocument from array
     addressSubdoc.deleteOne();
 
-    // Auto-promote a replacement default address if the deleted one was the default
     if (wasDefault && customer.address.length > 0) {
       (customer.address[0] as any).isDefault = true;
     }

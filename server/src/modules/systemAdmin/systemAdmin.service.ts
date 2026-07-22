@@ -14,9 +14,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { UserRole, UserStatus, AuditAction, SubscriptionPlan } from '../../models/enums.js';
 
 export class SystemAdminService {
-  /**
-   * Create an invitation for a new system admin
-   */
+
   static async inviteSystemAdmin(
     email: string,
     invitedByUserId: string,
@@ -25,13 +23,11 @@ export class SystemAdminService {
   ): Promise<any> {
     const formattedEmail = email.toLowerCase().trim();
 
-    // 1. Check if email is already a system admin
     const existingUser = await User.findOne({ email: formattedEmail, role: UserRole.SYSTEM_ADMIN });
     if (existingUser) {
       throw new Error('Email is already registered as a system administrator');
     }
 
-    // 2. Check if there is an active pending invite
     const activeInvite = await SystemAdminInvite.findOne({
       email: formattedEmail,
       status: 'PENDING',
@@ -41,15 +37,12 @@ export class SystemAdminService {
       throw new Error('A pending invite already exists for this email');
     }
 
-    // 3. Generate raw token and hash it
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    // 4. Set expiration 48h from now
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 48);
 
-    // 5. Create invite document
     const invite = new SystemAdminInvite({
       email: formattedEmail,
       invitedBy: new Types.ObjectId(invitedByUserId),
@@ -59,14 +52,12 @@ export class SystemAdminService {
     });
     await invite.save();
 
-    // 6. Get inviting user's name
     const invitingAdmin = await User.findById(invitedByUserId);
     const invitingName = invitingAdmin ? invitingAdmin.fullName : 'A System Administrator';
 
-    // 7. Dispatch invitation email
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     const inviteUrl = `${clientUrl}/system-admin/accept-invite?token=${rawToken}`;
-    
+
     await EmailService.sendMail({
       to: formattedEmail,
       subject: 'Set up your system administrator account',
@@ -74,7 +65,6 @@ export class SystemAdminService {
       html: `<p>Hello,</p><p><strong>${invitingName}</strong> has invited you to set up your System Administrator account.</p><p><a href="${inviteUrl}" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; display: inline-block;">Set up your account</a></p><p>Or copy this link to your browser: <br/><code>${inviteUrl}</code></p><p><em>Note: This link will expire in 48 hours.</em></p>`,
     });
 
-    // 8. Write audit log
     const inviteAuditData: any = {
       userId: invitedByUserId,
       action: AuditAction.SYSTEM_ADMIN_INVITED,
@@ -94,18 +84,12 @@ export class SystemAdminService {
     };
   }
 
-  /**
-   * List all invites
-   */
   static async getInvites(): Promise<any[]> {
     return await SystemAdminInvite.find()
       .populate('invitedBy', 'firstName lastName email')
       .sort({ createdAt: -1 });
   }
 
-  /**
-   * Revoke a pending invite
-   */
   static async revokeInvite(inviteId: string, actorUserId: string, reqIp?: string, reqUserAgent?: string): Promise<void> {
     const invite = await SystemAdminInvite.findById(inviteId);
     if (!invite) {
@@ -129,9 +113,6 @@ export class SystemAdminService {
     await AuditLogService.createAuditLog(null, revokeAuditData);
   }
 
-  /**
-   * Accept invite and create system admin user
-   */
   static async acceptInvite(
     token: string,
     name: string,
@@ -139,10 +120,10 @@ export class SystemAdminService {
     clientIp?: string,
     clientUserAgent?: string
   ): Promise<any> {
-    // 1. Find invite by hashed token
+
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     const invite = await SystemAdminInvite.findOne({ token: hashedToken });
-    
+
     if (!invite) {
       throw new Error('Invalid or unrecognized invitation token');
     }
@@ -155,12 +136,10 @@ export class SystemAdminService {
       throw new Error('Invitation link has expired');
     }
 
-    // 2. Split name
     const nameParts = name.trim().split(/\s+/);
     const firstName = nameParts[0] || 'Admin';
     const lastName = nameParts.slice(1).join(' ') || 'User';
 
-    // 3. Create User with role SYSTEM_ADMIN and tenantId: null
     const passwordHash = await AuthService.hashPassword(password);
     const user = new User({
       firstName,
@@ -174,11 +153,9 @@ export class SystemAdminService {
     });
     await user.save();
 
-    // 4. Update invite status to ACCEPTED
     invite.status = 'ACCEPTED';
     await invite.save();
 
-    // 5. Write audit log
     const acceptAuditData: any = {
       userId: user._id.toString(),
       action: AuditAction.SYSTEM_ADMIN_INVITE_ACCEPTED,
@@ -189,7 +166,6 @@ export class SystemAdminService {
     if (clientUserAgent) acceptAuditData.userAgent = clientUserAgent;
     await AuditLogService.createAuditLog(null, acceptAuditData);
 
-    // 6. Generate JWTs for auto-login
     const tokenPayload = {
       userId: user._id.toString(),
       email: user.email,
@@ -219,9 +195,6 @@ export class SystemAdminService {
     };
   }
 
-  /**
-   * List tenants with filters, search, and pagination
-   */
   static async listTenants(filters: {
     search?: string;
     status?: string;
@@ -252,7 +225,6 @@ export class SystemAdminService {
       Tenant.countDocuments(query),
     ]);
 
-    // Populate active subscription details for each tenant
     const tenantsWithSubscriptions = await Promise.all(
       tenants.map(async (tenant) => {
         const sub = await RestaurantSubscriptionModel.findOne({
@@ -283,9 +255,6 @@ export class SystemAdminService {
     return { tenants: tenantsWithSubscriptions, total };
   }
 
-  /**
-   * View details of a single tenant
-   */
   static async getTenantDetail(tenantId: string): Promise<any> {
     const tenant = await Tenant.findById(tenantId);
     if (!tenant) {
@@ -319,9 +288,6 @@ export class SystemAdminService {
     };
   }
 
-  /**
-   * Suspend or Activate a tenant, cascading to outlets
-   */
   static async updateTenantStatus(
     tenantId: string,
     status: UserStatus,
@@ -339,10 +305,8 @@ export class SystemAdminService {
     tenant.status = status;
     await tenant.save();
 
-    // Cascade status change to all outlets
     await Outlet.updateMany({ tenantId }, { $set: { status } });
 
-    // Write audit log
     const action = status === UserStatus.ACTIVE ? AuditAction.TENANT_ACTIVATE : AuditAction.TENANT_SUSPEND;
     const statusAuditData: any = {
       userId: actorUserId,
@@ -359,9 +323,6 @@ export class SystemAdminService {
     return tenant;
   }
 
-  /**
-   * Soft delete a tenant, cascading to outlets
-   */
   static async deleteTenant(
     tenantId: string,
     reason: string,
@@ -377,10 +338,8 @@ export class SystemAdminService {
     tenant.isDeleted = true;
     await tenant.save();
 
-    // Cascade soft-delete to outlets
     await Outlet.updateMany({ tenantId }, { $set: { isDeleted: true } });
 
-    // Write audit log
     const deleteAuditData: any = {
       userId: actorUserId,
       action: AuditAction.TENANT_DELETE,
@@ -395,9 +354,6 @@ export class SystemAdminService {
     return tenant;
   }
 
-  /**
-   * Manually override a tenant's subscription plan, trial, and dates
-   */
   static async overrideSubscription(
     tenantId: string,
     payload: {
@@ -422,12 +378,10 @@ export class SystemAdminService {
       throw new Error('Subscription plan not found');
     }
 
-    // Map plan slug to User Enum (FREE, PRO, SUPER)
     let tenantPlanEnum = SubscriptionPlan.FREE;
     if (plan.slug === 'pro') tenantPlanEnum = SubscriptionPlan.PRO;
     if (plan.slug === 'super') tenantPlanEnum = SubscriptionPlan.SUPER;
 
-    // Find or create subscription
     let subscription = await RestaurantSubscriptionModel.findOne({
       tenantId,
       isDeleted: false,
@@ -435,7 +389,6 @@ export class SystemAdminService {
 
     const oldData = subscription ? subscription.toObject() : null;
 
-    // Get a default restaurant under this tenant for the subscription model constraints
     const restaurant = await Restaurant.findOne({ tenantId, isDeleted: false });
     const restaurantId = restaurant ? restaurant._id : new Types.ObjectId();
 
@@ -470,11 +423,9 @@ export class SystemAdminService {
       await subscription.save();
     }
 
-    // Keep Tenant plan up-to-date
     tenant.subscriptionPlan = tenantPlanEnum;
     await tenant.save();
 
-    // Write audit log
     const overrideAuditData: any = {
       userId: actorUserId,
       action: AuditAction.TENANT_OVERRIDE_SUBSCRIPTION,
@@ -490,9 +441,6 @@ export class SystemAdminService {
     return subscription;
   }
 
-  /**
-   * Global search across all tenants for a user by email or phone
-   */
   static async globalSearchUsers(search: string): Promise<any[]> {
     if (!search || search.trim().length < 2) {
       throw new Error('Search query must be at least 2 characters long');

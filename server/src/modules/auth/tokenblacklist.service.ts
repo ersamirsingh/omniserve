@@ -4,20 +4,16 @@ import connectRedis from "../../config/redis.js";
 export class TokenBlacklistService {
   private static redisClient: RedisClientType | null = null;
 
-  /** Initialize Redis client */
   static async init(): Promise<void> {
     if (!this.redisClient) {
       this.redisClient = await connectRedis();
     }
   }
 
-  /**  @param token - The JWT token to blacklist */
   static async addToBlacklist(token: string, expiresIn: number): Promise<void> {
     try {
       await this.init();
 
-      // Set the token in Redis with expiration matching token TTL
-      // This way, the key auto-expires when the token would expire anyway
       await this.redisClient!.setEx(
         `blacklist:${token}`,
         expiresIn,
@@ -33,7 +29,6 @@ export class TokenBlacklistService {
     }
   }
 
-  /** Check if token is blacklisted */
   static async isBlacklisted(token: string): Promise<boolean> {
     try {
       await this.init();
@@ -46,12 +41,10 @@ export class TokenBlacklistService {
     }
   }
 
-  /** Revoke all tokens for a user */
   static async revokeAllUserTokens(userId: string): Promise<void> {
     try {
       await this.init();
 
-      // Get all keys matching the user's tokens pattern
       const keys = await this.redisClient!.keys(`user_tokens:${userId}:*`);
 
       if (keys.length > 0) {
@@ -63,12 +56,6 @@ export class TokenBlacklistService {
     }
   }
 
-  /**
-   * Add token to user's token list for tracking
-   * @param userId - User ID
-   * @param token - JWT token
-   * @param expiresIn - Time in seconds when token expires
-   */
   static async trackUserToken(
     userId: string,
     token: string,
@@ -77,32 +64,27 @@ export class TokenBlacklistService {
     try {
       await this.init();
 
-      // Create a unique key for this token under the user
       const tokenKey = `user_tokens:${userId}:${Date.now()}`;
 
       await this.redisClient!.setEx(
         tokenKey,
         expiresIn,
         JSON.stringify({
-          token: token.substring(0, 20), // Store partial token for logging
+          token: token.substring(0, 20),
           issuedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
         })
       );
     } catch (error) {
       console.error('Error tracking user token:', error);
-      // Non-critical, don't throw
+
     }
   }
 
-  /**
-   * Clear all blacklisted tokens (useful for cache cleanup)
-   */
   static async clearBlacklist(): Promise<void> {
     try {
       await this.init();
 
-      // Get all blacklisted token keys
       const keys = await this.redisClient!.keys('blacklist:*');
 
       if (keys.length > 0) {
@@ -114,9 +96,6 @@ export class TokenBlacklistService {
     }
   }
 
-  /**
-   * Get blacklist statistics
-   */
   static async getBlacklistStats(): Promise<{
     totalBlacklisted: number;
     totalUserTokenTracked: number;
@@ -137,11 +116,6 @@ export class TokenBlacklistService {
     }
   }
 
-  /**
-   * Extract expiration time from JWT token
-   * @param token - JWT token
-   * @returns Seconds until expiration
-   */
   static getTokenExpirationTime(token: string): number {
     try {
       const parts = token.split('.');
@@ -161,7 +135,6 @@ export class TokenBlacklistService {
       const now = Date.now();
       const secondsUntilExpiry = Math.ceil((expiresAt - now) / 1000);
 
-      // Ensure at least 1 second
       return Math.max(1, secondsUntilExpiry);
     } catch (error) {
       console.error('Error extracting token expiration:', error);
@@ -169,7 +142,6 @@ export class TokenBlacklistService {
     }
   }
 
-  /** Perform health check on Redis connection */
   static async healthCheck(): Promise<boolean> {
     try {
       await this.init();

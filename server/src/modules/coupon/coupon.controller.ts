@@ -3,10 +3,7 @@ import { CouponService } from "./coupon.service.js";
 import { ApiResponseHandler } from "../../utils/apiResponse.js";
 
 export class CouponController {
-  /**
-   * Create a new Coupon (System Admin Only)
-   * POST /coupons
-   */
+
   static async createCoupon(req: Request, res: Response): Promise<void> {
     try {
       const {
@@ -37,7 +34,6 @@ export class CouponController {
 
       const resolvedMinAmount = minAmount !== undefined ? minAmount : minOrderAmount;
 
-      // Determine tenantId and outletId based on user role
       let tenantId = req.user?.tenantId ? req.user.tenantId : null;
       let outletId = req.user?.outletId ? req.user.outletId : null;
 
@@ -75,10 +71,6 @@ export class CouponController {
     }
   }
 
-  /**
-   * List coupons (System Admin Only)
-   * GET /coupons
-   */
   static async listCoupons(req: Request, res: Response): Promise<void> {
     try {
       const isActive = req.query.isActive !== undefined ? req.query.isActive === "true" : undefined;
@@ -95,10 +87,6 @@ export class CouponController {
     }
   }
 
-  /**
-   * Get coupon details (System Admin Only)
-   * GET /coupons/:id
-   */
   static async getCouponById(req: Request, res: Response): Promise<void> {
     try {
       const coupon = await CouponService.getCouponById(req.params.id as string);
@@ -107,7 +95,6 @@ export class CouponController {
         return;
       }
 
-      // Check access permission
       if (req.user?.role !== "SYSTEM_ADMIN") {
         if (coupon.tenantId?.toString() !== req.user?.tenantId?.toString()) {
           ApiResponseHandler.forbidden(res, "Access denied to this coupon");
@@ -125,10 +112,6 @@ export class CouponController {
     }
   }
 
-  /**
-   * Update coupon details (System Admin Only)
-   * PUT /coupons/:id
-   */
   static async updateCoupon(req: Request, res: Response): Promise<void> {
     try {
       const coupon = await CouponService.getCouponById(req.params.id as string);
@@ -137,7 +120,6 @@ export class CouponController {
         return;
       }
 
-      // Check access permission
       if (req.user?.role !== "SYSTEM_ADMIN") {
         if (coupon.tenantId?.toString() !== req.user?.tenantId?.toString()) {
           ApiResponseHandler.forbidden(res, "Access denied to this coupon");
@@ -169,10 +151,6 @@ export class CouponController {
     }
   }
 
-  /**
-   * Delete a coupon (System Admin Only)
-   * DELETE /coupons/:id
-   */
   static async deleteCoupon(req: Request, res: Response): Promise<void> {
     try {
       const coupon = await CouponService.getCouponById(req.params.id as string);
@@ -181,7 +159,6 @@ export class CouponController {
         return;
       }
 
-      // Check access permission
       if (req.user?.role !== "SYSTEM_ADMIN") {
         if (coupon.tenantId?.toString() !== req.user?.tenantId?.toString()) {
           ApiResponseHandler.forbidden(res, "Access denied to this coupon");

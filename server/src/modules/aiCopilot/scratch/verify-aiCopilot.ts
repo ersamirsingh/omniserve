@@ -7,7 +7,6 @@ import { AggregationTools } from '../tools/aggregation.tools.js';
 async function runTests() {
   console.log('=== STARTING RAG SYSTEM VERIFICATION ===\n');
 
-  // 1. Test QueryRouter Classifier
   console.log('--- 1. Testing Query Router Classifier ---');
   const queries = [
     { text: 'Which outlet had the highest revenue in May?', role: 'SUPER_ADMIN' },
@@ -26,12 +25,11 @@ async function runTests() {
     }
   }
 
-  // 2. Test Security Boundary Scope Enforcement
   console.log('--- 2. Testing Security Boundary Scope Enforcement ---');
   const testUsers = [
     {
       user: { role: 'OUTLET_MANAGER', tenantId: '60c72b2f9b1d8b2bad123456', outletId: '60c72b2f9b1d8b2bad999999' },
-      rawParams: { outletId: '60c72b2f9b1d8b2bad000000', tenantId: '60c72b2f9b1d8b2bad111111' }, // malicious attempt to query other outlet
+      rawParams: { outletId: '60c72b2f9b1d8b2bad000000', tenantId: '60c72b2f9b1d8b2bad111111' },
     },
     {
       user: { role: 'RESTAURANT_OWNER', tenantId: '60c72b2f9b1d8b2bad123456' },
@@ -52,7 +50,6 @@ async function runTests() {
     console.log(`Access Allowed: ${result.isAllowed}\n`);
   }
 
-  // 3. Test MongoDB Aggregation pipelines
   console.log('--- 3. Testing Aggregation Pipelines against DB ---');
   const mongoUri = process.env.MONGO_URI;
   if (!mongoUri) {
@@ -64,7 +61,6 @@ async function runTests() {
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB successfully.');
 
-    // We take a dummy object ID for dry run of aggregates
     const dummyTenantId = '65f123456789abcdef012345';
     const dummyOutletId = '65f123456789abcdef012346';
 

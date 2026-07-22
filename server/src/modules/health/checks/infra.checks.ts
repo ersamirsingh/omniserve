@@ -9,7 +9,7 @@ export const checkMongoDB = async (deep = false): Promise<{ status: string; resp
       throw new Error('Database connection is not ready');
     }
     if (deep) {
-      // Deep check: execute a lightweight command
+
       await mongoose.connection.db?.admin().ping();
     }
     const duration = Date.now() - start;
@@ -74,7 +74,7 @@ export const checkRedis = async (deep = false): Promise<{ status: string; respon
 export const checkPaymentGateway = async (): Promise<{ status: string; responseTimeMs: number; details: string }> => {
   const start = Date.now();
   try {
-    // Check Stripe and Razorpay reachability via head requests
+
     const stripePromise = fetch('https://api.stripe.com', { method: 'HEAD' }).catch(() => null);
     const razorpayPromise = fetch('https://api.razorpay.com', { method: 'HEAD' }).catch(() => null);
 

@@ -21,10 +21,9 @@ async function runOnlineAcceptanceTest() {
   console.log("[OnlineTest] Starting Acceptance Test...");
   await connectTestDB();
 
-  // Register adapters
   const swiggy = new MockSwiggyAdapter();
   OrderGatewayService.registerAdapter(swiggy);
-  
+
   const swiggyReal = new MockSwiggyAdapter();
   (swiggyReal as any).provider = "SWIGGY";
   OrderGatewayService.registerAdapter(swiggyReal);
@@ -40,7 +39,6 @@ async function runOnlineAcceptanceTest() {
   const tid = new mongoose.Types.ObjectId();
   const oid = new mongoose.Types.ObjectId();
 
-  // Cleanup test records
   await Tenant.deleteMany({ name: tenantName });
   await Outlet.deleteMany({ tenantId: tid });
   await ExternalOrder.deleteMany({ tenantId: tid });
@@ -49,7 +47,6 @@ async function runOnlineAcceptanceTest() {
   await ChannelOutletMapping.deleteMany({ tenantId: tid });
   await ChannelMenuItemMapping.deleteMany({ tenantId: tid });
 
-  // Seed base data
   const tenant = await Tenant.create({
     _id: tid,
     name: tenantName,
@@ -89,7 +86,6 @@ async function runOnlineAcceptanceTest() {
     isDeleted: false
   });
 
-  // Seed Mappings
   await ChannelOutletMapping.create({
     tenantId: tid,
     outletId: oid,
@@ -111,7 +107,6 @@ async function runOnlineAcceptanceTest() {
 
   console.log("[OnlineTest] Base records and mappings seeded successfully.");
 
-  // 1. Ingest simulated Swiggy payload
   console.log("[OnlineTest] Ingesting Swiggy Order payload...");
   const externalOrderId = `SWIGGY-${Date.now()}`;
   const rawPayload = {
@@ -163,7 +158,6 @@ async function runOnlineAcceptanceTest() {
   }
   console.log("[OnlineTest] Ingested Swiggy order saved in DB. IngestId:", externalOrder._id);
 
-  // 2. Process external order to create internal CanonicalOrder
   console.log("[OnlineTest] Processing external order to generate CanonicalOrder...");
   const processed = await OrderGatewayService.processExternalOrder({
     externalOrderId: externalOrder._id.toString(),
@@ -176,10 +170,8 @@ async function runOnlineAcceptanceTest() {
   const internalOrderId = processed.internalOrderId.toString();
   console.log("[OnlineTest] CanonicalOrder generated successfully. InternalId:", internalOrderId);
 
-  // 3. Perform live order status transitions
   console.log("[OnlineTest] Testing status transitions (ACCEPTED -> PREPARING -> READY -> PICKED_UP -> DELIVERED)...");
-  
-  // Transition to ACCEPTED
+
   let updatedOrder = await OrderService.updateOrderStatus(
     internalOrderId,
     tid.toString(),
@@ -189,7 +181,6 @@ async function runOnlineAcceptanceTest() {
     throw new Error("Transition to ACCEPTED failed");
   }
 
-  // Transition to PREPARING
   updatedOrder = await OrderService.updateOrderStatus(
     internalOrderId,
     tid.toString(),
@@ -199,7 +190,6 @@ async function runOnlineAcceptanceTest() {
     throw new Error("Transition to PREPARING failed");
   }
 
-  // Transition to READY
   updatedOrder = await OrderService.updateOrderStatus(
     internalOrderId,
     tid.toString(),
@@ -209,7 +199,6 @@ async function runOnlineAcceptanceTest() {
     throw new Error("Transition to READY failed");
   }
 
-  // Transition to PICKED_UP (delivery flow requires this before DELIVERED)
   updatedOrder = await OrderService.updateOrderStatus(
     internalOrderId,
     tid.toString(),
@@ -219,7 +208,6 @@ async function runOnlineAcceptanceTest() {
     throw new Error("Transition to PICKED_UP failed");
   }
 
-  // Transition to DELIVERED
   updatedOrder = await OrderService.updateOrderStatus(
     internalOrderId,
     tid.toString(),
@@ -231,7 +219,6 @@ async function runOnlineAcceptanceTest() {
 
   console.log("[OnlineTest] All order status transitions verified successfully.");
 
-  // 4. Validate order timeline matches
   const timelineEntries = await OrderTimeline.find({ orderId: internalOrderId });
   if (timelineEntries.length === 0) {
     throw new Error("Order timeline is empty");

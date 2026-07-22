@@ -7,12 +7,7 @@ import { resolveDiningContext } from "./order.utils.js";
 import { AccessScope } from "../../utils/accessScope.utils.js";
 
 export class ReservationController {
-  /**
-   * POST /api/v1/reservations
-   * Create a new reservation.
-   * Body: { outletId, guestName, partySize, scheduledAt, guestPhone?, guestEmail?,
-   *         tableId?, diningAreaId?, customerId?, specialRequests?, notes? }
-   */
+
   static async createReservation(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId } = await resolveDiningContext(req);
@@ -60,10 +55,6 @@ export class ReservationController {
     }
   }
 
-  /**
-   * GET /api/v1/reservations
-   * List reservations. Query: outletId, date?, status?, tableId?
-   */
   static async getReservations(req: Request, res: Response): Promise<void> {
     try {
       const context = await resolveDiningContext(req);
@@ -89,7 +80,7 @@ export class ReservationController {
           } else if (allowedIds.length > 1) {
             targetOutletIds = allowedIds.map(id => new Types.ObjectId(id));
           } else {
-            // No outlets assigned
+
             ApiResponseHandler.success(res, 200, "Reservations retrieved", { count: 0, reservations: [] });
             return;
           }
@@ -116,9 +107,6 @@ export class ReservationController {
     }
   }
 
-  /**
-   * POST /api/v1/reservations/:reservationId/confirm
-   */
   static async confirmReservation(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
@@ -138,10 +126,6 @@ export class ReservationController {
     }
   }
 
-  /**
-   * POST /api/v1/reservations/:reservationId/seat
-   * Body: { tableId?, sessionId? }
-   */
   static async seatReservation(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
@@ -166,9 +150,6 @@ export class ReservationController {
     }
   }
 
-  /**
-   * POST /api/v1/reservations/:reservationId/no-show
-   */
   static async markNoShow(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");
@@ -188,10 +169,6 @@ export class ReservationController {
     }
   }
 
-  /**
-   * POST /api/v1/reservations/:reservationId/cancel
-   * Body: { reason? }
-   */
   static async cancelReservation(req: Request, res: Response): Promise<void> {
     try {
       const reservationId = String(req.params.reservationId || "");

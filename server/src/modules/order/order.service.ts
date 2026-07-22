@@ -15,9 +15,7 @@ import { EventBusService } from "../../events/eventBus.js";
 import { WaiterTaskService } from "./waiter-task.service.js";
 
 export class OrderService {
-  /**
-   * Helper to validate customer, outlet, and items ownership
-   */
+
   private static async validateOrderHierarchy(
     tenantId: string,
     outletId: string,
@@ -28,7 +26,6 @@ export class OrderService {
     const outletObjectId = new Types.ObjectId(outletId);
     const customerObjectId = new Types.ObjectId(customerId);
 
-    // Validate Customer
     const customer = await Customer.findOne({
       _id: customerObjectId,
       tenantId: tenantObjectId,
@@ -38,7 +35,6 @@ export class OrderService {
       throw new Error('Customer not found or does not belong to this tenant');
     }
 
-    // Validate Outlet
     const outlet = await Outlet.findOne({
       _id: outletObjectId,
       tenantId: tenantObjectId,
@@ -51,7 +47,6 @@ export class OrderService {
       throw new Error('Outlet is currently closed. Bookings and orders are disabled.');
     }
 
-    // Validate each Item
     for (const item of items) {
       const menuItem = await MenuItem.findOne({
         _id: new Types.ObjectId(item.menuItemId),
@@ -91,9 +86,6 @@ export class OrderService {
     }
   }
 
-  /**
-   * Place a new order with order items
-   */
   static async placeOrder(
     tenantId: string,
     data: any,
@@ -113,16 +105,13 @@ export class OrderService {
       couponCode,
     } = data;
 
-    // 1. Math validation: subtotal + tax + deliveryFee - discount === totalAmount
     const calculatedTotal = Number(subtotal) + Number(tax) + Number(deliveryFee) - Number(discount);
     if (Math.abs(calculatedTotal - Number(totalAmount)) > 0.01) {
       throw new Error(`Total amount discrepancy: calculated ${calculatedTotal}, got ${totalAmount}`);
     }
 
-    // 2. Validate hierarchy
     await this.validateOrderHierarchy(tenantId, outletId, customerId, items);
 
-    // 3. Save order using transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -158,7 +147,6 @@ export class OrderService {
 
       const savedOrder = await order.save({ session });
 
-      // Save OrderItems
       for (const item of items) {
         const orderItem = new OrderItem({
           orderId: savedOrder._id,
@@ -182,16 +170,6 @@ export class OrderService {
         await orderItem.save({ session });
       }
 
-      // TODO: Future Analytics Integration Point - Order Placement
-      // Inside transaction session:
-      // await AnalyticsService.upsertDailyMetrics(
-      //   tenantId,
-      //   outletId,
-      //   new Date().toISOString().split('T')[0],
-      //   { totalOrders: 1, totalRevenue: Number(totalAmount) },
-      //   userId
-      // );
-
       await OrderTimeline.create([{
         tenantId: savedOrder.tenantId,
         orderId: savedOrder._id,
@@ -203,7 +181,6 @@ export class OrderService {
 
       await session.commitTransaction();
 
-      // Book table (set table state to OCCUPIED) when the first order is successfully placed
       if (orderData.diningContext?.tableId) {
         try {
           const TableModel = (await import("../../models/table.model.js")).default;
@@ -223,7 +200,6 @@ export class OrderService {
         }
       }
 
-      // Publish event
       await EventBusService.publishOrderCreated(
         tenantId,
         savedOrder.outletId,
@@ -236,7 +212,6 @@ export class OrderService {
         }
       ).catch(err => console.error('Failed to publish ORDER_CREATED event:', err));
 
-      // Dispatch ORDER_PLACED notification to all active tenant users
       NotificationService.notifyTenantUsers(
         tenantId,
         'New Order Placed',
@@ -256,9 +231,6 @@ export class OrderService {
     }
   }
 
-  /**
-   * List orders with optional filters (outlet / status / date)
-   */
   static async getOrders(
     tenantId: string,
     filters: { outletId?: string; orderStatus?: string; date?: string; limit: number; skip: number; operationalMode?: string }
@@ -283,7 +255,7 @@ export class OrderService {
     }
 
     if (filters.date) {
-      // Filter by YYYY-MM-DD
+
       const startOfDay = new Date(filters.date);
       startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(filters.date);
@@ -304,9 +276,6 @@ export class OrderService {
     return { orders, total };
   }
 
-  /**
-   * Get complete order with items and payment details
-   */
   static async getOrderWithDetails(
     id: string,
     tenantId: string
@@ -343,9 +312,6 @@ export class OrderService {
     };
   }
 
-  /**
-   * Advance order status with strict workflow rules, inventory checks, and customer LTV syncs.
-   */
   static async updateOrderStatus(
     id: string,
     tenantId: string,
@@ -364,7 +330,6 @@ export class OrderService {
 
     const currentStatus = order.orderStatus;
 
-    // Source-aware Workflow transition rules
     const isDineIn = ["DINE_IN", "QR_DINE_IN", "WAITER", "POS", "WEBSITE"].includes(order.source) || !!order.diningContext?.tableId;
 
     let validTransitions: Record<string, string>;
@@ -399,15 +364,11 @@ export class OrderService {
         updatedBy: userId ? new Types.ObjectId(userId) : null,
       };
 
-      // Set timestamps based on transitions
       if (newStatus === OrderStatus.ACCEPTED) {
         updateFields.acceptedAt = new Date();
 
-        // INVENTORY DEDUCTION logic
-        // 1. Fetch all items in the order
         const items = await OrderItem.find({ orderId: order._id, isDeleted: false }).session(session);
 
-        // 2. Pre-validate and deduct stock atomically
         for (const item of items) {
           let inventory: any = await Inventory.findOne({
             menuItemId: item.menuItemId,
@@ -428,7 +389,6 @@ export class OrderService {
             inventory = newInventory;
           }
 
-          // Atomically decrement stock quantity if it's greater than or equal to requested amount
           const updatedInventory = await Inventory.findOneAndUpdate(
             {
               _id: inventory._id,
@@ -446,7 +406,6 @@ export class OrderService {
             throw new Error(`Insufficient inventory for item: ${item.name}. Available: ${inventory.quantity}, Requested: ${item.quantity}`);
           }
 
-          // Dynamically recompute low stock status flag
           const isLowStock = updatedInventory.quantity <= updatedInventory.threshold;
           if (isLowStock !== updatedInventory.isLowStock) {
             await Inventory.updateOne(
@@ -461,7 +420,6 @@ export class OrderService {
       } else if (newStatus === OrderStatus.READY) {
         updateFields.readyAt = new Date();
 
-        // Phase 4D: KDS READY integration with SERVE_FOOD workflow
         if (isDineIn && (order.sessionId || order.diningContext?.sessionId) && order.diningContext?.tableId) {
           const sessionId = order.sessionId || order.diningContext?.sessionId;
           if (sessionId) {
@@ -491,10 +449,8 @@ export class OrderService {
           updateFields.completedAt = new Date();
         }
 
-        // Automatically set order paymentStatus to SUCCESS
         updateFields.paymentStatus = PaymentStatus.SUCCESS;
 
-        // CUSTOMER STATISTICS updates (prevent double counting)
         if (currentStatus !== OrderStatus.DELIVERED && currentStatus !== OrderStatus.COMPLETED) {
           await Customer.updateOne(
             { _id: order.customerId, tenantId: order.tenantId },
@@ -503,7 +459,6 @@ export class OrderService {
           );
         }
 
-        // Auto-payment recording logic within transaction session
         const existingPayment = await Payment.findOne({
           orderId: order._id,
           tenantId: order.tenantId,
@@ -511,12 +466,12 @@ export class OrderService {
         }).session(session);
 
         if (!existingPayment) {
-          let paymentMethod = PaymentMethod.CASH; // default offline
+          let paymentMethod = PaymentMethod.CASH;
           let gatewayRemark = "Auto-paid via offline order completion";
 
           const isExternalChannel = ["SWIGGY", "ZOMATO", "ONLINE", "DELIVERY", "TAKEAWAY", "ONDC", "WHATSAPP"].includes(order.source);
           if (isExternalChannel) {
-            paymentMethod = PaymentMethod.UPI; // default online channel
+            paymentMethod = PaymentMethod.UPI;
             gatewayRemark = `Auto-paid via channel (${order.source}) delivery confirmation`;
           }
 
@@ -555,7 +510,7 @@ export class OrderService {
       await session.commitTransaction();
 
       if (updatedOrder) {
-        // Publish event
+
         await EventBusService.publishOrderStatusChanged(
           tenantId,
           updatedOrder.outletId,
@@ -568,7 +523,6 @@ export class OrderService {
           }
         ).catch(err => console.error('Failed to publish ORDER_STATUS_CHANGED event:', err));
 
-        // Dispatch status update notification to all active tenant users
         let title = '';
         let message = '';
         let nType: any = null;
@@ -617,9 +571,6 @@ export class OrderService {
     }
   }
 
-  /**
-   * Cancel an order with a reason (only allowed from PENDING or ACCEPTED)
-   */
   static async cancelOrder(
     id: string,
     tenantId: string,
@@ -651,7 +602,7 @@ export class OrderService {
     session.startTransaction();
 
     try {
-      // INVENTORY RESTORATION: only if it had previously reached kitchen (ACCEPTED, PREPARING, or READY)
+
       if (
         currentStatus === OrderStatus.ACCEPTED ||
         currentStatus === OrderStatus.PREPARING ||
@@ -706,9 +657,8 @@ export class OrderService {
 
       await session.commitTransaction();
 
-      // Dispatch ORDER_CANCELLED notification to all active tenant users
       if (updatedOrder) {
-        // Publish event
+
         await EventBusService.publishOrderStatusChanged(
           tenantId,
           updatedOrder.outletId,
@@ -741,9 +691,6 @@ export class OrderService {
     }
   }
 
-  /**
-   * List items for an order
-   */
   static async getOrderItems(orderId: string, tenantId: string): Promise<IOrderItem[]> {
     return await OrderItem.find({
       orderId: new Types.ObjectId(orderId),
@@ -752,9 +699,6 @@ export class OrderService {
     });
   }
 
-  /**
-   * Add item to an existing order (allowed pre-ACCEPTED only, i.e., status = PENDING)
-   */
   static async addItemToOrder(
     orderId: string,
     tenantId: string,
@@ -775,7 +719,6 @@ export class OrderService {
       throw new Error(`Cannot add item to order in status ${order.orderStatus}. Items can only be added to PENDING orders.`);
     }
 
-    // Validate item hierarchy under outlet and tenant
     await this.validateOrderHierarchy(tenantId, order.outletId.toString(), order.customerId.toString(), [itemData]);
 
     const session = await mongoose.startSession();
@@ -803,7 +746,6 @@ export class OrderService {
 
       const savedItem = await orderItem.save({ session });
 
-      // Recalculate order subtotal and totalAmount
       const items = await OrderItem.find({ orderId: order._id, isDeleted: false }).session(session);
       const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
       const totalAmount = subtotal + order.tax + order.deliveryFee - order.discount;
@@ -824,9 +766,6 @@ export class OrderService {
     }
   }
 
-  /**
-   * Soft-delete an order and its items
-   */
   static async deleteOrder(
     id: string,
     tenantId: string,

@@ -201,14 +201,12 @@ const integrationEventQueueSchema = new Schema<IIntegrationEventQueue>(
   }
 );
 
-// Indexes
 integrationEventQueueSchema.index({ tenantId: 1, status: 1 });
 integrationEventQueueSchema.index({ eventType: 1, status: 1 });
 integrationEventQueueSchema.index({ nextRetryAt: 1, status: 1 });
 integrationEventQueueSchema.index({ correlationId: 1 });
-integrationEventQueueSchema.index({ status: 1, processingStartedAt: 1 }); // For recovery poller safety
+integrationEventQueueSchema.index({ status: 1, processingStartedAt: 1 });
 
-// Event Deduplication unique compound index
 integrationEventQueueSchema.index(
   { tenantId: 1, eventType: 1, aggregateId: 1, correlationId: 1, eventVersion: 1 },
   { unique: true }

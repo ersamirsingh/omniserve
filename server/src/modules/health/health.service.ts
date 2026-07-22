@@ -2,16 +2,14 @@ import { checkMongoDB, checkRedis, checkPaymentGateway, checkDiskSpace } from '.
 import { modelCheckers } from './checks/module.checks.js';
 
 export class HealthService {
-  /**
-   * Helper to wrap a promise in a timeout
-   */
+
   private static async withTimeout(
     promise: Promise<any>,
     ms: number,
     checkName: string
   ): Promise<any> {
     let timeoutId: NodeJS.Timeout;
-    
+
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(() => {
         reject(new Error(`Timeout: Check "${checkName}" exceeded ${ms}ms limit`));
@@ -32,13 +30,9 @@ export class HealthService {
     }
   }
 
-  /**
-   * Runs all health checks (infra and domain models) concurrently
-   */
   static async runChecks(deep = false): Promise<any> {
-    const timeoutMs = 3000; // 3-second timeout constraint
+    const timeoutMs = 3000;
 
-    // 1. Prepare infrastructure checks
     const infraCheckSpecs = [
       { name: 'mongodb', promise: checkMongoDB(deep) },
       { name: 'redis', promise: checkRedis(deep) },
@@ -46,13 +40,11 @@ export class HealthService {
       { name: 'diskSpace', promise: checkDiskSpace() },
     ];
 
-    // 2. Prepare module checks
     const moduleCheckSpecs = Object.entries(modelCheckers).map(([name, checkFn]) => ({
       name,
       promise: checkFn(deep),
     }));
 
-    // 3. Execute all checks concurrently with timeout handling
     const [infraResults, moduleResults] = await Promise.all([
       Promise.all(
         infraCheckSpecs.map(async (spec) => {
@@ -68,7 +60,6 @@ export class HealthService {
       ),
     ]);
 
-    // 4. Map results to structured response object
     const infra: Record<string, any> = {};
     let isDegraded = false;
     let isDown = false;
@@ -92,7 +83,6 @@ export class HealthService {
       }
     }
 
-    // 5. Evaluate overall status
     let status = 'ok';
     if (isDown) {
       status = 'down';

@@ -29,9 +29,6 @@ export class SubscriptionService {
     }
   }
 
-  /**
-   * Seeds the default plans (FREE, STARTER, PROFESSIONAL, ENTERPRISE)
-   */
   static async seedDefaultPlans(): Promise<void> {
     const defaultPlans = [
       {
@@ -136,9 +133,6 @@ export class SubscriptionService {
     }
   }
 
-  /**
-   * Automatically initializes a Free Plan 14-day trial for a newly registered tenant
-   */
   static async onboardTenant(
     tenantId: string | Types.ObjectId,
     restaurantId: string | Types.ObjectId,
@@ -173,7 +167,6 @@ export class SubscriptionService {
       createdBy: createdByUserId ? new Types.ObjectId(createdByUserId) : null,
     });
 
-    // Create Initial Usage Document
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
     await SubscriptionRepository.incrementUsage(tenantId, currentMonth, currentYear, {
@@ -184,7 +177,6 @@ export class SubscriptionService {
       apiCalls: 0,
     });
 
-    // Create a mock trial invoice
     await SubscriptionRepository.createInvoice({
       tenantId: new Types.ObjectId(tenantId),
       subscriptionId: subscription._id as Types.ObjectId,
@@ -203,9 +195,6 @@ export class SubscriptionService {
     return subscription;
   }
 
-  /**
-   * Safe helper to find or lazily onboard a tenant to the default Free Plan
-   */
   static async getOrCreateSubscription(
     tenantId: string | Types.ObjectId,
     userId?: string | Types.ObjectId
@@ -219,9 +208,6 @@ export class SubscriptionService {
     return subscription;
   }
 
-  /**
-   * Upgrade or change a subscription plan
-   */
   static async changeSubscriptionPlan(
     tenantId: string | Types.ObjectId,
     planId: string | Types.ObjectId,
@@ -240,7 +226,6 @@ export class SubscriptionService {
 
     const gateway = this.getGateway(provider);
 
-    // 1. Resolve or create customer ID in the payment provider
     let paymentCustomerId = subscription.paymentCustomerId;
     if (!paymentCustomerId) {
       paymentCustomerId = await gateway.createCustomer(
@@ -250,7 +235,6 @@ export class SubscriptionService {
       );
     }
 
-    // 2. Compute pricing
     const amount = billingCycle === BillingCycle.MONTHLY ? newPlan.monthlyPrice : newPlan.yearlyPrice;
     let discount = 0;
     if (couponCode) {
@@ -261,10 +245,9 @@ export class SubscriptionService {
       discount = validation.discount;
     }
     const amountAfterDiscount = Math.max(0, amount - discount);
-    const tax = Number((amountAfterDiscount * 0.18).toFixed(2)); // 18% GST mock tax
+    const tax = Number((amountAfterDiscount * 0.18).toFixed(2));
     const total = Number((amountAfterDiscount + tax).toFixed(2));
 
-    // 3. Request subscription creation in Gateway
     const { paymentSubscriptionId, invoiceUrl } = await gateway.createSubscription(
       tenantId.toString(),
       paymentCustomerId,
@@ -273,7 +256,6 @@ export class SubscriptionService {
       billingCycle
     );
 
-    // Cancel old subscription in Gateway if it existed and was paid
     if (subscription.paymentSubscriptionId && subscription.paymentProvider !== PaymentProvider.MANUAL) {
       try {
         const oldGateway = this.getGateway(subscription.paymentProvider);
@@ -283,7 +265,6 @@ export class SubscriptionService {
       }
     }
 
-    // 4. Update Dates
     const startDate = new Date();
     const endDate = new Date();
     if (billingCycle === BillingCycle.MONTHLY) {
@@ -292,7 +273,6 @@ export class SubscriptionService {
       endDate.setFullYear(startDate.getFullYear() + 1);
     }
 
-    // 5. Update subscription record
     const updated = await SubscriptionRepository.updateSubscription(subscription._id, {
       planId: newPlan._id as Types.ObjectId,
       outletId: outletId ? new Types.ObjectId(outletId) : (subscription.outletId ?? null),
@@ -315,7 +295,6 @@ export class SubscriptionService {
       await CouponService.redeemSubscriptionCoupon(couponCode, tenantId.toString());
     }
 
-    // 6. Generate Paid Invoice
     const invoiceObj: any = {
       tenantId: subscription.tenantId,
       subscriptionId: subscription._id as Types.ObjectId,
@@ -335,7 +314,6 @@ export class SubscriptionService {
     }
     const invoice = await SubscriptionRepository.createInvoice(invoiceObj);
 
-    // Push invoice to subscription array
     await RestaurantSubscriptionModel.findByIdAndUpdate(subscription._id, {
       $push: { invoiceIds: invoice._id },
     });
@@ -343,9 +321,6 @@ export class SubscriptionService {
     return updated!;
   }
 
-  /**
-   * Cancel subscription (turns off auto-renewal at period end)
-   */
   static async cancelSubscription(tenantId: string | Types.ObjectId): Promise<IRestaurantSubscriptionDocument> {
     const subscription = await this.getOrCreateSubscription(tenantId);
 
@@ -362,9 +337,6 @@ export class SubscriptionService {
     return updated!;
   }
 
-  /**
-   * Resume subscription auto-renewal
-   */
   static async resumeSubscription(tenantId: string | Types.ObjectId): Promise<IRestaurantSubscriptionDocument> {
     const subscription = await this.getOrCreateSubscription(tenantId);
 
@@ -376,9 +348,6 @@ export class SubscriptionService {
     return updated!;
   }
 
-  /**
-   * Manual Renewal (Triggered by Super Admin or Owner)
-   */
   static async renewSubscription(
     tenantId: string | Types.ObjectId,
     couponCode?: string,
@@ -445,13 +414,9 @@ export class SubscriptionService {
     return updated!;
   }
 
-  /**
-   * Run Daily Expiry checks (transitions ACTIVE -> GRACE_PERIOD -> EXPIRED)
-   */
   static async processDailyExpirationChecks(): Promise<void> {
     const now = new Date();
 
-    // 1. Identify active subscriptions past end date
     const expiredActive = await RestaurantSubscriptionModel.find({
       status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL] },
       endDate: { $lt: now },
@@ -468,10 +433,8 @@ export class SubscriptionService {
         graceEndsAt,
       });
 
-      // Trigger Event / Notification (e.g. In-App Alert: Subscription Expired, 7 Days Grace Started)
     }
 
-    // 2. Identify subscriptions whose grace period has ended
     const expiredGrace = await RestaurantSubscriptionModel.find({
       status: SubscriptionStatus.GRACE_PERIOD,
       graceEndsAt: { $lt: now },
@@ -483,13 +446,9 @@ export class SubscriptionService {
         status: SubscriptionStatus.EXPIRED,
       });
 
-      // Trigger Expiry Notification
     }
   }
 
-  /**
-   * Reset usage counter monthly
-   */
   static async processMonthlyUsageResets(): Promise<void> {
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();

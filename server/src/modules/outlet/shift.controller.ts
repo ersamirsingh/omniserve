@@ -6,10 +6,7 @@ import { ApiResponseHandler } from "../../utils/apiResponse.js";
 import { resolveDiningContext } from "../order/order.utils.js";
 
 export class ShiftController {
-  /**
-   * POST /api/v1/shifts/open
-   * Body: { outletId, shiftName: "MORNING"|"AFTERNOON"|"EVENING"|"NIGHT" }
-   */
+
   static async openShift(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);
@@ -29,10 +26,6 @@ export class ShiftController {
     }
   }
 
-  /**
-   * POST /api/v1/shifts/:shiftId/close
-   * Body: { outletId?, handoverNotes? }
-   */
   static async closeShift(req: Request, res: Response): Promise<void> {
     try {
       const shiftId = String(req.params.shiftId || "");
@@ -53,10 +46,6 @@ export class ShiftController {
     }
   }
 
-  /**
-   * GET /api/v1/shifts/current
-   * Returns the currently open shift for the outlet.
-   */
   static async getCurrentShift(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);
@@ -69,11 +58,6 @@ export class ShiftController {
     }
   }
 
-  /**
-   * GET /api/v1/shifts/history
-   * Returns recent shift history for the outlet.
-   * Query: outletId?, limit?
-   */
   static async getShiftHistory(req: Request, res: Response): Promise<void> {
     try {
       const { tenantId, outletId } = await resolveDiningContext(req);

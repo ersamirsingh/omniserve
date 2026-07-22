@@ -4,13 +4,10 @@ import { EventBusService } from "../events/eventBus.js";
 
 let checkerInterval: NodeJS.Timeout | null = null;
 
-/**
- * Periodically checks for waiter tasks that have breached their configured SLA limits.
- */
 export async function checkSlaBreaches(): Promise<void> {
   try {
     const now = new Date();
-    // Query active task lifecycle statuses that are not finished
+
     const tasks = await WaiterTask.find({
       status: { $in: ["CREATED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS"] },
       isDeleted: false
@@ -19,13 +16,11 @@ export async function checkSlaBreaches(): Promise<void> {
     for (const task of tasks) {
       const elapsed = now.getTime() - task.createdAt.getTime();
       if (elapsed > task.slaLimitMs) {
-        // transition task status to ESCALATED
+
         task.status = "ESCALATED";
         task.escalatedAt = now;
         await task.save();
 
-
-        // Publish event to the Transactional Outbox Event Bus
         await EventBusService.publishWaiterTaskEscalated(
           task.tenantId,
           task.outletId,
@@ -49,17 +44,11 @@ export async function checkSlaBreaches(): Promise<void> {
   }
 }
 
-/**
- * Starts the background SLA checking worker.
- */
 export function startWaiterTaskEscalationWorker(intervalMs = 15000): void {
   if (checkerInterval) return;
   checkerInterval = setInterval(() => checkSlaBreaches(), intervalMs);
 }
 
-/**
- * Stops the background SLA checking worker.
- */
 export function stopWaiterTaskEscalationWorker(): void {
   if (checkerInterval) {
     clearInterval(checkerInterval);

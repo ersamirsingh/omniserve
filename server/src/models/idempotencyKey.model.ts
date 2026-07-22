@@ -13,7 +13,7 @@ const idempotencyKeySchema = new Schema<IIdempotencyKey>({
   tenantId: { type: Schema.Types.ObjectId, ref: 'Tenant', required: true },
   responseBody: { type: Schema.Types.Mixed, required: true },
   statusCode: { type: Number, required: true },
-  createdAt: { type: Date, default: Date.now, expires: 86400 } // TTL 24h (86400s)
+  createdAt: { type: Date, default: Date.now, expires: 86400 }
 });
 
 idempotencyKeySchema.index({ key: 1, tenantId: 1 }, { unique: true });
