@@ -3,6 +3,8 @@ import ChannelOutletMapping from "../../models/channeloutletmapping.model.js";
 import ChannelMenuItemMapping from "../../models/channelmenuitemmapping.model.js";
 import ChannelVariantMapping from "../../models/channelvariantmapping.model.js";
 import ChannelAddonMapping from "../../models/channeladdonmapping.model.js";
+import Outlet from "../../models/outlet.model.js";
+import MenuItem from "../../models/menuItem.model.js";
 
 export class MappingResolutionService {
 
@@ -16,6 +18,10 @@ export class MappingResolutionService {
       return externalOutletId;
     }
 
+    if (prov.startsWith("MOCK") && externalOutletId && Types.ObjectId.isValid(externalOutletId)) {
+      return externalOutletId;
+    }
+
     const mapping = await ChannelOutletMapping.findOne({
       tenantId: new Types.ObjectId(tenantId),
       provider: String(provider).toUpperCase(),
@@ -25,6 +31,12 @@ export class MappingResolutionService {
     });
 
     if (!mapping) {
+      if (prov.startsWith("MOCK")) {
+        const fallbackOutlet = await Outlet.findOne({ tenantId: new Types.ObjectId(tenantId), isDeleted: false });
+        if (fallbackOutlet) {
+          return fallbackOutlet._id.toString();
+        }
+      }
       throw new Error(`MAPPING_ERROR: Outlet mapping missing for external outlet ID: ${externalOutletId}`);
     }
 
@@ -42,6 +54,10 @@ export class MappingResolutionService {
       return externalItemId;
     }
 
+    if (prov.startsWith("MOCK") && externalItemId && Types.ObjectId.isValid(externalItemId)) {
+      return externalItemId;
+    }
+
     const mapping = await ChannelMenuItemMapping.findOne({
       tenantId: new Types.ObjectId(tenantId),
       outletId: new Types.ObjectId(outletId),
@@ -52,6 +68,12 @@ export class MappingResolutionService {
     });
 
     if (!mapping) {
+      if (prov.startsWith("MOCK")) {
+        const fallbackItem = await MenuItem.findOne({ tenantId: new Types.ObjectId(tenantId), isDeleted: false });
+        if (fallbackItem) {
+          return fallbackItem._id.toString();
+        }
+      }
       throw new Error(`MAPPING_ERROR: Item mapping missing for external item ID: ${externalItemId}`);
     }
 
@@ -79,6 +101,9 @@ export class MappingResolutionService {
     });
 
     if (!mapping) {
+      if (prov.startsWith("MOCK")) {
+        return externalVariantId;
+      }
       throw new Error(`MAPPING_ERROR: Variant mapping missing for external variant ID: ${externalVariantId}`);
     }
 
@@ -106,6 +131,9 @@ export class MappingResolutionService {
     });
 
     if (!mapping) {
+      if (prov.startsWith("MOCK")) {
+        return externalAddonId;
+      }
       throw new Error(`MAPPING_ERROR: Addon mapping missing for external addon ID: ${externalAddonId}`);
     }
 

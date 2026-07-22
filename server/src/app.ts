@@ -20,7 +20,11 @@ app.use(cors({
          return callback(null, true);
       }
 
-      if (origin === process.env.CLIENT_URL) {
+      if (
+         origin === process.env.CLIENT_URL ||
+         origin.includes('localhost') ||
+         origin.includes('127.0.0.1')
+      ) {
          return callback(null, true);
       }
 

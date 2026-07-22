@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniServe - Online Order Simulator & Delayed Launcher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+    }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-input {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #f8fafc;
+    }
+    .glass-input:focus {
+      border-color: #6366f1;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+    .pulse-glow {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
+      50% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.7); }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-12">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-white/10 bg-slate-900/60 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-xl font-black shadow-lg shadow-indigo-500/30">
+          🚀
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
+            OmniServe Order Simulator
+          </h1>
+          <p class="text-xs text-slate-400">Online Order Stress Testing & Delayed Dispatcher Tool</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="apiStatusBadge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping mr-2"></span>
+          Connected to OmniServe API
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+
+    <!-- Configuration & Control Panel Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Left Column: Config Panel -->
+      <div class="glass-card rounded-2xl p-6 space-y-6">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+          ⚙️ Target Environment
+        </h2>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Target OmniServe API URL</label>
+          <input type="text" id="apiUrlInput" value="http://localhost:5000/api/v1" class="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono">
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-medium text-slate-300">Tenant ID <span class="text-rose-400">*</span></label>
+            <button type="button" onclick="autoFillTestTenant()" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold underline">🎲 Auto-Fill Test ID</button>
+          </div>
+          <input type="text" id="tenantIdInput" placeholder="Enter 24-char Tenant ID (e.g. 660f789abc1234567890abcd)" class="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono">
+          <p class="text-[11px] text-slate-400 mt-1">Must be a valid 24-character Mongo ObjectId.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Outlet ID (Optional)</label>
+          <input type="text" id="outletIdInput" placeholder="Optional specific Outlet ID" class="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono">
+        </div>
+
+        <div class="p-3.5 bg-indigo-950/40 border border-indigo-500/20 rounded-xl text-xs text-indigo-300 leading-relaxed">
+          💡 <strong>Pro-Tip:</strong> You can schedule multiple concurrent orders (batch mode) to test live order notifications and KDS queue handling.
+        </div>
+      </div>
+
+      <!-- Right 2 Columns: Launcher Controls -->
+      <div class="lg:col-span-2 glass-card rounded-2xl p-6 space-y-6">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+          🎯 Order Thrower & Timer Launcher
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- Provider Channel Selector -->
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-2">Order Provider Channel</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" onclick="setProvider('MOCK_SWIGGY')" id="btnProviderSwiggy" class="provider-btn py-2.5 px-3 rounded-xl border border-indigo-500 bg-indigo-600/30 text-xs font-bold text-white flex flex-col items-center gap-1 transition">
+                <span>🟠 Swiggy</span>
+                <span class="text-[10px] opacity-75 font-normal">Mock Delivery</span>
+              </button>
+              <button type="button" onclick="setProvider('MOCK_ZOMATO')" id="btnProviderZomato" class="provider-btn py-2.5 px-3 rounded-xl border border-white/10 bg-slate-800 text-xs font-bold text-slate-300 flex flex-col items-center gap-1 transition hover:bg-slate-700">
+                <span>🔴 Zomato</span>
+                <span class="text-[10px] opacity-75 font-normal">Mock Delivery</span>
+              </button>
+              <button type="button" onclick="setProvider('MIXED')" id="btnProviderMixed" class="provider-btn py-2.5 px-3 rounded-xl border border-white/10 bg-slate-800 text-xs font-bold text-slate-300 flex flex-col items-center gap-1 transition hover:bg-slate-700">
+                <span>🔀 Mixed</span>
+                <span class="text-[10px] opacity-75 font-normal">50% Swiggy/Zomato</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Order Count (Batch Size) -->
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-2">Number of Orders at Once (Batch Size)</label>
+            <div class="flex items-center gap-2 mb-2">
+              <button type="button" onclick="setOrderCount(1)" class="count-preset-btn px-3 py-1.5 rounded-lg border border-indigo-500 bg-indigo-600/30 text-xs font-bold text-white">1 Order</button>
+              <button type="button" onclick="setOrderCount(3)" class="count-preset-btn px-3 py-1.5 rounded-lg border border-white/10 bg-slate-800 text-xs text-slate-300">3 Orders</button>
+              <button type="button" onclick="setOrderCount(5)" class="count-preset-btn px-3 py-1.5 rounded-lg border border-white/10 bg-slate-800 text-xs text-slate-300">5 Orders</button>
+              <button type="button" onclick="setOrderCount(10)" class="count-preset-btn px-3 py-1.5 rounded-lg border border-white/10 bg-slate-800 text-xs text-slate-300">10 Orders</button>
+            </div>
+            <input type="number" id="orderCountInput" min="1" max="50" value="1" class="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono">
+          </div>
+
+        </div>
+
+        <!-- Timer Delay Selection -->
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-2">Timer Delay Before Order Throw</label>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-3">
+            <button type="button" onclick="setDelay(5)" class="delay-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-700">⚡ 5 Seconds</button>
+            <button type="button" onclick="setDelay(15)" class="delay-btn py-2 px-3 rounded-xl border border-indigo-500 bg-indigo-600/30 text-xs font-bold text-white">⏱️ 15 Seconds</button>
+            <button type="button" onclick="setDelay(30)" class="delay-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-700">⌛ 30 Seconds</button>
+            <button type="button" onclick="setDelay(60)" class="delay-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-700">🕒 1 Minute</button>
+            <button type="button" onclick="setDelay(120)" class="delay-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-700">⏰ 2 Minutes</button>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400">Custom Delay (Seconds):</span>
+            <input type="number" id="delaySecondsInput" min="0" max="3600" value="15" class="w-32 px-3 py-1.5 rounded-lg glass-input text-xs font-mono">
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-white/10">
+          <button type="button" onclick="scheduleSimulation()" class="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:brightness-110 active:scale-[0.98] transition flex items-center justify-center gap-2 pulse-glow">
+            <span>🚀 Launch Delayed Simulation</span>
+          </button>
+          <button type="button" onclick="triggerInstantThrow()" class="py-3 px-5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 font-bold text-sm hover:bg-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2">
+            <span>⚡ Throw Now (0s)</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Active Countdown Section -->
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          ⏳ Active Scheduled Timers
+          <span id="activeCountBadge" class="ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">0 Active</span>
+        </h2>
+      </div>
+
+      <div id="activeTimersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Empty state default -->
+        <div class="col-span-full glass-card rounded-2xl p-8 text-center text-slate-400">
+          <p class="text-3xl mb-2">⏱️</p>
+          <p class="text-sm font-medium">No active order timers scheduled right now.</p>
+          <p class="text-xs text-slate-500 mt-1">Configure your settings above and click "Launch Delayed Simulation" to begin.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- History & Execution Log Section -->
+    <div class="space-y-4">
+      <h2 class="text-base font-bold text-white flex items-center gap-2">
+        📜 Simulation Execution History
+      </h2>
+
+      <div class="glass-card rounded-2xl overflow-hidden border border-white/10">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/80 text-slate-400 font-semibold border-b border-white/10 uppercase tracking-wider text-[10px]">
+              <tr>
+                <th class="px-4 py-3.5">Task ID</th>
+                <th class="px-4 py-3.5">Channel</th>
+                <th class="px-4 py-3.5">Orders</th>
+                <th class="px-4 py-3.5">Scheduled At</th>
+                <th class="px-4 py-3.5">Status</th>
+                <th class="px-4 py-3.5">Dispatched</th>
+                <th class="px-4 py-3.5 text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-white/5">
+              <tr>
+                <td colspan="7" class="px-4 py-6 text-center text-slate-500">No simulation history recorded yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let selectedProvider = 'MOCK_SWIGGY';
+
+    function setProvider(provider) {
+      selectedProvider = provider;
+      document.querySelectorAll('.provider-btn').forEach(btn => {
+        btn.classList.remove('border-indigo-500', 'bg-indigo-600/30', 'text-white');
+        btn.classList.add('border-white/10', 'bg-slate-800', 'text-slate-300');
+      });
+      const activeBtn = provider === 'MOCK_SWIGGY' ? document.getElementById('btnProviderSwiggy') :
+                        provider === 'MOCK_ZOMATO' ? document.getElementById('btnProviderZomato') :
+                        document.getElementById('btnProviderMixed');
+      if (activeBtn) {
+        activeBtn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-300');
+        activeBtn.classList.add('border-indigo-500', 'bg-indigo-600/30', 'text-white');
+      }
+    }
+
+    function setOrderCount(count) {
+      document.getElementById('orderCountInput').value = count;
+    }
+
+    function setDelay(seconds) {
+      document.getElementById('delaySecondsInput').value = seconds;
+    }
+
+    function autoFillTestTenant() {
+      const defaultId = '660f789abc1234567890abcd';
+      document.getElementById('tenantIdInput').value = defaultId;
+      localStorage.setItem('omniserve_test_tenant', defaultId);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedTenant = localStorage.getItem('omniserve_test_tenant') || '660f789abc1234567890abcd';
+      if (document.getElementById('tenantIdInput')) {
+        document.getElementById('tenantIdInput').value = savedTenant;
+      }
+    });
+
+    async function scheduleSimulation(overrideDelay = null) {
+      let tenantId = document.getElementById('tenantIdInput').value.trim();
+      if (!tenantId) {
+        tenantId = '660f789abc1234567890abcd';
+        document.getElementById('tenantIdInput').value = tenantId;
+      }
+      localStorage.setItem('omniserve_test_tenant', tenantId);
+
+      const apiUrl = document.getElementById('apiUrlInput').value.trim();
+      const outletId = document.getElementById('outletIdInput').value.trim();
+      const orderCount = parseInt(document.getElementById('orderCountInput').value) || 1;
+      const delaySeconds = overrideDelay !== null ? overrideDelay : (parseInt(document.getElementById('delaySecondsInput').value) || 0);
+
+      try {
+        const response = await fetch('/api/simulator/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId,
+            apiUrl,
+            outletId,
+            provider: selectedProvider,
+            orderCount,
+            delaySeconds
+          })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          fetchTasks();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      } catch (err) {
+        alert('Failed to connect to simulator backend: ' + err.message);
+      }
+    }
+
+    function triggerInstantThrow() {
+      scheduleSimulation(0);
+    }
+
+    async function cancelTask(taskId) {
+      try {
+        const response = await fetch(`/api/simulator/tasks/${taskId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (data.success) {
+          fetchTasks();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function fetchTasks() {
+      try {
+        const response = await fetch('/api/simulator/tasks');
+        const data = await response.json();
+        if (data.success) {
+          renderActiveTimers(data.active || []);
+          renderHistory(data.history || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch tasks:', err);
+      }
+    }
+
+    function renderActiveTimers(activeTasks) {
+      const container = document.getElementById('activeTimersContainer');
+      document.getElementById('activeCountBadge').innerText = `${activeTasks.length} Active`;
+
+      if (activeTasks.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full glass-card rounded-2xl p-8 text-center text-slate-400">
+            <p class="text-3xl mb-2">⏱️</p>
+            <p class="text-sm font-medium">No active order timers scheduled right now.</p>
+            <p class="text-xs text-slate-500 mt-1">Configure your settings above and click "Launch Delayed Simulation" to begin.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = activeTasks.map(task => {
+        const percent = Math.max(0, Math.min(100, 100 - (task.remainingSeconds / task.delaySeconds) * 100));
+        const providerEmoji = task.provider === 'MOCK_SWIGGY' ? '🟠 Swiggy' :
+                              task.provider === 'MOCK_ZOMATO' ? '🔴 Zomato' : '🔀 Mixed';
+
+        return `
+          <div class="glass-card rounded-2xl p-5 border border-indigo-500/30 relative overflow-hidden space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-400">${providerEmoji}</span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                ${task.status}
+              </span>
+            </div>
+
+            <div class="flex items-baseline justify-between">
+              <div>
+                <span class="text-3xl font-extrabold text-white font-mono">${task.remainingSeconds}s</span>
+                <span class="text-xs text-slate-400 ml-1">remaining</span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold text-slate-200">${task.orderCount} Order(s)</span>
+                <p class="text-[10px] text-slate-400">Total Batch</p>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500" style="width: ${percent}%"></div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+              <span>Task: ${task.id}</span>
+              <button onclick="cancelTask('${task.id}')" class="text-rose-400 hover:text-rose-300 font-semibold text-xs">
+                Cancel
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderHistory(history) {
+      const tbody = document.getElementById('historyTableBody');
+      if (history.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="px-4 py-6 text-center text-slate-500">No simulation history recorded yet.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = history.map(task => {
+        const isSuccess = task.status === 'COMPLETED';
+        const isFailed = task.status === 'FAILED';
+        const badgeClass = isSuccess ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                           isFailed ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                           'bg-slate-500/10 text-slate-400 border-slate-500/20';
+
+        const successCount = task.results ? task.results.filter(r => r.status === 'SUCCESS').length : 0;
+        const timeStr = new Date(task.scheduledAt).toLocaleTimeString();
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="px-4 py-3 font-mono text-[11px] text-slate-400">${task.id}</td>
+            <td class="px-4 py-3 font-semibold text-slate-200">${task.provider}</td>
+            <td class="px-4 py-3 font-bold">${task.orderCount}</td>
+            <td class="px-4 py-3 text-slate-400">${timeStr}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
+                ${task.status}
+              </span>
+            </td>
+            <td class="px-4 py-3 font-mono">${successCount}/${task.orderCount}</td>
+            <td class="px-4 py-3 text-right">
+              <button onclick="alert('Results:\\n' + JSON.stringify(${JSON.stringify(task.results || []).replace(/"/g, '&quot;')}, null, 2))" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-[11px]">
+                Inspect JSON
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Auto Refresh Task Data
+    setInterval(fetchTasks, 1000);
+    fetchTasks();
+  </script>
+</body>
+</html>

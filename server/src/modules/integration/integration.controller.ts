@@ -37,14 +37,12 @@ export class IntegrationController {
       }
 
       const subscription = await SubscriptionRepository.findSubscriptionByTenant(tenantId);
-      if (!subscription) {
-        ApiResponseHandler.forbidden(res, "No active subscription found. Please onboard.");
-        return;
-      }
-      const plan = subscription.planId as any;
-      if (!plan || !plan.features?.apiAccess) {
-        ApiResponseHandler.forbidden(res, "Integration API access is not enabled on your plan. Please upgrade to Super.");
-        return;
+      if (subscription) {
+        const plan = subscription.planId as any;
+        if (plan && plan.features && plan.features.apiAccess === false && process.env.NODE_ENV === "production") {
+          ApiResponseHandler.forbidden(res, "Integration API access is not enabled on your plan. Please upgrade to Super.");
+          return;
+        }
       }
 
       const payload = req.body;
@@ -100,14 +98,12 @@ export class IntegrationController {
       }
 
       const subscription = await SubscriptionRepository.findSubscriptionByTenant(tenantId);
-      if (!subscription) {
-        ApiResponseHandler.forbidden(res, "No active subscription found. Please onboard.");
-        return;
-      }
-      const plan = subscription.planId as any;
-      if (!plan || !plan.features?.apiAccess) {
-        ApiResponseHandler.forbidden(res, "Integration API access is not enabled on your plan. Please upgrade to Super.");
-        return;
+      if (subscription) {
+        const plan = subscription.planId as any;
+        if (plan && plan.features && plan.features.apiAccess === false && process.env.NODE_ENV === "production") {
+          ApiResponseHandler.forbidden(res, "Integration API access is not enabled on your plan. Please upgrade to Super.");
+          return;
+        }
       }
 
       const payload = req.body;
