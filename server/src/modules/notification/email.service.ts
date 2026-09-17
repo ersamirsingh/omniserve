@@ -50,4 +50,19 @@ export class EmailService {
 
     return true;
   }
+
+  static async sendPasswordResetEmail(email: string, resetLink: string): Promise<boolean> {
+    return this.sendMail({
+      to: email,
+      subject: 'OmniServe - Password Reset Request',
+      text: `You requested a password reset. Click the link to reset your password: ${resetLink}\nThis link will expire in 15 minutes.`,
+      html: `
+        <p>You requested a password reset for your OmniServe account.</p>
+        <p>Click the link below to reset your password:</p>
+        <p><a href="${resetLink}">Reset Password</a></p>
+        <p>This link will expire in 15 minutes.</p>
+        <p>If you did not request this, please ignore this email.</p>
+      `,
+    });
+  }
 }

@@ -43,6 +43,8 @@ export const routeComponents = {
   LandingPage: createLazyPage(() => import('../../pages/landing/LandingPage')),
   LoginPage: createLazyPage(() => import('../../pages/auth/LoginPage')),
   RegisterPage: createLazyPage(() => import('../../pages/auth/RegisterPage')),
+  ForgotPasswordPage: createLazyPage(() => import('../../pages/auth/ForgotPasswordPage')),
+  ResetPasswordPage: createLazyPage(() => import('../../pages/auth/ResetPasswordPage')),
   DashboardPage: createLazyPage(() => import('../../pages/dashboard/DashboardPage')),
   RestaurantsPage: createLazyPage(() => import('../../pages/restaurants/RestaurantsPage')),
   OutletsPage: createLazyPage(() => import('../../pages/outlets/OutletsPage')),
@@ -120,6 +122,8 @@ export function hasPermission(userRole, feature) {
 export const authRoutes = [
   { path: '/login', component: routeComponents.LoginPage },
   { path: '/register', component: routeComponents.RegisterPage },
+  { path: '/forgot-password', component: routeComponents.ForgotPasswordPage },
+  { path: '/reset-password', component: routeComponents.ResetPasswordPage },
 ];
 
 export const dashboardRoutes = [

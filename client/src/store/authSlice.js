@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { loginApi, registerApi, logoutApi, getMeApi } from '../api/models/auth.api';
+import { loginApi, registerApi, logoutApi, getMeApi, googleAuthApi } from '../api/models/auth.api';
 
 export const loginUser = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
   try {
@@ -7,6 +7,15 @@ export const loginUser = createAsyncThunk('auth/login', async (credentials, { re
     return res.data.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Login failed');
+  }
+});
+
+export const googleLoginUser = createAsyncThunk('auth/googleLogin', async (payload, { rejectWithValue }) => {
+  try {
+    const res = await googleAuthApi(payload);
+    return res.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Google login failed');
   }
 });
 
@@ -86,6 +95,34 @@ const authSlice = createSlice({
         }
       })
       .addCase(loginUser.rejected, (state, action) => {
+        state.loading = 'failed';
+        state.authChecked = true;
+        state.error = action.payload;
+      })
+      .addCase(googleLoginUser.pending, (state) => {
+        state.loading = 'pending';
+        state.error = null;
+      })
+      .addCase(googleLoginUser.fulfilled, (state, action) => {
+        if (action.payload?.code === 'ONBOARDING_REQUIRED') {
+          state.loading = 'succeeded';
+          state.error = null;
+          return;
+        }
+
+        const data = action.payload?.data;
+        state.loading = 'succeeded';
+        state.user = data?.user || null;
+        state.isAuthenticated = !!data?.user;
+        state.authChecked = true;
+        if (data?.accessToken) {
+          localStorage.setItem('accessToken', data.accessToken);
+        }
+        if (data?.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+      })
+      .addCase(googleLoginUser.rejected, (state, action) => {
         state.loading = 'failed';
         state.authChecked = true;
         state.error = action.payload;

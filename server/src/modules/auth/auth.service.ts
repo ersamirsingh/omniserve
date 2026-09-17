@@ -3,9 +3,13 @@ import jwt from 'jsonwebtoken';
 import { IUser } from "../../models/user.model.js";
 import User from "../../models/user.model.js";
 import RefreshToken from "../../models/refreshtoken.model.js";
-import { UserStatus, SubscriptionPlan, UserRole } from "../../models/enums.js";
+import { UserStatus, SubscriptionPlan, UserRole, AuditAction } from "../../models/enums.js";
 import { Types } from 'mongoose';
 import Tenant from "../../models/tenant.model.js";
+import { GoogleProvider } from "./google-auth.service.js";
+import { AuditLogService } from "../auditLog/auditLog.service.js";
+import crypto from 'crypto';
+import { EmailService } from "../notification/email.service.js";
 
 interface TokenPayload {
   userId: string;
@@ -161,7 +165,7 @@ export class AuthService {
       throw new Error('User account is inactive');
     }
 
-    const isPasswordValid = await this.comparePassword(password, user.passwordHash);
+    const isPasswordValid = user.passwordHash ? await this.comparePassword(password, user.passwordHash) : false;
     if (!isPasswordValid) {
       throw new Error('Invalid email or password');
     }
@@ -266,7 +270,7 @@ export class AuthService {
       return null;
     }
 
-    const isPasswordValid = await this.comparePassword(password, user.passwordHash);
+    const isPasswordValid = user.passwordHash ? await this.comparePassword(password, user.passwordHash) : false;
     if (!isPasswordValid) {
       return null;
     }
@@ -289,7 +293,7 @@ export class AuthService {
       throw new Error('User not found');
     }
 
-    const isPasswordValid = await this.comparePassword(oldPassword, user.passwordHash);
+    const isPasswordValid = user.passwordHash ? await this.comparePassword(oldPassword, user.passwordHash) : false;
     if (!isPasswordValid) {
       throw new Error('Current password is incorrect');
     }
@@ -311,5 +315,362 @@ export class AuthService {
         revokedAt: new Date(),
       }
     );
+  }
+
+  static async googleAuth(
+    idToken: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<{ onboardingRequired: boolean; onboardingToken?: string; authResponse?: AuthResponse }> {
+    const provider = new GoogleProvider();
+    const verifiedProfile = await provider.verifyToken(idToken);
+
+    if (!verifiedProfile.emailVerified) {
+      throw new Error('Google email is not verified');
+    }
+
+    const email = verifiedProfile.email.toLowerCase();
+
+    // Look up existing user
+    const user = await User.findOne({ email }).select('+passwordHash');
+
+    if (user) {
+      // 1. Enforce Role check: SYSTEM_ADMIN cannot use Google
+      if (user.role === UserRole.SYSTEM_ADMIN || user.pendingRole === UserRole.SYSTEM_ADMIN) {
+        throw new Error('Google login is disabled for system administrators. Please use local login.');
+      }
+
+      // 2. Enforce User Status
+      if (user.status === UserStatus.BLOCKED) {
+        throw new Error('User account is blocked');
+      }
+
+      if (user.status === UserStatus.INACTIVE) {
+        if (user.invitationAccepted) {
+          throw new Error('User account is inactive');
+        }
+      }
+
+      // 3. Enforce Tenant Status
+      if (user.tenantId) {
+        const tenant = await Tenant.findOne({ _id: user.tenantId, isDeleted: false });
+        if (!tenant) {
+          throw new Error('Tenant not found or deleted');
+        }
+        if (tenant.status !== UserStatus.ACTIVE) {
+          throw new Error('Tenant account is inactive or suspended');
+        }
+      }
+
+      // 4. Account linking / updating details
+      let isLinking = false;
+      if (user.authProvider !== 'GOOGLE' || !user.providerId) {
+        user.authProvider = 'GOOGLE';
+        user.providerId = verifiedProfile.providerId;
+        user.emailVerified = true;
+        isLinking = true;
+      }
+
+      // 5. Handle Staff / User invitation activation
+      let isInviteActivation = false;
+      if (!user.invitationAccepted && user.pendingRole) {
+        if (user.invitationExpiresAt && user.invitationExpiresAt < new Date()) {
+          throw new Error('Invitation has expired');
+        }
+        
+        user.role = user.pendingRole;
+        user.restaurantId = user.pendingRestaurantId || null;
+        user.outletId = user.pendingOutletId || null;
+        user.outletIds = user.pendingOutletIds || [];
+        user.pendingRole = null;
+        user.pendingRestaurantId = null;
+        user.pendingOutletId = null;
+        user.pendingOutletIds = [];
+        user.invitationLink = null;
+        user.invitationExpiresAt = null;
+        user.invitationAccepted = true;
+        isInviteActivation = true;
+      }
+
+      user.lastLogin = new Date();
+      user.updatedBy = user._id;
+      await user.save();
+
+      // Create session
+      const tokenPayload: TokenPayload = {
+        userId: user._id.toString(),
+        ...(user.tenantId ? { tenantId: user.tenantId.toString() } : {}),
+        ...(user.restaurantId ? { restaurantId: user.restaurantId.toString() } : {}),
+        ...(user.outletId ? { outletId: user.outletId.toString() } : {}),
+        ...(user.outletIds && user.outletIds.length > 0 ? { outletIds: user.outletIds.map(id => id.toString()) } : {}),
+        email: user.email,
+        role: user.role,
+        status: user.status,
+      };
+
+      const accessToken = this.generateAccessToken(tokenPayload);
+      const refreshToken = await this.generateRefreshToken(
+        user._id.toString(),
+        user.tenantId ? user.tenantId.toString() : null,
+        ipAddress,
+        userAgent
+      );
+
+      // Audit Logs
+      if (isInviteActivation) {
+        await AuditLogService.createAuditLog(user.tenantId?.toString(), {
+          userId: user._id.toString(),
+          action: AuditAction.STATUS_CHANGE,
+          entityType: 'User',
+          entityId: user._id.toString(),
+          newData: { invitationAccepted: true, role: user.role },
+          ...(ipAddress ? { ipAddress } : {}),
+          ...(userAgent ? { userAgent } : {}),
+        });
+      }
+      
+      await AuditLogService.createAuditLog(user.tenantId?.toString(), {
+        userId: user._id.toString(),
+        action: AuditAction.LOGIN,
+        entityType: 'User',
+        entityId: user._id.toString(),
+        newData: { provider: 'google', linked: isLinking, activated: isInviteActivation },
+        ...(ipAddress ? { ipAddress } : {}),
+        ...(userAgent ? { userAgent } : {}),
+      });
+
+      return {
+        onboardingRequired: false,
+        authResponse: {
+          accessToken,
+          refreshToken,
+          user: this.sanitizeUser(user),
+        },
+      };
+    } else {
+      // User does not exist, onboarding required.
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET is not defined');
+      }
+      const onboardingToken = jwt.sign(
+        {
+          email,
+          firstName: verifiedProfile.firstName,
+          lastName: verifiedProfile.lastName,
+          providerId: verifiedProfile.providerId,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+
+      return {
+        onboardingRequired: true,
+        onboardingToken,
+      };
+    }
+  }
+
+  static async googleRegister(
+    onboardingToken: string,
+    tenantName: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<AuthResponse> {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is not defined');
+    }
+
+    let decodedPayload: any;
+    try {
+      decodedPayload = jwt.verify(onboardingToken, process.env.JWT_SECRET);
+    } catch (err) {
+      throw new Error('Invalid or expired onboarding token');
+    }
+
+    const { email, firstName, lastName, providerId } = decodedPayload;
+
+    if (!email || !providerId) {
+      throw new Error('Invalid onboarding token payload');
+    }
+
+    // Double check email collision
+    const existingUser = await User.findOne({ email });
+    if (existingUser && !existingUser.isDeleted) {
+      throw new Error('Email already exists');
+    }
+
+    const tenantSlug = this.tenantSlagGenerator(tenantName);
+    const existingTenant = await Tenant.findOne({ slug: tenantSlug });
+    if (existingTenant) {
+      throw new Error('Tenant slug already taken');
+    }
+
+    const tenant = await Tenant.create({
+      name: tenantName,
+      slug: tenantSlug,
+      ownerId: new Types.ObjectId(),
+      subscriptionPlan: SubscriptionPlan.FREE,
+      status: UserStatus.ACTIVE,
+    });
+
+    const user = await User.create({
+      tenantId: tenant._id,
+      firstName,
+      lastName,
+      email,
+      role: UserRole.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      authProvider: 'GOOGLE',
+      providerId,
+      emailVerified: true,
+      invitationAccepted: true,
+      createdBy: null,
+    });
+
+    tenant.ownerId = user._id;
+    await tenant.save();
+
+    // Create session
+    const tokenPayload: TokenPayload = {
+      userId: user._id.toString(),
+      tenantId: tenant._id.toString(),
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    };
+
+    const accessToken = this.generateAccessToken(tokenPayload);
+    const refreshToken = await this.generateRefreshToken(
+      user._id.toString(),
+      tenant._id.toString(),
+      ipAddress,
+      userAgent
+    );
+
+    // Audit Logs
+    await AuditLogService.createAuditLog(tenant._id.toString(), {
+      userId: user._id.toString(),
+      action: AuditAction.CREATE,
+      entityType: 'Tenant',
+      entityId: tenant._id.toString(),
+      newData: { name: tenantName, slug: tenantSlug },
+      ...(ipAddress ? { ipAddress } : {}),
+      ...(userAgent ? { userAgent } : {}),
+    });
+
+    await AuditLogService.createAuditLog(tenant._id.toString(), {
+      userId: user._id.toString(),
+      action: AuditAction.CREATE,
+      entityType: 'User',
+      entityId: user._id.toString(),
+      newData: { email, role: user.role, provider: 'google' },
+      ...(ipAddress ? { ipAddress } : {}),
+      ...(userAgent ? { userAgent } : {}),
+    });
+
+    await AuditLogService.createAuditLog(tenant._id.toString(), {
+      userId: user._id.toString(),
+      action: AuditAction.LOGIN,
+      entityType: 'User',
+      entityId: user._id.toString(),
+      newData: { provider: 'google', isNewUser: true },
+      ...(ipAddress ? { ipAddress } : {}),
+      ...(userAgent ? { userAgent } : {}),
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  static async forgotPassword(email: string, clientUrl: string): Promise<{ success: boolean; message: string; code?: string }> {
+    const emailClean = email.trim().toLowerCase();
+    const user = await User.findOne({ email: emailClean });
+
+    // Email enumeration protection: generic message if user not found or isDeleted
+    if (!user || user.isDeleted) {
+      return {
+        success: true,
+        message: 'If an account is associated with this email, a password reset link has been sent.',
+      };
+    }
+
+    // Invalidate all previous reset tokens by generating a new one
+    const plainToken = crypto.randomBytes(32).toString('hex');
+    const resetPasswordToken = crypto.createHash('sha256').update(plainToken).digest('hex');
+    const resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiration
+
+    user.resetPasswordToken = resetPasswordToken;
+    user.resetPasswordExpires = resetPasswordExpires;
+    await user.save();
+
+    // Create password reset link
+    const baseUrl = clientUrl || process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetLink = `${baseUrl}/reset-password?token=${plainToken}`;
+
+    // Send email using EmailService
+    try {
+      await EmailService.sendPasswordResetEmail(user.email, resetLink);
+    } catch (emailError: any) {
+      console.error('Failed to send password reset email (SMTP error):', emailError);
+    }
+
+    return {
+      success: true,
+      message: 'If an account is associated with this email, a password reset link has been sent.',
+    };
+  }
+
+  static async resetPassword(
+    token: string,
+    newPassword: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<{ success: boolean; message: string }> {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      throw new Error('Invalid or expired password reset token');
+    }
+
+    // Validate new password complexity
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      throw new Error('Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character');
+    }
+
+    // Hash the new password
+    const passwordHash = await this.hashPassword(newPassword);
+    user.passwordHash = passwordHash;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    user.updatedBy = user._id;
+    await user.save();
+
+    // Invalidate all current active refresh tokens for security
+    await this.revokeAllTokens(user._id.toString());
+
+    // Log audit event
+    await AuditLogService.createAuditLog(user.tenantId?.toString(), {
+      userId: user._id.toString(),
+      action: AuditAction.UPDATE,
+      entityType: 'User',
+      entityId: user._id.toString(),
+      newData: { passwordReset: true },
+      ...(ipAddress ? { ipAddress } : {}),
+      ...(userAgent ? { userAgent } : {}),
+    });
+
+    return {
+      success: true,
+      message: 'Password has been reset successfully.',
+    };
   }
 }

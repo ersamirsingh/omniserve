@@ -36,6 +36,9 @@ const envSchema = z.object({
   GEMINI_MODEL_NAME: z.string().default('gemini-1.5-flash'),
 
   WEBHOOK_SECRET: z.string().optional(),
+
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

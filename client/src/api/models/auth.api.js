@@ -8,3 +8,6 @@ export const logoutApi = () => {
 };
 export const getMeApi = () => api.get('/auth/me');
 export const changePasswordApi = (data) => api.post('/auth/change-password', data);
+export const googleAuthApi = (data) => api.post('/auth/google', data);
+export const forgotPasswordApi = (data) => api.post('/auth/forgot-password', data);
+export const resetPasswordApi = (data) => api.post('/auth/reset-password', data);

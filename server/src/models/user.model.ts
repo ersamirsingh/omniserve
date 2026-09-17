@@ -10,7 +10,7 @@ export interface IUser extends Document {
   lastName: string;
   email: string;
   phone?: string;
-  passwordHash: string;
+  passwordHash?: string;
   role: UserRole;
   pendingRole?: UserRole | null;
   pendingRestaurantId?: Types.ObjectId | null;
@@ -32,6 +32,13 @@ export interface IUser extends Document {
   idProofStatus?: string | null;
   twoFactorEnabled?: boolean;
   twoFactorSecret?: string | null;
+
+  authProvider: 'LOCAL' | 'GOOGLE';
+  providerId?: string | null;
+  emailVerified: boolean;
+
+  resetPasswordToken?: string | null;
+  resetPasswordExpires?: Date | null;
 
   fullName: string;
 }
@@ -84,7 +91,9 @@ const userSchema = new Schema<IUser>(
     },
     passwordHash: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function(this: any) {
+        return this.authProvider === 'LOCAL';
+      },
       select: false,
     },
     role: {
@@ -181,6 +190,28 @@ const userSchema = new Schema<IUser>(
       type: String,
       default: null,
     },
+    authProvider: {
+      type: String,
+      enum: ['LOCAL', 'GOOGLE'],
+      default: 'LOCAL',
+      required: true,
+    },
+    providerId: {
+      type: String,
+      default: null,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -195,6 +226,14 @@ userSchema.index({ tenantId: 1, outletId: 1 });
 userSchema.index({ tenantId: 1, role: 1 });
 userSchema.index({ tenantId: 1, status: 1 });
 userSchema.index({ isDeleted: 1 });
+userSchema.index(
+  { providerId: 1, authProvider: 1 },
+  { unique: true, partialFilterExpression: { providerId: { $type: "string" } } }
+);
+userSchema.index(
+  { resetPasswordToken: 1 },
+  { unique: true, partialFilterExpression: { resetPasswordToken: { $type: "string" } } }
+);
 userSchema.index(
   { tenantId: 1, restaurantId: 1, role: 1 },
   {

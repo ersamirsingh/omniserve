@@ -15,6 +15,9 @@ router.post('/register', authRateLimiter, AuthController.register);
 router.post('/login', authRateLimiter, AuthController.login);
 router.post('/refresh', AuthController.refreshToken);
 router.post('/verify', AuthController.verifyToken);
+router.post('/google', authRateLimiter, AuthController.googleAuth);
+router.post('/forgot-password', authRateLimiter, AuthController.forgotPassword);
+router.post('/reset-password', authRateLimiter, AuthController.resetPassword);
 
 router.post('/logout', verifyToken, AuthController.logout);
 router.get('/me', verifyToken, AuthController.getCurrentUser);

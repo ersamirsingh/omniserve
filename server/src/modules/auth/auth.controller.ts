@@ -334,4 +334,188 @@ export class AuthController {
       });
     }
   }
+
+  static async googleAuth(req: Request, res: Response): Promise<void> {
+    try {
+      const { idToken, onboardingToken, tenantName } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('user-agent');
+
+      // Case 1: Simple Login / Verification with Google ID Token
+      if (idToken) {
+        const result = await AuthService.googleAuth(idToken, ipAddress, userAgent);
+
+        if (result.onboardingRequired) {
+          res.status(202).json({
+            success: false,
+            code: 'ONBOARDING_REQUIRED',
+            message: 'Please complete tenant onboarding to register.',
+            data: {
+              onboardingToken: result.onboardingToken,
+            },
+          });
+          return;
+        }
+
+        if (result.authResponse) {
+          res.cookie('accessToken', result.authResponse.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000,
+          });
+
+          res.cookie('refreshToken', result.authResponse.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+          });
+
+          res.status(200).json({
+            success: true,
+            message: 'Google authentication successful',
+            data: {
+              accessToken: result.authResponse.accessToken,
+              refreshToken: result.authResponse.refreshToken,
+              user: result.authResponse.user,
+            },
+          });
+          return;
+        }
+      }
+
+      // Case 2: Onboarding Flow Completion
+      if (onboardingToken && tenantName) {
+        const result = await AuthService.googleRegister(
+          onboardingToken,
+          tenantName,
+          ipAddress,
+          userAgent
+        );
+
+        res.cookie('accessToken', result.accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 24 * 60 * 60 * 1000,
+        });
+
+        res.cookie('refreshToken', result.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        res.status(200).json({
+          success: true,
+          message: 'Google authentication successful',
+          data: {
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            user: result.user,
+          },
+        });
+        return;
+      }
+
+      res.status(400).json({
+        success: false,
+        message: 'Invalid request parameters. Provide idToken or onboardingToken + tenantName.',
+      });
+    } catch (error: any) {
+      let statusCode = 400;
+      let errorCode = 'BAD_REQUEST';
+
+      if (
+        error.message.includes('invalid') || 
+        error.message.includes('expired') || 
+        error.message.includes('Google email')
+      ) {
+        statusCode = 401;
+        errorCode = 'INVALID_GOOGLE_TOKEN';
+      }
+
+      if (
+        error.message.includes('blocked') || 
+        error.message.includes('inactive') || 
+        error.message.includes('suspended') ||
+        error.message.includes('disabled')
+      ) {
+        statusCode = 403;
+        errorCode = 'ACCOUNT_DISABLED';
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        code: errorCode,
+        message: error.message || 'Google authentication failed',
+      });
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const { email } = req.body;
+      const clientUrl = req.get('origin') || req.get('referer');
+
+      if (!email) {
+        res.status(400).json({
+          success: false,
+          message: 'Email is required',
+        });
+        return;
+      }
+
+      const result = await AuthService.forgotPassword(email, clientUrl || '');
+
+      if (!result.success) {
+        res.status(400).json({
+          success: false,
+          code: result.code,
+          message: result.message,
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Forgot password request failed',
+      });
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const { token, password } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('user-agent');
+
+      if (!token || !password) {
+        res.status(400).json({
+          success: false,
+          message: 'Token and password are required',
+        });
+        return;
+      }
+
+      await AuthService.resetPassword(token, password, ipAddress, userAgent);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password has been reset successfully.',
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Password reset failed',
+      });
+    }
+  }
 }
