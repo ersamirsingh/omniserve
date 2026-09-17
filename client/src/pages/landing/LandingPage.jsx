@@ -416,9 +416,10 @@ function OrderJourneyMock() {
 
 function StaffMgmtMock({ team }) {
   const staffList = team?.length ? team : [
-    { name: 'Md Yusuf', role: 'Full Stack & System Architect', email: 'yusuf@omniserve.io', scope: 'Global', initial: 'MY', badgeBg: 'bg-indigo-500/10 text-indigo-400' },
-    { name: 'Samir Singh', role: 'Operations Manager Lead', email: 'samir@omniserve.io', scope: 'Regional', initial: 'SS', badgeBg: 'bg-blue-500/10 text-blue-400' },
-    { name: 'Nitish Kumar', role: 'Kitchen Lead Specialist', email: 'nitish@omniserve.io', scope: 'Delhi CP', initial: 'NK', badgeBg: 'bg-emerald-500/10 text-emerald-400' }
+    { name: 'Md Yusuf', role: 'Full stack & System architecture engineer', email: 'yusuf@omniserve.io', scope: 'Global', initial: 'MY', badgeBg: 'bg-indigo-500/10 text-indigo-400' },
+    { name: 'Samir Kumar Singh', role: 'AI Engineer', email: 'samir@omniserve.io', scope: 'Regional', initial: 'SS', badgeBg: 'bg-blue-500/10 text-blue-400' },
+    { name: 'Nitish Kumar', role: 'Full Stack Developer', email: 'nitish@omniserve.io', scope: 'Delhi CP', initial: 'NK', badgeBg: 'bg-emerald-500/10 text-emerald-400' },
+    { name: 'Ajay Rathore', role: 'Full Stack Developer', email: 'ajay@omniserve.io', scope: 'Operations', initial: 'AR', badgeBg: 'bg-amber-500/10 text-amber-400' }
   ];
 
   return (
@@ -1061,12 +1062,9 @@ export default function LandingPage() {
           <h2 className="font-headline-xl text-headline-xl mb-4 font-bold">The Minds Behind OmniServe</h2>
           <p className="text-on-surface/75 dark:text-zinc-300">Experts in operations, scale engineering, and product systems.</p>
         </div>
-        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 reveal">
-          {(teamData.length ? teamData : [
-            { name: 'Md Yusuf', role: 'Full stack and System architecture engineer', image: '/images/landingpage/team/yusuf.jpeg' },
-            { name: 'Samir Singh', role: 'Full stack and DevOps engineer', image: '/images/landingpage/team/samir.jpeg' },
-            { name: 'Nitish Kumar', role: 'Frontend Lead & UI/UX Specialist', image: '/images/landingpage/team/nitish.jpeg' }
-          ]).map((member) => (
+        <div className="max-w-container-max mx-auto px-margin-desktop grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 reveal">
+          {/* {(teamData.length ? teamData : teamMembers).map((member) => ( */}
+          {teamMembers.map((member) => (
             <div key={member.name} className="text-center group bg-white/30 dark:bg-zinc-900/30 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 transition-all hover:-translate-y-1">
               <div className="w-40 h-40 mx-auto mb-6 relative">
                 <div className="absolute inset-0 bg-[#6311f4]/15 rounded-full group-hover:scale-105 transition-transform duration-500"></div>
