@@ -13,7 +13,7 @@ export default function PageHeader({
   const location = useLocation();
 
   return (
-    <div className="border-b border-border-base dark:border-zinc-900/60 pb-1 mb-6">
+    <div className="border-b border-border-base dark:border-zinc-900/60 pb-2 mb-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           {section && (
@@ -27,7 +27,7 @@ export default function PageHeader({
               )}
             </div>
           )}
-          <h2 className="text-headline-lg font-headline-lg text-on-surface dark:text-zinc-100 text-[26px] font-bold tracking-tight">
+          <h2 className="text-headline-lg font-headline-lg text-on-surface dark:text-zinc-100 text-[28px] font-bold tracking-tight">
             {title}
           </h2>
           {description && (

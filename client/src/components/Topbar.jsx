@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { ROLE_LABELS } from '../utils/constants';
 
-export default function Topbar({ onMenuClick, title }) {
+export default function Topbar({ onMenuClick, title, isCollapsed = false }) {
   const { user, logout } = useAuth();
   const { unreadCount } = useSelector((s) => s.notifications);
   const { theme, selectTheme } = useTheme();
@@ -35,7 +35,7 @@ export default function Topbar({ onMenuClick, title }) {
   const initials = user ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() : '?';
 
   return (
-    <header className="fixed top-0 left-[260px] max-md:left-0 right-0 h-16 bg-white/85 dark:bg-zinc-950/85 backdrop-blur-md border-b border-border-base dark:border-zinc-900 flex items-center justify-between px-6 z-50 transition-all duration-300">
+    <header className={`fixed top-0 ${isCollapsed ? 'md:left-[72px]' : 'md:left-[260px]'} left-0 right-0 h-16 bg-white/85 dark:bg-zinc-950/85 backdrop-blur-md border-b border-border-base dark:border-zinc-900 flex items-center justify-between px-6 z-50 transition-all duration-300`}>
       <div className="flex items-center gap-4">
         <button 
           className="hidden max-md:flex items-center justify-center w-9 h-9 rounded-lg bg-surface-subtle dark:bg-zinc-900 text-on-surface dark:text-zinc-200 text-xl cursor-pointer border border-border-base dark:border-zinc-800 hover:bg-surface-container-low dark:hover:bg-zinc-800 active:scale-95 transition-all" 

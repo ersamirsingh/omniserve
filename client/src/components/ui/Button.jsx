@@ -20,7 +20,7 @@ export default function Button({ children, variant = 'primary', size = 'md', loa
   return (
     <button
       type={type}
-      className={`inline-flex items-center justify-center gap-2 font-semibold rounded-lg cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 font-semibold rounded-lg cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary/30 ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`}
       disabled={disabled || loading}
       onClick={onClick}
     >

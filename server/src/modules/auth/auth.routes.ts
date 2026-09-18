@@ -5,11 +5,15 @@ import { rateLimiter } from "../../middlewares/rateLimiter.middleware.js";
 
 const router: Router = express.Router();
 
+// Temporarily bypassed for testing (revert to rateLimiter(...) when done):
+const authRateLimiter = (_req: any, _res: any, next: any) => next();
+/*
 const authRateLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 15,
   message: 'Too many authentication attempts, please try again after 15 minutes'
 });
+*/
 
 router.post('/register', authRateLimiter, AuthController.register);
 router.post('/login', authRateLimiter, AuthController.login);

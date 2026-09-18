@@ -13,6 +13,18 @@ const iconColors = {
   error: 'bg-rose-500/10 text-error',
 };
 
+const accentColors = {
+  indigo: 'bg-primary-container dark:bg-primary-fixed-dim',
+  emerald: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  rose: 'bg-rose-500',
+  blue: 'bg-blue-500',
+  primary: 'bg-primary-container dark:bg-primary-fixed-dim',
+  warning: 'bg-amber-500',
+  info: 'bg-blue-500',
+  error: 'bg-rose-500',
+};
+
 export default function StatCard({ title, value, icon, trend, trendUp, color = 'indigo', onClick }) {
   const renderIcon = () => {
     if (!icon) return null;
@@ -24,10 +36,11 @@ export default function StatCard({ title, value, icon, trend, trendUp, color = '
   return (
     <div 
       onClick={onClick}
-      className={`bg-white dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-xl shadow-sm p-6 flex flex-col gap-3 hover:-translate-y-1 transition-transform duration-200 animate-fade-in ${
+      className={`bg-white dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-xl shadow-sm p-6 flex flex-col gap-3 hover:-translate-y-1 hover:shadow-md transition-all duration-200 animate-fade-in relative overflow-hidden ${
         onClick ? 'cursor-pointer hover:border-primary/50' : ''
       }`}
     >
+      <div className={`absolute top-0 left-0 right-0 h-0.5 opacity-60 ${accentColors[color] || accentColors.indigo}`} />
       <div className="flex items-center justify-between">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 ${iconColors[color] || iconColors.indigo}`}>
           {renderIcon()}

@@ -253,7 +253,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
       render: (r) => {
         const canCancel = r.orderStatus !== 'CANCELLED' && r.orderStatus !== 'DELIVERED' && r.orderStatus !== 'COMPLETED';
         return (
-          <div className="flex gap-1.5 justify-end">
+          <div className="flex flex-wrap gap-1.5 justify-end">
             <Button size="sm" variant="secondary" onClick={() => handleViewDetails(r.id)} title="View Details" className="!p-2">
               <HiOutlineEye className="text-base" />
             </Button>
@@ -404,7 +404,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
       </div>
 
       {viewType === 'BOARD' ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 h-[calc(100vh-230px)] min-h-[500px]">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:h-[calc(100vh-230px)] lg:min-h-[500px]">
           {flowColumns.map((col) => {
             const colOrders = filtered.filter((o) => matchOrderStatus(o.orderStatus, col.status));
             return (
@@ -461,7 +461,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
                             <span className="font-medium">{order.items?.length || 0} items</span>
                           </div>
 
-                          <div className="flex gap-1.5 mt-3 pt-2 border-t border-border-base/40 dark:border-zinc-850/40" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-wrap gap-1.5 mt-3 pt-2 border-t border-border-base/40 dark:border-zinc-850/40" onClick={(e) => e.stopPropagation()}>
                             <Button 
                               size="sm" 
                               variant="outline" 
@@ -525,7 +525,7 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
         ) : detailsModal.data ? (
           <div className="space-y-6 text-sm text-on-surface dark:text-zinc-300">
             {/* Summary cards */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <span className="text-xs text-on-surface-variant dark:text-zinc-500 font-bold uppercase tracking-wider">Customer Details</span>
                 <p className="font-semibold text-on-surface dark:text-zinc-200">
@@ -555,11 +555,11 @@ export default function OrdersPage({ mode = 'ALL', hideHeader = false, viewType 
               <div className="divide-y divide-border-base/50 dark:divide-zinc-800/50">
                 {detailsModal.data.items?.map((item) => (
                   <div key={item.id} className="py-2.5 flex justify-between items-start gap-4">
-                    <div className="space-y-0.5">
-                      <p className="font-semibold text-on-surface dark:text-zinc-200">{item.name} <span className="text-xs font-bold text-primary dark:text-primary-fixed-dim">x{item.quantity}</span></p>
-                      {item.notes && <p className="text-xs text-warning-orange font-medium">Note: {item.notes}</p>}
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <p className="font-semibold text-on-surface dark:text-zinc-200 break-words">{item.name} <span className="text-xs font-bold text-primary dark:text-primary-fixed-dim">x{item.quantity}</span></p>
+                      {item.notes && <p className="text-xs text-warning-orange font-medium break-words">Note: {item.notes}</p>}
                     </div>
-                    <span className="font-bold text-on-surface dark:text-zinc-150">₹{(item.totalPrice ?? (item.unitPrice * item.quantity)).toLocaleString()}</span>
+                    <span className="font-bold text-on-surface dark:text-zinc-150 shrink-0 whitespace-nowrap">₹{(item.totalPrice ?? (item.unitPrice * item.quantity)).toLocaleString()}</span>
                   </div>
                 ))}
               </div>

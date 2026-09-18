@@ -46,6 +46,15 @@ export default function MenuItemsPage({ isEmbedded = false, selectedOutletId, gl
   const [submitting, setSubmitting] = useState(false);
   const { addToast } = useToast();
 
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('omniserve_menu_view') || 'table';
+  });
+
+  const handleViewChange = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('omniserve_menu_view', mode);
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -233,6 +242,27 @@ export default function MenuItemsPage({ isEmbedded = false, selectedOutletId, gl
     return true;
   });
 
+  const groupedByCategory = (() => {
+    if (viewMode !== 'grouped') return [];
+    const categoryMap = new Map();
+    
+    filteredData.forEach((item) => {
+      const catId = getRefId(item.categoryId) || 'uncategorized';
+      if (!categoryMap.has(catId)) {
+        const cat = categories.find((c) => getEntityId(c) === catId);
+        categoryMap.set(catId, {
+          id: catId,
+          name: cat?.name || 'Uncategorized',
+          displayOrder: cat?.displayOrder ?? 9999,
+          items: [],
+        });
+      }
+      categoryMap.get(catId).items.push(item);
+    });
+    
+    return Array.from(categoryMap.values()).sort((a, b) => a.displayOrder - b.displayOrder);
+  })();
+
   const columns = [
     { 
       key: 'name', 
@@ -320,6 +350,28 @@ export default function MenuItemsPage({ isEmbedded = false, selectedOutletId, gl
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center border border-border-base dark:border-zinc-800 rounded-lg overflow-hidden ml-auto">
+            <button
+              onClick={() => handleViewChange('table')}
+              className={`px-3 py-2 text-xs font-semibold transition-all cursor-pointer border-none ${
+                viewMode === 'table'
+                  ? 'bg-primary text-white dark:bg-primary-fixed-dim dark:text-zinc-900'
+                  : 'bg-surface-subtle dark:bg-zinc-900 text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container-low dark:hover:bg-zinc-800'
+              }`}
+            >
+              Table
+            </button>
+            <button
+              onClick={() => handleViewChange('grouped')}
+              className={`px-3 py-2 text-xs font-semibold transition-all cursor-pointer border-none ${
+                viewMode === 'grouped'
+                  ? 'bg-primary text-white dark:bg-primary-fixed-dim dark:text-zinc-900'
+                  : 'bg-surface-subtle dark:bg-zinc-900 text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container-low dark:hover:bg-zinc-800'
+              }`}
+            >
+              Grouped
+            </button>
+          </div>
           {!globalOutletActive && (
             <div className="w-40 max-w-full">
               <Select 
@@ -382,7 +434,81 @@ export default function MenuItemsPage({ isEmbedded = false, selectedOutletId, gl
       )}
 
 
-      <Table columns={columns} data={filteredData} loading={loading} />
+      {viewMode === 'table' ? (
+        <Table columns={columns} data={filteredData} loading={loading} />
+      ) : (
+        <div className="space-y-6">
+          {groupedByCategory.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-full bg-surface-container-low dark:bg-zinc-900 flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">🍽️</span>
+              </div>
+              <p className="text-on-surface-variant dark:text-zinc-500 font-medium">No menu items found</p>
+              <p className="text-xs text-on-surface-variant/60 dark:text-zinc-600 mt-1">Try adjusting your filters</p>
+            </div>
+          ) : (
+            groupedByCategory.map((group) => (
+              <div key={group.id} className="bg-white dark:bg-zinc-900 border border-border-base dark:border-zinc-800 rounded-xl overflow-hidden animate-fade-in">
+                <div className="flex items-center justify-between px-5 py-4 bg-surface-subtle dark:bg-zinc-900/80 border-b border-border-base dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-bold text-on-surface dark:text-zinc-200">{group.name}</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary dark:text-primary-fixed-dim text-[10px] font-bold">
+                      {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
+                    </span>
+                  </div>
+                </div>
+                <div className="divide-y divide-border-base/50 dark:divide-zinc-800/50">
+                  {group.items.map((item) => {
+                    const itemId = getEntityId(item);
+                    return (
+                      <div key={itemId} className="flex items-center gap-4 px-5 py-3.5 hover:bg-surface-container-low dark:hover:bg-zinc-800/40 transition-colors">
+                        {/* Thumbnail */}
+                        <div className="w-12 h-12 rounded-lg bg-surface-container-low dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
+                          {item.image ? (
+                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-lg">🍽️</span>
+                          )}
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-on-surface dark:text-zinc-200 truncate">{item.name}</p>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              item.isVeg !== false
+                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                            }`}>
+                              {item.isVeg !== false ? '● VEG' : '● NON-VEG'}
+                            </span>
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5 truncate">{item.description}</p>
+                          )}
+                        </div>
+                        {/* Price */}
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-on-surface dark:text-zinc-200">₹{item.price?.toLocaleString()}</p>
+                        </div>
+                        {/* Availability */}
+                        <div className="shrink-0">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.isAvailable !== false
+                              ? 'bg-emerald-500/10 text-emerald-500'
+                              : 'bg-red-500/10 text-red-500'
+                          }`}>
+                            {item.isAvailable !== false ? 'Available' : 'Unavailable'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       <Modal isOpen={modal.open} onClose={closeModal} title={modal.mode === 'create' ? 'New Menu Item' : 'Edit Menu Item'}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
